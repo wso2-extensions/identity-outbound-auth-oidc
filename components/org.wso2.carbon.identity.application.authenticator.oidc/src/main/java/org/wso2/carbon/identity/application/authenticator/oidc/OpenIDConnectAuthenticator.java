@@ -446,7 +446,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         }
                     }
                 } catch (UserStoreException e) {
-                    throw new AuthenticationFailedException("Error while retrieving multi attribute separator", e);
+                    throw new AuthenticationFailedException("Error while retrieving multi attribute separator",
+                            AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUser), e);
                 }
 
                 for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
@@ -470,7 +471,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             context.setSubject(authenticatedUserObj);
 
         } catch (OAuthProblemException e) {
-            throw new AuthenticationFailedException("Authentication process failed", e);
+            throw new AuthenticationFailedException("Authentication process failed", context.getSubject(), e);
         }
     }
 
