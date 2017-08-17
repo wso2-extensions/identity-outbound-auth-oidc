@@ -198,10 +198,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     claims.put(ClaimMapping.build(key, key, null, false), value.toString());
                 }
 
-                if (log.isDebugEnabled() &&
-                        IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
-                    log.debug("Adding claims from end-point data mapping : " + key + " - " +
-                            jsonObject.get(key).toString());
+                if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)
+                        && jsonObject.get(key) != null) {
+                    log.debug("Adding claims from end-point data mapping : " + key + " - " + jsonObject.get(key)
+                            .toString());
                 }
             }
         } catch (IOException e) {
