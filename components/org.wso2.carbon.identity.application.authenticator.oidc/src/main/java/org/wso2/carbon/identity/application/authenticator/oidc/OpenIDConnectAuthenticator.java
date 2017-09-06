@@ -579,7 +579,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     public String getClaimDialectURI() {
-        return "http://wso2.org/oidc/claim";
+        String claimDialectUri = super.getClaimDialectURI();
+        if (StringUtils.isNotEmpty(claimDialectUri)) {
+            return claimDialectUri;
+        } else {
+            return OIDCAuthenticatorConstants.OIDC_CLAIM_DIALECT_URI;
+        }
     }
 
 
