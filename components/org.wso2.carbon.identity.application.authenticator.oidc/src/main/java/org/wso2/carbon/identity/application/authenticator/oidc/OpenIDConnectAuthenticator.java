@@ -267,25 +267,31 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP)
                             .setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setState(state).buildQueryMessage();
+                            .setState(state)
+                            .buildQueryMessage();
                 } else if (queryString != null && queryString.toLowerCase().contains("scope=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP)
-                            .setClientId(clientId).setRedirectURI(callbackurl)
+                            .setClientId(clientId)
+                            .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setState(state).buildQueryMessage();
+                            .setState(state)
+                            .buildQueryMessage();
                 } else if (queryString != null
                         && queryString.toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP)
                             .setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state)
+                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE)
+                            .setState(state)
                             .buildQueryMessage();
 
                 } else {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP)
                             .setClientId(clientId).setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setScope(scope).setState(state).buildQueryMessage();
+                            .setScope(scope)
+                            .setState(state)
+                            .buildQueryMessage();
                 }
 
                 String loginPage = authzRequest.getLocationUri();
