@@ -488,7 +488,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
         try {
-            JSONArray jsonArray = (JSONArray) JSONValue.parseWithException(entry.getValue().toString());
+            JSONArray jsonArray = (JSONArray)JSONValue.parseWithException(entry.getValue().toString());
             if (jsonArray != null && jsonArray.size() > 0) {
                 Iterator attributeIterator = jsonArray.iterator();
                 while (attributeIterator.hasNext()) {
@@ -531,7 +531,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return accessRequest;
     }
 
-    private OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)
+    protected OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)
             throws AuthenticationFailedException {
 
         OAuthClientResponse oAuthResponse = null;
@@ -553,8 +553,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     @Override
     public String getContextIdentifier(HttpServletRequest request) {
 
-        if (log.isTraceEnabled()) {
-            log.trace("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
+        if (log.isDebugEnabled()) {
+            log.debug("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
         }
         String state = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
         if (state != null) {
