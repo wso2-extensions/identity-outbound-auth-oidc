@@ -194,6 +194,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String key = data.getKey();
                 Object value = data.getValue();
 
+                String claimDialectUri = getClaimDialectURI();
+                if (!OIDCAuthenticatorConstants.OIDC_CLAIM_DIALECT_URI.equals(claimDialectUri)) {
+                    key = claimDialectUri + "/" + key;
+                }
+
                 if (value != null) {
                     claims.put(ClaimMapping.build(key, key, null, false), value.toString());
                 }
@@ -484,6 +489,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void buildClaimMappings(Map<ClaimMapping, String> claims, Map.Entry<String, Object> entry, String
             separator) {
         String claimValue = null;
+        String claimUri   = "";
         if (StringUtils.isBlank(separator)) {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
@@ -504,11 +510,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             claimValue = entry.getValue().toString();
         }
 
-        claims.put(ClaimMapping.build(entry.getKey(), entry.getKey(), null, false), claimValue);
-        if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
-            log.debug("Adding claim mapping : " + entry.getKey() + " <> " + entry.getKey() + " : " + claimValue);
+        String claimDialectUri = getClaimDialectURI();
+        if (!OIDCAuthenticatorConstants.OIDC_CLAIM_DIALECT_URI.equals(claimDialectUri)) {
+            claimUri = claimDialectUri + "/";
         }
 
+        claimUri += entry.getKey();
+        claims.put(ClaimMapping.build(claimUri, claimUri, null, false), claimValue);
+        if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
+            log.debug("Adding claim mapping : " + claimUri + " <> " + claimUri + " : " + claimValue);
+        }
     }
 
     private OAuthClientRequest getAccessRequest(String tokenEndPoint, String clientId, String code, String clientSecret,
@@ -585,7 +596,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     public String getClaimDialectURI() {
-        return "http://wso2.org/oidc/claim";
+        String claimDialectUri = super.getClaimDialectURI();
+        if (StringUtils.isNotEmpty(claimDialectUri)) {
+            return claimDialectUri;
+        } else {
+            return OIDCAuthenticatorConstants.OIDC_CLAIM_DIALECT_URI;
+        }
     }
 
 

@@ -38,6 +38,8 @@ public class OIDCAuthenticatorConstants {
     public static final String OAUTH2_AUTHZ_URL = "OAuth2AuthzEPUrl";
     public static final String OAUTH2_TOKEN_URL = "OAuth2TokenEPUrl";
 
+    public static final String OIDC_CLAIM_DIALECT_URI = "http://wso2.org/oidc/claim";
+
     public class AuthenticatorConfParams {
         private AuthenticatorConfParams() {
         }
