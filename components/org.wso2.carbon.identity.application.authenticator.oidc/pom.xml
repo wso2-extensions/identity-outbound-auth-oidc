@@ -83,6 +83,11 @@
             <version>${json.wso2.version}</version>
             <scope>test</scope>
         </dependency>
+    <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.scr.ds-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -126,6 +131,7 @@
                             org.wso2.carbon.identity.application.common.model;
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.core.*; version="${identity.framework.package.import.version.range}",
+                            org.wso2.carbon.identity.claim.metadata.*; version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.ui; version="${carbon.kernel.package.import.version.range}"
                         </Import-Package>
                         <Export-Package>
