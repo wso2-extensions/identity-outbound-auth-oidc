@@ -19,6 +19,7 @@
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
@@ -27,24 +28,25 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.testng.PowerMockTestCase;
 import org.testng.Assert;
 import org.testng.IObjectFactory;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
-import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorServiceComponent;
+import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
+import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.user.api.RealmConfiguration;
@@ -54,18 +56,20 @@ import org.wso2.carbon.user.core.UserStoreManager;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.user.core.tenant.TenantManager;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.spy;
 import static org.powermock.api.mockito.PowerMockito.doReturn;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
@@ -78,9 +82,10 @@ import static org.testng.Assert.assertTrue;
 /***
  * Unit test class for OpenIDConnectAuthenticatorTest class.
  */
-@PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class, OpenIDConnectAuthenticatorServiceComponent.class,
-        OAuthAuthzResponse.class, OAuthClientRequest.class, OAuthClientResponse.class, IdentityUtil.class})
-public class OpenIDConnectAuthenticatorTest {
+@PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
+                 OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
+                 OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class})
+public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
     private HttpServletRequest mockServletRequest;
@@ -124,8 +129,15 @@ public class OpenIDConnectAuthenticatorTest {
     @Mock
     private OAuthClient mockOAuthClient;
 
-    @InjectMocks
-    @Spy
+    @Mock
+    private ClaimMetadataManagementService claimMetadataManagementService;
+
+    @Mock
+    private ExternalIdPConfig externalIdPConfig;
+
+    @Mock
+    private OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder;
+
     OpenIDConnectAuthenticator openIDConnectAuthenticator;
 
     private static Map<String, String> authenticatorProperties;
@@ -146,6 +158,7 @@ public class OpenIDConnectAuthenticatorTest {
 
     @BeforeTest
     public void init() {
+        openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
         authenticatorProperties = new HashMap<>();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
         authenticatorProperties.put("commonAuthQueryParams", "scope=openid&state=OIDC&loginType=basic");
@@ -258,6 +271,7 @@ public class OpenIDConnectAuthenticatorTest {
         Map<String, Object> jsonObject = new HashMap<>();
         jsonObject.put("email", new String("{\"http://www.wso2.org/email\" : \"example@wso2.com\"}"));
         String json = jsonObject.toString();
+        openIDConnectAuthenticator = spy(OpenIDConnectAuthenticator.class);
         doReturn(json).when(openIDConnectAuthenticator).sendRequest(any(String.class),
                 any(String.class));
         result = openIDConnectAuthenticator.getSubjectAttributes(mockOAuthClientResponse, authenticatorProperties);
@@ -314,9 +328,15 @@ public class OpenIDConnectAuthenticatorTest {
 
 
     @Test
-    public void testPassProcessAuthenticationResponse() throws OAuthSystemException,
-            OAuthProblemException, AuthenticationFailedException, UserStoreException {
+    public void testPassProcessAuthenticationResponse() throws Exception {
         setupTest();
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
+                (claimMetadataManagementService);
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
 
@@ -338,26 +358,36 @@ public class OpenIDConnectAuthenticatorTest {
     }
 
     @Test
-    public void testPassProcessAuthenticationWithBlankCallBack() throws OAuthSystemException,
-            OAuthProblemException, AuthenticationFailedException, UserStoreException {
+    public void testPassProcessAuthenticationWithBlankCallBack() throws Exception {
         setupTest();
         authenticatorProperties.put("callbackUrl", " ");
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
+        when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
+                (claimMetadataManagementService);
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
     }
 
     @Test
-    public void testPassProcessAuthenticationWithParamValue() throws OAuthSystemException,
-    OAuthProblemException, AuthenticationFailedException, UserStoreException {
+    public void testPassProcessAuthenticationWithParamValue() throws Exception {
         setupTest();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
         Map<String, String> paramMap = new HashMap<>();
         paramMap.put("redirect_uri","http:/localhost:9443/oauth2/redirect");
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramMap);
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
+        when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
+                (claimMetadataManagementService);
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
     }
@@ -429,7 +459,7 @@ public class OpenIDConnectAuthenticatorTest {
 
         // InputStream is null.
         String result = openIDConnectAuthenticator.sendRequest(null, accessToken);
-        assertTrue(result.isEmpty(), "The send request should be empty.");
+        assertTrue(StringUtils.isBlank(result), "The send request should be empty.");
 
         // InputStream is not null.
         InputStream stream =
@@ -462,13 +492,13 @@ public class OpenIDConnectAuthenticatorTest {
         openIDConnectAuthenticator.getOauthResponse(oAuthClient, oAuthClientRequest);
     }
 
-    @Test
+    @Test(expectedExceptions = AuthenticationFailedException.class)
     public void testGetOauthResponseWithOAuthProblemExceptions() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException {
         OAuthClientRequest oAuthClientRequest = mock(OAuthClientRequest.class);
         OAuthClient oAuthClient = mock(OAuthClient.class);
         when(oAuthClient.accessToken(oAuthClientRequest)).thenThrow(OAuthProblemException.class);
-        assertNull(openIDConnectAuthenticator.getOauthResponse(oAuthClient, oAuthClientRequest));
+        openIDConnectAuthenticator.getOauthResponse(oAuthClient, oAuthClientRequest);
     }
 
     @ObjectFactory
@@ -490,15 +520,12 @@ public class OpenIDConnectAuthenticatorTest {
         when(mockServletRequest.getParameter("domain")).thenReturn("carbon.super");
         mockAuthenticationRequestContext(mockAuthenticationContext);
         when(mockOAuthzResponse.getCode()).thenReturn("200");
-        doReturn(mockOAuthClientResponse).when(openIDConnectAuthenticator).getOauthResponse(any(OAuthClient.class),
-                any(OAuthClientRequest.class));
         when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN)).thenReturn(accessToken);
         when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ID_TOKEN)).thenReturn(idToken);
-
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
-
-        mockStatic(OpenIDConnectAuthenticatorServiceComponent.class);
-        when(OpenIDConnectAuthenticatorServiceComponent.getRealmService()).thenReturn(mockRealmService);
+        mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+        when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
+        when(openIDConnectAuthenticatorDataHolder.getRealmService()).thenReturn(mockRealmService);
         when(mockRealmService.getTenantManager()).thenReturn(mockTenantManger);
         when(mockTenantManger.getTenantId(anyString())).thenReturn(TENANT_ID);
 
