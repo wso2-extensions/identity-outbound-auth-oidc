@@ -78,6 +78,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static Log log = LogFactory.getLog(OpenIDConnectAuthenticator.class);
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
+    private static final String dynamicParameterLookupRegex = "\\$\\{(\\w+)\\}";
+    private static Pattern pattern = Pattern.compile(dynamicParameterLookupRegex);
+	
     @Override
     public boolean canHandle(HttpServletRequest request) {
 
@@ -725,8 +728,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     
     private String interpretQueryString (String queryString, Map<String,String[]> parameters) {
 	
-        String regex = "\\$\\{(\\w+)\\}";
-        Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(queryString);
         while(matcher.find())
         {
