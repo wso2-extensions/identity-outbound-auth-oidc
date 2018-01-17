@@ -28,6 +28,7 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockTestCase;
@@ -335,7 +336,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
-        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
+                .thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
@@ -368,7 +370,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
-        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
@@ -386,7 +388,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
-        when(mockOAuthClient.accessToken(anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
+                .thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
