@@ -82,7 +82,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
-	
+
     @Override
     public boolean canHandle(HttpServletRequest request) {
 
@@ -250,9 +250,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     String[] params = queryString.split("&");
                     for (String param : params) {
                         String[] intParam = param.split("=");
-			if (intParam != null && intParam.length >= 2) {
+                        if (intParam != null && intParam.length >= 2) {
                             paramValueMap.put(intParam[0], intParam[1]);
-			}
+                        }
                     }
                     context.setProperty("oidc:param.map", paramValueMap);
                 }
@@ -731,9 +731,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
     
     private String interpretQueryString (String queryString, Map<String,String[]> parameters) {
-	
+
         Matcher matcher = pattern.matcher(queryString);
-        while(matcher.find()) {
+        while (matcher.find()) {
             String name = matcher.group(1);
             String[] values = parameters.get(name);
             String value = "";
@@ -743,14 +743,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             try {
                 value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
             } catch (UnsupportedEncodingException e) {
-                log.error(e.toString());
+                log.error(e.toString(),e);
             }
-	    if (log.isDebugEnabled()) {
+            if (log.isDebugEnabled()) {
                 log.debug ("interpretQueryString " + name + " <" + value + ">");
-	    }
+            }
             queryString = queryString.replaceAll("\\$\\{" + name + "}", Matcher.quoteReplacement(value));
         }
-        log.debug ("interpretQueryString <" + queryString + ">");
+        if (log.isDebugEnabled()) {
+            log.debug ("interpretQueryString <" + queryString + ">");
+        }
         return queryString;
     }
     
