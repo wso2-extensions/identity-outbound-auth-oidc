@@ -248,7 +248,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     String[] params = queryString.split("&");
                     for (String param : params) {
                         String[] intParam = param.split("=");
-                        paramValueMap.put(intParam[0], intParam[1]);
+			if (intParam != null && intParam.length >= 2) {
+                            paramValueMap.put(intParam[0], intParam[1]);
+			}
                     }
                     context.setProperty("oidc:param.map", paramValueMap);
                 }
