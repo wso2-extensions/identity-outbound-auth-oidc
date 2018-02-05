@@ -250,7 +250,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     String[] params = queryString.split("&");
                     for (String param : params) {
                         String[] intParam = param.split("=");
-                        if (intParam != null && intParam.length >= 2) {
+                        if (intParam.length >= 2) {
                             paramValueMap.put(intParam[0], intParam[1]);
                         }
                     }
@@ -729,8 +729,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
         return builder.toString();
     }
-    
-    private String interpretQueryString (String queryString, Map<String,String[]> parameters) {
+
+    private String interpretQueryString(String queryString, Map<String, String[]> parameters) {
 
         Matcher matcher = pattern.matcher(queryString);
         while (matcher.find()) {
@@ -743,17 +743,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             try {
                 value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
             } catch (UnsupportedEncodingException e) {
-                log.error(e.toString(),e);
+                log.error("Error while encoding the query param: " + name + " with value: " + value, e);
             }
             if (log.isDebugEnabled()) {
-                log.debug ("interpretQueryString " + name + " <" + value + ">");
+                log.debug("InterpretQueryString name: " + name + ", value: " + value);
             }
             queryString = queryString.replaceAll("\\$\\{" + name + "}", Matcher.quoteReplacement(value));
         }
         if (log.isDebugEnabled()) {
-            log.debug ("interpretQueryString <" + queryString + ">");
+            log.debug("Output QueryString: " + queryString);
         }
         return queryString;
     }
-    
 }
