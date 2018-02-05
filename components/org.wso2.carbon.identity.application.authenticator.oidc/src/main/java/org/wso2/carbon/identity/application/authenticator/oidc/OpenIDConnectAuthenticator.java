@@ -66,6 +66,12 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.net.URLEncoder;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
 
@@ -73,6 +79,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static Log log = LogFactory.getLog(OpenIDConnectAuthenticator.class);
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+
+    private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
+    private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
 
     @Override
     public boolean canHandle(HttpServletRequest request) {
@@ -234,13 +243,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 OAuthClientRequest authzRequest;
 
                 String queryString = getQueryString(authenticatorProperties);
+                queryString = interpretQueryString(queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
 
                 if (StringUtils.isNotBlank(queryString)) {
                     String[] params = queryString.split("&");
                     for (String param : params) {
                         String[] intParam = param.split("=");
-                        paramValueMap.put(intParam[0], intParam[1]);
+                        if (intParam != null && intParam.length >= 2) {
+                            paramValueMap.put(intParam[0], intParam[1]);
+                        }
                     }
                     context.setProperty("oidc:param.map", paramValueMap);
                 }
@@ -717,4 +729,31 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
         return builder.toString();
     }
+    
+    private String interpretQueryString (String queryString, Map<String,String[]> parameters) {
+
+        Matcher matcher = pattern.matcher(queryString);
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            String[] values = parameters.get(name);
+            String value = "";
+            if (values != null && values.length > 0) {
+                value = values[0];
+            }
+            try {
+                value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+            } catch (UnsupportedEncodingException e) {
+                log.error(e.toString(),e);
+            }
+            if (log.isDebugEnabled()) {
+                log.debug ("interpretQueryString " + name + " <" + value + ">");
+            }
+            queryString = queryString.replaceAll("\\$\\{" + name + "}", Matcher.quoteReplacement(value));
+        }
+        if (log.isDebugEnabled()) {
+            log.debug ("interpretQueryString <" + queryString + ">");
+        }
+        return queryString;
+    }
+    
 }
