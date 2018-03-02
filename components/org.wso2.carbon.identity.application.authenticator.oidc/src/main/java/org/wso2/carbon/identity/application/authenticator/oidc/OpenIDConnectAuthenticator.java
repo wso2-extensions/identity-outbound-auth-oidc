@@ -62,6 +62,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.ParseException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -442,14 +443,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         context.setProperty(OIDCAuthenticatorConstants.ID_TOKEN, idToken);
         String base64Body = idToken.split("\\.")[1];
         byte[] decoded = Base64.decodeBase64(base64Body.getBytes());
-        Set<Map.Entry<String, Object>> jwtAttributeSet = null;
+        Set<Map.Entry<String, Object>> jwtAttributeSet = new HashSet<>();
         try {
             jwtAttributeSet = JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
         }  catch (ParseException e) {
             log.error("Error occurred while parsing JWT provided by federated IDP: ", e);
         }
         Map<String, Object> jwtAttributeMap = new HashMap();
-
         for(Map.Entry<String, Object> entry : jwtAttributeSet) {
             jwtAttributeMap.put(entry.getKey(), entry.getValue());
         }
