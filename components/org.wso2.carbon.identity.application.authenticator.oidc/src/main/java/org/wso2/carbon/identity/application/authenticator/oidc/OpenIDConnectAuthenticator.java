@@ -17,6 +17,7 @@
  */
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
+import com.nimbusds.jose.util.JSONObjectUtils;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONValue;
 import org.apache.commons.codec.binary.Base64;
@@ -59,6 +60,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -66,6 +68,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.net.URLEncoder;
@@ -439,8 +442,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         context.setProperty(OIDCAuthenticatorConstants.ID_TOKEN, idToken);
         String base64Body = idToken.split("\\.")[1];
         byte[] decoded = Base64.decodeBase64(base64Body.getBytes());
+        Set<Map.Entry<String, Object>> jwtAttributeSet = null;
+        try {
+            jwtAttributeSet = JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
+        }  catch (ParseException e) {
+            log.error("Error occurred while parsing JWT provided by federated IDP: ", e);
+        }
+        Map<String, Object> jwtAttributeMap = new HashMap();
 
-        return JSONUtils.parseJSON(new String(decoded));
+        for(Map.Entry<String, Object> entry : jwtAttributeSet) {
+            jwtAttributeMap.put(entry.getKey(), entry.getValue());
+        }
+        return jwtAttributeMap;
     }
 
     private String getMultiAttributeSeparator(AuthenticationContext context, String authenticatedUserId)
@@ -732,6 +745,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private String interpretQueryString(String queryString, Map<String, String[]> parameters) {
 
+        if (StringUtils.isBlank(queryString)) {
+            return null;
+        }
         Matcher matcher = pattern.matcher(queryString);
         while (matcher.find()) {
             String name = matcher.group(1);
