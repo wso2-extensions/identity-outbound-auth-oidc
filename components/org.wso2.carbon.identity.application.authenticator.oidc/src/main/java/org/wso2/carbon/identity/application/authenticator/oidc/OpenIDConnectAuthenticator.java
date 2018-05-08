@@ -21,6 +21,7 @@ import com.nimbusds.jose.util.JSONObjectUtils;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONValue;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
@@ -30,6 +31,7 @@ import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthAuthzResponse;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
+import org.apache.oltu.oauth2.common.OAuth;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
@@ -58,23 +60,22 @@ import org.wso2.carbon.user.core.UserStoreManager;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.net.URLEncoder;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
@@ -117,17 +118,32 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * @return
+     * Returns the callback URL of the IdP Hub.
+     *
+     * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
+     *                                configuration.
+     * @return Callback URL configured in OIDC federated authenticator configuration. If it is empty returns
+     *          /commonauth endpoint URL path as the default value.
      */
     protected String getCallbackUrl(Map<String, String> authenticatorProperties) {
-        return authenticatorProperties.get(IdentityApplicationConstants.OAuth2.CALLBACK_URL);
+
+        String callbackUrl = authenticatorProperties.get(IdentityApplicationConstants.OAuth2.CALLBACK_URL);
+        if (StringUtils.isBlank(callbackUrl)) {
+            callbackUrl = IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
+        }
+        return callbackUrl;
     }
 
     /**
-     * @return
+     * Returns the token endpoint of OIDC federated authenticator
+     *
+     * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
+     *                                configuration.
+     * @return Token endpoint configured in OIDC federated authenticator configuration.
      */
     protected String getTokenEndpoint(Map<String, String> authenticatorProperties) {
-        return null;
+
+        return authenticatorProperties.get(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL);
     }
 
     /**
@@ -241,7 +257,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (authenticatorProperties != null) {
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
-                String callbackurl = getOIDCCallbackUrl(authenticatorProperties);
+                String callbackurl = getCallbackUrl(authenticatorProperties);
                 String state = getStateParameter(context, authenticatorProperties);
 
                 OAuthClientRequest authzRequest;
@@ -258,7 +274,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                             paramValueMap.put(intParam[0], intParam[1]);
                         }
                     }
-                    context.setProperty("oidc:param.map", paramValueMap);
+                    context.setProperty(OIDCAuthenticatorConstants.OIDC_QUERY_PARAM_MAP_PROPERTY_KEY, paramValueMap);
                 }
 
                 String scope = paramValueMap.get(OAuthConstants.OAuth20Params.SCOPE);
@@ -323,14 +339,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return getState(state, authenticatorProperties);
     }
 
-    private String getOIDCCallbackUrl(Map<String, String> authenticatorProperties) {
-        String callbackurl = getCallbackUrl(authenticatorProperties);
-        if (StringUtils.isBlank(callbackurl)) {
-            callbackurl = IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
-        }
-        return callbackurl;
-    }
-
     private String getOIDCAuthzEndpoint(Map<String, String> authenticatorProperties) {
         String authorizationEP = getAuthorizationServerEndpoint(authenticatorProperties);
         if (StringUtils.isBlank(authorizationEP)) {
@@ -345,29 +353,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         try {
 
-            Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
-
-            String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
-            String clientSecret = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_SECRET);
-            String tokenEndPoint = getOIDCTokenEndpoint(authenticatorProperties);
-            String callbackUrl = getOIDCCallbackUrl(authenticatorProperties);
-
-            @SuppressWarnings({"unchecked"})
-            Map<String, String> paramValueMap = (Map<String, String>) context.getProperty("oidc:param.map");
-
-            if (paramValueMap != null && paramValueMap.containsKey("redirect_uri")) {
-                callbackUrl = paramValueMap.get("redirect_uri");
-            }
-
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
-            String code = authzResponse.getCode();
-
-            OAuthClientRequest accessRequest = getAccessRequest(tokenEndPoint, clientId, code, clientSecret,
-                    callbackUrl);
+            OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
             // Create OAuth client that uses custom http client under the hood
             OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
-            OAuthClientResponse oAuthResponse = getOauthResponse(oAuthClient, accessRequest);
+            OAuthClientResponse oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
 
             // TODO : return access token and id token to framework
             String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
@@ -377,10 +368,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
+            Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
-                throw new AuthenticationFailedException(
-                        "Id token is required and is missing in oidc response from " + "the federated IDP for "
-                                + "clientId: " + clientId);
+                throw new AuthenticationFailedException("Id token is required and is missing in OIDC response from "
+                        + "token endpoint: " + getTokenEndpoint(authenticatorProperties) + " for clientId: " +
+                        authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID));
             }
 
             context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
@@ -428,15 +420,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } catch (OAuthProblemException e) {
             throw new AuthenticationFailedException("Authentication process failed", context.getSubject(), e);
         }
-    }
-
-    private String getOIDCTokenEndpoint(Map<String, String> authenticatorProperties) {
-        String tokenEndPoint = getTokenEndpoint(authenticatorProperties);
-
-        if (StringUtils.isBlank(tokenEndPoint)) {
-            tokenEndPoint = authenticatorProperties.get(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL);
-        }
-        return tokenEndPoint;
     }
 
     private Map<String, Object> getIdTokenClaims(AuthenticationContext context, String idToken) {
@@ -553,23 +536,58 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     }
 
-    private OAuthClientRequest getAccessRequest(String tokenEndPoint, String clientId, String code, String clientSecret,
-            String callbackurl) throws AuthenticationFailedException {
+    protected OAuthClientRequest getAccessTokenRequest(AuthenticationContext context, OAuthAuthzResponse
+            authzResponse) throws AuthenticationFailedException {
 
-        OAuthClientRequest accessRequest = null;
+        Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
+
+        String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
+        String clientSecret = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_SECRET);
+        String tokenEndPoint = getTokenEndpoint(authenticatorProperties);
+
+        String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
+        if (StringUtils.isBlank(callbackUrl)) {
+            callbackUrl = getCallbackUrl(authenticatorProperties);
+        }
+
+        boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
+                .IS_BASIC_AUTH_ENABLED));
+
+        OAuthClientRequest accessTokenRequest;
         try {
-            accessRequest = OAuthClientRequest.tokenLocation(tokenEndPoint)
-                    .setGrantType(GrantType.AUTHORIZATION_CODE).setClientId(clientId)
-                    .setClientSecret(clientSecret).setRedirectURI(callbackurl).setCode(code)
-                    .buildBodyMessage();
+            if (isHTTPBasicAuth) {
 
+                if (log.isDebugEnabled()) {
+                    log.debug("Authenticating to token endpoint: " + tokenEndPoint + " with HTTP basic " +
+                            "authentication scheme.");
+                }
+
+                accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
+                        .AUTHORIZATION_CODE).setRedirectURI(callbackUrl).setCode(authzResponse.getCode())
+                        .buildBodyMessage();
+                String base64EncodedCredential = Base64.encodeBase64URLSafeString(new String(clientId + ":" +
+                        clientSecret).getBytes());
+                accessTokenRequest.addHeader(OAuth.HeaderType.AUTHORIZATION, "Basic " + base64EncodedCredential);
+            } else {
+
+                if (log.isDebugEnabled()) {
+                    log.debug("Authenticating to token endpoint: " + tokenEndPoint + " including client credentials "
+                            + "in request body.");
+                }
+
+                accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
+                        .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
+                        (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
+            }
         } catch (OAuthSystemException e) {
             if (log.isDebugEnabled()) {
-                log.debug("Exception while building request for request access token", e);
+                log.debug("Error while building access token request for token endpoint: " + tokenEndPoint, e);
             }
+
             throw new AuthenticationFailedException(e.getMessage(), e);
         }
-        return accessRequest;
+
+        return accessTokenRequest;
     }
 
     protected OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)
@@ -771,4 +789,20 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
         return queryString;
     }
+
+    private String getCallbackUrlFromInitialRequestParamMap(AuthenticationContext context) {
+
+        // 'oidc:param.map' is populated from the authorization request query string and being set in the
+        // AuthenticationContext as a key value pair map. Therefore, it is always ensured that this map is available
+        // and in of type Map<String, String>
+        @SuppressWarnings({"unchecked"}) Map<String, String> paramValueMap = (Map<String, String>) context
+                .getProperty(OIDCAuthenticatorConstants.OIDC_QUERY_PARAM_MAP_PROPERTY_KEY);
+
+        if (MapUtils.isNotEmpty(paramValueMap) && paramValueMap.containsKey(OIDCAuthenticatorConstants.REDIRECT_URI)) {
+            return paramValueMap.get(OIDCAuthenticatorConstants.REDIRECT_URI);
+        }
+
+        return null;
+    }
 }
+
