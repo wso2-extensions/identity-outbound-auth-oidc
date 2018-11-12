@@ -526,8 +526,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             }
         } catch (Exception e) {
-            if (log.isTraceEnabled()) {
-                log.trace("Error while mapping " + entry.getKey() + " with value " + entry.getValue(), e);
+            if (log.isDebugEnabled()) {
+                log.debug("Error while mapping " + entry.getKey() + " with value " + entry.getValue(), e);
             }
             claimValue = entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
         }
