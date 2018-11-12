@@ -527,13 +527,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
         } catch (Exception e) {
             if (log.isDebugEnabled()) {
-                log.debug("Error while mapping " + entry.getKey() + " with value " + entry.getValue(), e);
+                log.debug("Error while mapping: " + entry.getKey() + " with value: " + entry.getValue(), e);
             }
             claimValue = entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
         }
 
         claims.put(ClaimMapping.build(entry.getKey(), entry.getKey(), null, false),
-                claimValue != null ? claimValue.toString() : null);
+                claimValue != null ? claimValue.toString() : StringUtils.EMPTY);
         if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
             log.debug("Adding claim mapping : " + entry.getKey() + " <> " + entry.getKey() + " : " + claimValue);
         }

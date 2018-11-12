@@ -432,7 +432,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
             openIDConnectAuthenticator.buildClaimMappings(claims, entry, null);
             assertNotNull(claims.get(
                     ClaimMapping.build(entry.getKey(), entry.getKey(), null, false)),
-                    "Claim was not mapped.");
+                    "Claim value is null.");
         }
     }
 
