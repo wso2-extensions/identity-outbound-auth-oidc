@@ -417,6 +417,25 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         }
     }
 
+    /**
+     * Covers a case that was experienced while mapping claims from Salesforce
+     */
+    @Test
+    public void testClaimMappingWithNullValues() {
+        Map<ClaimMapping, String> claims = new HashMap<>();
+        Map<String, Object> entries = new HashMap<>();
+        entries.put("zoneinfo", "GMT");
+        entries.put("email", "test123@test.de");
+        entries.put("phone_number", null);
+
+        for (Map.Entry<String, Object> entry : entries.entrySet()) {
+            openIDConnectAuthenticator.buildClaimMappings(claims, entry, null);
+            assertNotNull(claims.get(
+                    ClaimMapping.build(entry.getKey(), entry.getKey(), null, false)),
+                    "Claim value is null.");
+        }
+    }
+
     @Test(dataProvider = "requestDataHandler")
     public void testGetContextIdentifier(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws Exception {
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)).thenReturn(grantType);
