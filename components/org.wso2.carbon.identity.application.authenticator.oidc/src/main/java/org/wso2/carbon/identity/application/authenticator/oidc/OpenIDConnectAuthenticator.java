@@ -853,34 +853,44 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String spTenantDomain = context.getTenantDomain();
 
         try {
+            String userIdClaimUriInOIDCDialect = null;
             if (useLocalClaimDialect) {
                 if (StringUtils.isNotBlank(userIdClaimUri)) {
                     // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
                     // from idTokenClaims.
-                    String userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
-                    return (String) idTokenClaims.get(userIdClaimUriInOIDCDialect);
+                    userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
                 } else {
                     if (log.isDebugEnabled()) {
                         String idpName = context.getExternalIdP().getIdPName();
                         log.debug("User ID Claim URI is not configured for IDP: " + idpName + ". " +
                                 "Cannot retrieve subject using user id claim URI.");
                     }
-                    return null;
                 }
-
             } else {
                 ClaimMapping[] claimMappings = context.getExternalIdP().getClaimMappings();
                 // Try to find the userIdClaimUri within the claimMappings.
                 if (!ArrayUtils.isEmpty(claimMappings)) {
                     for (ClaimMapping claimMapping : claimMappings) {
+                        if (log.isTraceEnabled()) {
+                            log.trace("evaluating " + claimMapping.getRemoteClaim().getClaimUri() + " against " + userIdClaimUri);
+                        }
                         if (StringUtils.equals(claimMapping.getRemoteClaim().getClaimUri(), userIdClaimUri)) {
                             // Get the subject claim in OIDC dialect.
                             String userIdClaimUriInLocalDialect = claimMapping.getLocalClaim().getClaimUri();
-                            return (String) idTokenClaims
-                                    .get(getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain));
+                            userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain);
+                            break;
                         }
                     }
                 }
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " + userIdClaimUriInOIDCDialect);
+            }
+            Object subject = idTokenClaims.get(userIdClaimUriInOIDCDialect);
+            if (subject instanceof String) {
+                return (String) subject;
+            } else if (subject != null) {
+                log.warn("Unable to map subject claim (non-String type): " + subject);
             }
         } catch (ClaimMetadataException ex) {
             throw new AuthenticationFailedException(
@@ -902,6 +912,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         ExternalClaim oidcUserIdClaim = null;
 
         for (ExternalClaim externalClaim : externalClaims) {
+            if (log.isTraceEnabled()) {
+                log.trace("evaluating " + userIdClaimInLocalDialect + " against " + externalClaim.getMappedLocalClaim());
+            }
             if (userIdClaimInLocalDialect.equals(externalClaim.getMappedLocalClaim())) {
                 oidcUserIdClaim = externalClaim;
             }
