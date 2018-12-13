@@ -513,23 +513,32 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
         try {
-            JSONArray jsonArray = (JSONArray)JSONValue.parseWithException(entry.getValue().toString());
-            if (jsonArray != null && !jsonArray.isEmpty()) {
-                Iterator attributeIterator = jsonArray.iterator();
-                while (attributeIterator.hasNext()) {
-                    if (claimValue == null) {
-                        claimValue = new StringBuilder(attributeIterator.next().toString());
-                    } else {
-                        claimValue.append(separator).append(attributeIterator.next().toString());
-                    }
-                }
+            if (entry.getValue() != null) {
+                Object jsonValue = JSONValue.parseWithException(entry.getValue().toString());
+                if (jsonValue instanceof JSONArray) {
+                    JSONArray jsonArray = (JSONArray) jsonValue;
+                    if (!jsonArray.isEmpty()) {
+                        Iterator attributeIterator = jsonArray.iterator();
+                        while (attributeIterator.hasNext()) {
+                            if (claimValue == null) {
+                                claimValue = new StringBuilder(attributeIterator.next().toString());
+                            } else {
+                                claimValue.append(separator).append(attributeIterator.next().toString());
+                            }
+                        }
 
+                    }
+                } else if (jsonValue != null) {
+                    claimValue = new StringBuilder(jsonValue.toString());
+                }
             }
         } catch (Exception e) {
             if (log.isDebugEnabled()) {
                 log.debug("Error while mapping: " + entry.getKey() + " with value: " + entry.getValue(), e);
             }
-            claimValue = entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
+            if (entry.getValue() != null) {
+                claimValue = new StringBuilder(entry.getValue().toString());
+            }
         }
 
         claims.put(ClaimMapping.build(entry.getKey(), entry.getKey(), null, false),
@@ -670,25 +679,36 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String spTenantDomain = context.getTenantDomain();
 
         try {
+            String userIdClaimUriInOIDCDialect = null;
             if (useLocalClaimDialect) {
                 // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
                 // from idTokenClaims.
-                String userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
-                return (String) idTokenClaims.get(userIdClaimUriInOIDCDialect);
-
+                userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
             } else {
                 ClaimMapping[] claimMappings = context.getExternalIdP().getClaimMappings();
                 // Try to find the userIdClaimUri within the claimMappings.
                 if (!ArrayUtils.isEmpty(claimMappings)) {
                     for (ClaimMapping claimMapping : claimMappings) {
+                        if (log.isTraceEnabled()) {
+                            log.trace("evaluating " + claimMapping.getRemoteClaim().getClaimUri() + " against " + userIdClaimUri);
+                        }
                         if (StringUtils.equals(claimMapping.getRemoteClaim().getClaimUri(), userIdClaimUri)) {
                             // Get the subject claim in OIDC dialect.
                             String userIdClaimUriInLocalDialect = claimMapping.getLocalClaim().getClaimUri();
-                            return (String) idTokenClaims
-                                    .get(getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain));
+                            userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain);
+                            break;
                         }
                     }
                 }
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " + userIdClaimUriInOIDCDialect);
+            }
+            Object subject = idTokenClaims.get(userIdClaimUriInOIDCDialect);
+            if (subject instanceof String) {
+                return (String) subject;
+            } else if (subject != null) {
+                log.warn("Unable to map subject claim (non-String type): " + subject);
             }
         } catch (ClaimMetadataException ex) {
             throw new AuthenticationFailedException(
@@ -709,6 +729,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         ExternalClaim oidcUserIdClaim = null;
 
         for (ExternalClaim externalClaim : externalClaims) {
+            if (log.isTraceEnabled()) {
+                log.trace("evaluating " + userIdClaimInLocalDialect + " against " + externalClaim.getMappedLocalClaim());
+            }
             if (userIdClaimInLocalDialect.equals(externalClaim.getMappedLocalClaim())) {
                 oidcUserIdClaim = externalClaim;
             }
