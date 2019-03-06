@@ -671,10 +671,19 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         try {
             if (useLocalClaimDialect) {
-                // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
-                // from idTokenClaims.
-                String userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
-                return (String) idTokenClaims.get(userIdClaimUriInOIDCDialect);
+                if (StringUtils.isNotBlank(userIdClaimUri)) {
+                    // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
+                    // from idTokenClaims.
+                    String userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
+                    return (String) idTokenClaims.get(userIdClaimUriInOIDCDialect);
+                } else {
+                    if (log.isDebugEnabled()) {
+                        String idpName = context.getExternalIdP().getIdPName();
+                        log.debug("User ID Claim URI is not configured for IDP: " + idpName + ". " +
+                                "Cannot retrieve subject using user id claim URI.");
+                    }
+                    return null;
+                }
 
             } else {
                 ClaimMapping[] claimMappings = context.getExternalIdP().getClaimMappings();
