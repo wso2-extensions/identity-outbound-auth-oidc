@@ -507,13 +507,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     protected void buildClaimMappings(Map<ClaimMapping, String> claims, Map.Entry<String, Object> entry,
-            String separator) {
+                                      String separator) {
+
         StringBuilder claimValue = null;
         if (StringUtils.isBlank(separator)) {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
-        try {
-            JSONArray jsonArray = (JSONArray)JSONValue.parseWithException(entry.getValue().toString());
+        if (entry.getValue() instanceof JSONArray) {
+            JSONArray jsonArray = (JSONArray) entry.getValue();
             if (jsonArray != null && !jsonArray.isEmpty()) {
                 Iterator attributeIterator = jsonArray.iterator();
                 while (attributeIterator.hasNext()) {
@@ -523,15 +524,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         claimValue.append(separator).append(attributeIterator.next().toString());
                     }
                 }
-
             }
-        } catch (Exception e) {
-            if (log.isDebugEnabled()) {
-                log.debug("Error while mapping: " + entry.getKey() + " with value: " + entry.getValue(), e);
-            }
+        } else {
             claimValue = entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
         }
-
         claims.put(ClaimMapping.build(entry.getKey(), entry.getKey(), null, false),
                 claimValue != null ? claimValue.toString() : StringUtils.EMPTY);
         if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
