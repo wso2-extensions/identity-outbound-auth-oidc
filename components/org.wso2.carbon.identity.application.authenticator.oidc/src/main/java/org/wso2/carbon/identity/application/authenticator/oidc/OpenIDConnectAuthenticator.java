@@ -37,6 +37,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.apache.oltu.oauth2.common.utils.JSONUtils;
 import org.wso2.carbon.base.MultitenantConstants;
+import org.wso2.carbon.context.CarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
@@ -229,10 +230,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             for (Map.Entry<String, Object> data : jsonObject.entrySet()) {
                 String key = data.getKey();
-                Object value = data.getValue();
+                Object valueObject = data.getValue();
 
-                if (value != null) {
-                    claims.put(ClaimMapping.build(key, key, null, false), value.toString());
+                if (valueObject != null) {
+                    String value;
+                    if (valueObject instanceof Object[]) {
+                        value = StringUtils.join((Object[]) valueObject, getMultiAttributeSeparator());
+                    } else {
+                        value = valueObject.toString();
+                    }
+                    claims.put(ClaimMapping.build(key, key, null, false), value);
                 }
 
                 if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)
@@ -812,6 +819,29 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
+    }
+
+    private String getMultiAttributeSeparator() {
+
+        String multiAttributeSeparator = null;
+        try {
+            multiAttributeSeparator = CarbonContext.getThreadLocalCarbonContext().getUserRealm().
+                    getRealmConfiguration().getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR);
+        } catch (UserStoreException e) {
+            log.warn("Error while retrieving MultiAttributeSeparator from UserRealm.");
+            if (log.isDebugEnabled()) {
+                log.debug("Error while retrieving MultiAttributeSeparator from UserRealm." + e);
+            }
+        }
+
+        if (StringUtils.isBlank(multiAttributeSeparator)) {
+            multiAttributeSeparator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
+            if (log.isDebugEnabled()) {
+                log.debug("Multi Attribute Separator is defaulting to " + multiAttributeSeparator);
+            }
+        }
+
+        return multiAttributeSeparator;
     }
 }
 
