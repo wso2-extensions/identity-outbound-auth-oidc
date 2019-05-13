@@ -229,10 +229,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             for (Map.Entry<String, Object> data : jsonObject.entrySet()) {
                 String key = data.getKey();
-                Object value = data.getValue();
+                Object valueObject = data.getValue();
 
-                if (value != null) {
-                    claims.put(ClaimMapping.build(key, key, null, false), value.toString());
+                if (valueObject != null) {
+                    String value;
+                    if (valueObject instanceof Object[]) {
+                        value = StringUtils.join((Object[]) valueObject, FrameworkUtils.getMultiAttributeSeparator());
+                    } else {
+                        value = valueObject.toString();
+                    }
+                    claims.put(ClaimMapping.build(key, key, null, false), value);
                 }
 
                 if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)
