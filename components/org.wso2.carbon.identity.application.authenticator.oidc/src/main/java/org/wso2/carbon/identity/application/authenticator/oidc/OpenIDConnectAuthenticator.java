@@ -19,7 +19,6 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import com.nimbusds.jose.util.JSONObjectUtils;
 import net.minidev.json.JSONArray;
-import net.minidev.json.JSONValue;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
@@ -37,6 +36,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.apache.oltu.oauth2.common.utils.JSONUtils;
 import org.wso2.carbon.base.MultitenantConstants;
+import org.wso2.carbon.context.CarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
@@ -229,10 +229,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             for (Map.Entry<String, Object> data : jsonObject.entrySet()) {
                 String key = data.getKey();
-                Object value = data.getValue();
+                Object valueObject = data.getValue();
 
-                if (value != null) {
-                    claims.put(ClaimMapping.build(key, key, null, false), value.toString());
+                if (valueObject != null) {
+                    if (valueObject instanceof Object[]) {
+                        claims.put(ClaimMapping.build(key, key, null, false), StringUtils.join((Object[]) valueObject, getMultiAttributeSeparator()));
+                    } else {
+                        claims.put(ClaimMapping.build(key, key, null, false), valueObject.toString());
+                    }
                 }
 
                 if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)
@@ -812,6 +816,34 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
+    }
+    private static String getMultiAttributeSeparator() {
+
+        String multiAttributeSeparator;
+        try {
+            multiAttributeSeparator = CarbonContext.getThreadLocalCarbonContext().getUserRealm().
+                    getRealmConfiguration().getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR);
+            if (log.isDebugEnabled()) {
+                log.debug("Multi Attribute Separator is  " + multiAttributeSeparator);
+            }
+        } catch (UserStoreException e) {
+            log.warn("Error while retrieving MultiAttributeSeparator from UserRealm.");
+            if (log.isDebugEnabled()) {
+                log.debug("Error while retrieving MultiAttributeSeparator from UserRealm." + e);
+            }
+            return IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
+        }
+
+        if (StringUtils.isBlank(multiAttributeSeparator)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Multi Attribute Separator is defaulting to " + IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT);
+            }
+            return IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
+        } else {
+            return multiAttributeSeparator;
+        }
+
+
     }
 }
 
