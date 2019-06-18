@@ -41,6 +41,7 @@ public class OIDCAuthenticatorConstants {
     public static final String IS_BASIC_AUTH_ENABLED = "IsBasicAuthEnabled";
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
+    public static final String OIDC_CLAIM_DIALECT = "http://wso2.org/oidc/claim";
 
     public class AuthenticatorConfParams {
         private AuthenticatorConfParams() {

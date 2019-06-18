@@ -46,6 +46,9 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
+import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
@@ -466,14 +469,17 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testGetSubjectFromUserIDClaimURI() throws FrameworkException {
+    public void testGetSubjectFromUserIDClaimURI() throws Exception {
         // Subject is null.
         assertNull(openIDConnectAuthenticator.getSubjectFromUserIDClaimURI(mockAuthenticationContext));
 
         // Subject is not null.
         mockStatic(FrameworkUtils.class);
+
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(getDummyIdp());
         when(FrameworkUtils.getFederatedSubjectFromClaims(mockAuthenticationContext,
-                openIDConnectAuthenticator.getClaimDialectURI())).thenReturn("subject");
+                openIDConnectAuthenticator.getClaimDialectURI(mockAuthenticationContext))).thenReturn("subject");
         Assert.assertNotNull(openIDConnectAuthenticator.getSubjectFromUserIDClaimURI(mockAuthenticationContext));
     }
 
@@ -570,5 +576,24 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         paramValueMap = new HashMap<>();
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramValueMap);
         when(mockAuthenticationContext.getContextIdentifier()).thenReturn("");
+    }
+
+    private IdentityProvider getDummyIdp() {
+
+        IdentityProvider identityProvider = new IdentityProvider();
+        FederatedAuthenticatorConfig[] authConfigs = new FederatedAuthenticatorConfig[1];
+        FederatedAuthenticatorConfig authConfig = new FederatedAuthenticatorConfig();
+        authConfig.setName(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME);
+        Property[] props = new Property[1];
+        Property prop = new Property();
+        prop.setName(IdentityApplicationConstants.Authenticator.OIDC.USE_OIDC_CLAIM_DIALECT);
+        prop.setValue("true");
+        props[0] = prop;
+
+        authConfig.setProperties(props);
+        authConfigs[0] = authConfig;
+        identityProvider.setFederatedAuthenticatorConfigs(authConfigs);
+
+        return identityProvider;
     }
 }
