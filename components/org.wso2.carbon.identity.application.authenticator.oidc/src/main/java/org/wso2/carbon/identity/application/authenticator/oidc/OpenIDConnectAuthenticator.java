@@ -39,7 +39,6 @@ import org.apache.oltu.oauth2.common.utils.JSONUtils;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
-import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
@@ -47,8 +46,6 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
-import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
-import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
@@ -652,30 +649,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return "http://wso2.org/oidc/claim";
     }
 
-    @Override
-    public String getClaimDialectURI(AuthenticationContext context) {
-
-        if (isNotUsingOIDCClaimDialect()) {
-            return getClaimDialectURI();
-        }
-
-        if (useOIDCClaimDialectDisabled(context)) {
-            // By returning null the default dialect will be used.
-            return null;
-        }
-
-        // If none of the above conditions satisfies we should follow the existing behaviour
-        // which was to return the OIDC claim dialect.
-        return getClaimDialectURI();
-    }
-
     /**
      * @subject
      */
     protected String getSubjectFromUserIDClaimURI(AuthenticationContext context) {
         String subject = null;
         try {
-            subject = FrameworkUtils.getFederatedSubjectFromClaims(context, getClaimDialectURI(context));
+            subject = FrameworkUtils.getFederatedSubjectFromClaims(context, getClaimDialectURI());
         } catch (Exception e) {
             if(log.isDebugEnabled()) {
                 log.debug("Couldn't find the subject claim from claim mappings ", e);
@@ -838,74 +818,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
-    }
-
-    /**
-     * Check whether the getClaimDialectURI() method has been overwritten to not use the OIDC claim dialect.
-     */
-    private boolean isNotUsingOIDCClaimDialect() {
-
-        return !OIDCAuthenticatorConstants.OIDC_CLAIM_DIALECT.equals(getClaimDialectURI());
-    }
-
-    private boolean useOIDCClaimDialectDisabled(AuthenticationContext context) {
-
-        String useOIDCClaimDialect = getAuthenticatorPropertyFromAuthContext(context,
-                IdentityApplicationConstants.Authenticator.OIDC.USE_OIDC_CLAIM_DIALECT);
-
-        // Check if property has been disabled from the UI.
-        if (useOIDCClaimDialect != null) {
-            return !Boolean.valueOf(useOIDCClaimDialect);
-        }
-
-        // If UI property is not available check if property has been disabled from file config.
-        useOIDCClaimDialect = getAuthenticatorPropertyFromFileConfig(
-                IdentityApplicationConstants.Authenticator.OIDC.USE_OIDC_CLAIM_DIALECT);
-
-        if (StringUtils.isNotBlank(useOIDCClaimDialect)) {
-            return !Boolean.valueOf(useOIDCClaimDialect);
-        }
-
-        return false;
-    }
-
-    private String getAuthenticatorPropertyFromAuthContext(AuthenticationContext context, String propName) {
-
-        String propValue = null;
-
-        if (context.getExternalIdP().getIdentityProvider() != null) {
-            FederatedAuthenticatorConfig[] fedConfigs = context.getExternalIdP().getIdentityProvider()
-                    .getFederatedAuthenticatorConfigs();
-            if (fedConfigs != null) {
-                for (FederatedAuthenticatorConfig fedConfig : fedConfigs) {
-                    if (getName().equals(fedConfig.getName()) && fedConfig.getProperties() != null) {
-                        Property[] props = fedConfig.getProperties();
-                        for (Property prop : props) {
-                            if (propName.equals(prop.getName())) {
-                                propValue = prop.getValue();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return propValue;
-    }
-
-    private String getAuthenticatorPropertyFromFileConfig(String propName) {
-
-        String propValue = null;
-
-        if (FileBasedConfigurationBuilder.getInstance()
-                .getAuthenticatorBean(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME) != null) {
-            propValue = FileBasedConfigurationBuilder.getInstance()
-                    .getAuthenticatorBean(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME).getParameterMap()
-                    .get(propName);
-        }
-
-        return propValue;
     }
 }
 
