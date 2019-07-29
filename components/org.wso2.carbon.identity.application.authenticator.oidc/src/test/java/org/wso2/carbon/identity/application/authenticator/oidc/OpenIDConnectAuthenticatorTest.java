@@ -557,6 +557,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockUserStoreManager.getRealmConfiguration()).thenReturn(mockRealmConfiguration);
         when(mockRealmConfiguration.getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR))
                 .thenReturn(",");
+        mockStatic(IdentityUtil.class);
+        when(IdentityUtil.getServerURL("", false, false)).thenReturn("https://localhost:9443");
     }
 
     private void setParametersForOAuthClientResponse(OAuthClientResponse mockOAuthClientResponse,
