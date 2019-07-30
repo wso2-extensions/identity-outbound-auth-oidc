@@ -587,6 +587,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
             // set 'Origin' header to access token request.
             if (accessTokenRequest != null) {
+                // fetch the 'Hostname' configured in carbon.xml
                 String serverURL = IdentityUtil.getServerURL("", false, false);
                 accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HTTP_ORIGIN_HEADER, serverURL);
             }
