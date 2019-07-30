@@ -583,6 +583,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
                         (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
             }
+            // set 'Origin' header to access token request.
+            if (accessTokenRequest != null) {
+                // fetch the 'Hostname' configured in carbon.xml
+                String serverURL = IdentityUtil.getServerURL("", false, false);
+                accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HTTP_ORIGIN_HEADER, serverURL);
+            }
         } catch (OAuthSystemException e) {
             if (log.isDebugEnabled()) {
                 log.debug("Error while building access token request for token endpoint: " + tokenEndPoint, e);
