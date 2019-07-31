@@ -42,6 +42,8 @@ public class OIDCAuthenticatorConstants {
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
 
+    public static final String HTTP_ORIGIN_HEADER = "Origin";
+
     public class AuthenticatorConfParams {
         private AuthenticatorConfParams() {
         }
