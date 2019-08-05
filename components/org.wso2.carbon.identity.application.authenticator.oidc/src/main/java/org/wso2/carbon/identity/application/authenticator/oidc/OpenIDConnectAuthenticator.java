@@ -41,6 +41,7 @@ import org.wso2.carbon.identity.application.authentication.framework.AbstractApp
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
+import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
@@ -425,6 +426,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         } catch (OAuthProblemException e) {
             throw new AuthenticationFailedException("Authentication process failed", context.getSubject(), e);
+        }
+    }
+
+    @Override
+    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
+        try{
+            response.sendRedirect("https://wso2is:9444/oidc/logout");
+        }
+        catch(IOException e){
+            throw new LogoutFailedException(e.getMessage(), e);
         }
     }
 
