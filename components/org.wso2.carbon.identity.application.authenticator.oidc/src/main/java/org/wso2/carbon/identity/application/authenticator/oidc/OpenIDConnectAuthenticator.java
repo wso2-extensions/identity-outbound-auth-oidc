@@ -142,7 +142,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
 
     protected String getAuthenticateUser(AuthenticationContext context, Map<String, Object> jsonObject,OAuthClientResponse token) {
-        return (String) jsonObject.get("sub");
+        return (String) jsonObject.get("upn");
     }
 
     protected String getCallBackURL(Map<String, String> authenticatorProperties) {
