@@ -37,7 +37,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 )
 public class OpenIDConnectAuthenticatorServiceComponent {
 
-    private static Log log = LogFactory.getLog(OpenIDConnectAuthenticatorServiceComponent.class);
+    private static final Log log = LogFactory.getLog(OpenIDConnectAuthenticatorServiceComponent.class);
 
     @Activate
     protected void activate(ComponentContext ctxt) {

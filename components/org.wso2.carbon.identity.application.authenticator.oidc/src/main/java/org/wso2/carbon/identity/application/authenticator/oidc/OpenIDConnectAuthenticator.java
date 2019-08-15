@@ -82,7 +82,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final long serialVersionUID = -4154255583070524018L;
 
-    private static Log log = LogFactory.getLog(OpenIDConnectAuthenticator.class);
+    private static final Log log = LogFactory.getLog(OpenIDConnectAuthenticator.class);
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
