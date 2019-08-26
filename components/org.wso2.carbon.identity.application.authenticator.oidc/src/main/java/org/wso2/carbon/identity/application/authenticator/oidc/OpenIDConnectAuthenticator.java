@@ -135,6 +135,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return callbackUrl;
     }
 
+    protected String getLogoutUrl(Map<String, String> authenticatorProperties) {
+
+        return authenticatorProperties.get(OIDCAuthenticatorConstants.OIDC_LOGOUT_URL);
+    }
+
+
     /**
      * Returns the token endpoint of OIDC federated authenticator
      *
@@ -431,10 +437,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
-        try{
-            response.sendRedirect("https://wso2is:9444/oidc/logout");
-        }
-        catch(IOException e){
+
+        try {
+            if (StringUtils.isNotEmpty(getLogoutUrl(context.getAuthenticatorProperties()))) {
+                response.sendRedirect(getLogoutUrl(context.getAuthenticatorProperties()));
+            }
+        } catch (IOException e) {
+            log.error("Error occurred while initiating the logout request: ", e);
             throw new LogoutFailedException(e.getMessage(), e);
         }
     }
