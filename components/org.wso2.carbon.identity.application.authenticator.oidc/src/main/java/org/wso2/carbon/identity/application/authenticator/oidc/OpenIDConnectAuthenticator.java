@@ -114,6 +114,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return
      */
     protected String getAuthorizationServerEndpoint(Map<String, String> authenticatorProperties) {
+
         return null;
     }
 
@@ -123,7 +124,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
      *                                configuration.
      * @return Callback URL configured in OIDC federated authenticator configuration. If it is empty returns
-     *          /commonauth endpoint URL path as the default value.
+     * /commonauth endpoint URL path as the default value.
      */
     protected String getCallbackUrl(Map<String, String> authenticatorProperties) {
 
@@ -151,6 +152,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return
      */
     protected String getState(String state, Map<String, String> authenticatorProperties) {
+
         return state;
     }
 
@@ -158,6 +160,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return
      */
     protected String getScope(String scope, Map<String, String> authenticatorProperties) {
+
         if (StringUtils.isBlank(scope)) {
             scope = OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE;
         }
@@ -168,6 +171,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return
      */
     protected boolean requiredIDToken(Map<String, String> authenticatorProperties) {
+
         return true;
     }
 
@@ -179,36 +183,42 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
 
     protected String getAuthenticateUser(AuthenticationContext context, Map<String, Object> oidcClaims,
-            OAuthClientResponse oidcResponse) {
+                                         OAuthClientResponse oidcResponse) {
+
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
 
     protected String getCallBackURL(Map<String, String> authenticatorProperties) {
+
         return getCallbackUrl(authenticatorProperties);
     }
 
     protected String getQueryString(Map<String, String> authenticatorProperties) {
+
         return authenticatorProperties.get(FrameworkConstants.QUERY_PARAMS);
     }
 
     /**
      * Get user info endpoint.
-     * @param token OAuthClientResponse
+     *
+     * @param token                   OAuthClientResponse
      * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
      * @return User info endpoint.
      */
     protected String getUserInfoEndpoint(OAuthClientResponse token, Map<String, String> authenticatorProperties) {
+
         return authenticatorProperties.get(IdentityApplicationConstants.Authenticator.OIDC.USER_INFO_URL);
     }
 
     /**
      * Get subject attributes.
-     * @param token OAuthClientResponse
+     *
+     * @param token                   OAuthClientResponse
      * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
      * @return Map<ClaimMapping, String> Claim mappings.
      */
     protected Map<ClaimMapping, String> getSubjectAttributes(OAuthClientResponse token,
-            Map<String, String> authenticatorProperties) {
+                                                             Map<String, String> authenticatorProperties) {
 
         Map<ClaimMapping, String> claims = new HashMap<>();
 
@@ -218,7 +228,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String json = sendRequest(url, accessToken);
 
             if (StringUtils.isBlank(json)) {
-                if(log.isDebugEnabled()) {
+                if (log.isDebugEnabled()) {
                     log.debug("Empty JSON response from user info endpoint. Unable to fetch user claims." +
                             " Proceeding without user claims");
                 }
@@ -256,7 +266,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     protected void initiateAuthenticationRequest(HttpServletRequest request, HttpServletResponse response,
-            AuthenticationContext context) throws AuthenticationFailedException {
+                                                 AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
@@ -341,11 +351,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private String getStateParameter(AuthenticationContext context, Map<String, String> authenticatorProperties) {
+
         String state = context.getContextIdentifier() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
         return getState(state, authenticatorProperties);
     }
 
     private String getOIDCAuthzEndpoint(Map<String, String> authenticatorProperties) {
+
         String authorizationEP = getAuthorizationServerEndpoint(authenticatorProperties);
         if (StringUtils.isBlank(authorizationEP)) {
             authorizationEP = authenticatorProperties.get(OIDCAuthenticatorConstants.OAUTH2_AUTHZ_URL);
@@ -355,7 +367,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     protected void processAuthenticationResponse(HttpServletRequest request, HttpServletResponse response,
-            AuthenticationContext context) throws AuthenticationFailedException {
+                                                 AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
 
@@ -429,17 +441,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private Map<String, Object> getIdTokenClaims(AuthenticationContext context, String idToken) {
+
         context.setProperty(OIDCAuthenticatorConstants.ID_TOKEN, idToken);
         String base64Body = idToken.split("\\.")[1];
         byte[] decoded = Base64.decodeBase64(base64Body.getBytes());
         Set<Map.Entry<String, Object>> jwtAttributeSet = new HashSet<>();
         try {
             jwtAttributeSet = JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
-        }  catch (ParseException e) {
+        } catch (ParseException e) {
             log.error("Error occurred while parsing JWT provided by federated IDP: ", e);
         }
         Map<String, Object> jwtAttributeMap = new HashMap();
-        for(Map.Entry<String, Object> entry : jwtAttributeSet) {
+        for (Map.Entry<String, Object> entry : jwtAttributeSet) {
             jwtAttributeMap.put(entry.getKey(), entry.getValue());
         }
         return jwtAttributeMap;
@@ -447,6 +460,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private String getMultiAttributeSeparator(AuthenticationContext context, String authenticatedUserId)
             throws AuthenticationFailedException {
+
         String attributeSeparator = null;
         try {
 
@@ -477,7 +491,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private String getAuthenticatedUserId(AuthenticationContext context, OAuthClientResponse oAuthResponse,
-            Map<String, Object> idTokenClaims) throws AuthenticationFailedException {
+                                          Map<String, Object> idTokenClaims) throws AuthenticationFailedException {
+
         String authenticatedUserId;
         if (isUserIdFoundAmongClaims(context)) {
             authenticatedUserId = getSubjectFromUserIDClaimURI(context, idTokenClaims);
@@ -508,6 +523,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private boolean isUserIdFoundAmongClaims(AuthenticationContext context) {
+
         return Boolean.parseBoolean(context.getAuthenticatorProperties()
                 .get(IdentityApplicationConstants.Authenticator.OIDC.IS_USER_ID_IN_CLAIMS));
     }
@@ -632,6 +648,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private String getLoginType(HttpServletRequest request) {
+
         String state = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
         if (state != null) {
             return state.split(",")[1];
@@ -642,16 +659,19 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     @Override
     public String getFriendlyName() {
+
         return "openidconnect";
     }
 
     @Override
     public String getName() {
+
         return OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
     }
 
     @Override
     public String getClaimDialectURI() {
+
         return "http://wso2.org/oidc/claim";
     }
 
@@ -659,11 +679,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @subject
      */
     protected String getSubjectFromUserIDClaimURI(AuthenticationContext context) {
+
         String subject = null;
         try {
             subject = FrameworkUtils.getFederatedSubjectFromClaims(context, getClaimDialectURI());
         } catch (Exception e) {
-            if(log.isDebugEnabled()) {
+            if (log.isDebugEnabled()) {
                 log.debug("Couldn't find the subject claim from claim mappings ", e);
             }
         }
@@ -720,6 +741,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private String getUserIdClaimUriInOIDCDialect(String userIdClaimInLocalDialect, String spTenantDomain)
             throws ClaimMetadataException {
+
         List<ExternalClaim> externalClaims = OpenIDConnectAuthenticatorDataHolder.getInstance()
                 .getClaimMetadataManagementService().getExternalClaims(OIDC_DIALECT, spTenantDomain);
         String userIdClaimUri = null;
@@ -740,7 +762,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     /**
      * Request user claims from user info endpoint.
-     * @param url User info endpoint.
+     *
+     * @param url         User info endpoint.
      * @param accessToken Access token.
      * @return Response string.
      * @throws IOException

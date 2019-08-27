@@ -19,7 +19,9 @@
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
 public class OIDCAuthenticatorConstants {
+
     private OIDCAuthenticatorConstants() {
+
     }
 
     public static final String AUTHENTICATOR_NAME = "OpenIDConnectAuthenticator";
@@ -45,14 +47,18 @@ public class OIDCAuthenticatorConstants {
     public static final String HTTP_ORIGIN_HEADER = "Origin";
 
     public class AuthenticatorConfParams {
+
         private AuthenticatorConfParams() {
+
         }
 
         public static final String DEFAULT_IDP_CONFIG = "DefaultIdPConfig";
     }
 
     public class IdPConfParams {
+
         private IdPConfParams() {
+
         }
 
         public static final String CLIENT_ID = "ClientId";
@@ -63,7 +69,9 @@ public class OIDCAuthenticatorConstants {
     }
 
     public class Claim {
+
         private Claim() {
+
         }
 
         public static final String SUB = "sub";
