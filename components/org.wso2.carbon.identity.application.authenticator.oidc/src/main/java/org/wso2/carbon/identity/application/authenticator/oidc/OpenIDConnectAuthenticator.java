@@ -569,8 +569,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setRedirectURI(callbackUrl).setCode(authzResponse.getCode())
                         .buildBodyMessage();
-                String base64EncodedCredential = Base64.encodeBase64URLSafeString(new String(clientId + ":" +
-                        clientSecret).getBytes());
+                String base64EncodedCredential = new String(Base64.encodeBase64((clientId + ":" +
+                        clientSecret).getBytes()));
                 accessTokenRequest.addHeader(OAuth.HeaderType.AUTHORIZATION, "Basic " + base64EncodedCredential);
             } else {
 
