@@ -96,18 +96,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         // Check commonauth got an OIDC response
+        //if sends error like access_denied
         if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE) != null
                 && request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null
                 && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
             return true;
-        } else if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null &&
-                request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR) != null) {
-            //if sends error like access_denied
-            return true;
-        }
+        } else return request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null &&
+                request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR) != null;
         // TODO : What if IdP failed?
 
-        return false;
     }
 
     /**
@@ -569,8 +566,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setRedirectURI(callbackUrl).setCode(authzResponse.getCode())
                         .buildBodyMessage();
-                String base64EncodedCredential = Base64.encodeBase64URLSafeString(new String(clientId + ":" +
-                        clientSecret).getBytes());
+                String base64EncodedCredential = new String(Base64.encodeBase64((clientId + ":" +
+                        clientSecret).getBytes()));
                 accessTokenRequest.addHeader(OAuth.HeaderType.AUTHORIZATION, "Basic " + base64EncodedCredential);
             } else {
 
@@ -582,7 +579,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
                         (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
-            }
+            }https://github.com/wso2-extensions/identity-outbound-auth-oidc/pull/54
             // set 'Origin' header to access token request.
             if (accessTokenRequest != null) {
                 // fetch the 'Hostname' configured in carbon.xml
