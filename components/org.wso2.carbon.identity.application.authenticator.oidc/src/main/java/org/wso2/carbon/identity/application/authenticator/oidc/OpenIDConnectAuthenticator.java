@@ -19,7 +19,6 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import com.nimbusds.jose.util.JSONObjectUtils;
 import net.minidev.json.JSONArray;
-import net.minidev.json.JSONValue;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
@@ -88,6 +87,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
+    private String idTokenHint;
 
     @Override
     public boolean canHandle(HttpServletRequest request) {
@@ -381,6 +381,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
+            idTokenHint=idToken;
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
                 throw new AuthenticationFailedException("Id token is required and is missing in OIDC response from "
@@ -440,7 +441,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         try {
             if (StringUtils.isNotEmpty(getLogoutUrl(context.getAuthenticatorProperties()))) {
-                response.sendRedirect(getLogoutUrl(context.getAuthenticatorProperties()));
+//                String idToken = context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.ID_TOKEN);
+                response.sendRedirect(getLogoutUrl(context.getAuthenticatorProperties())+ "?id_token_hint="+idTokenHint);
             }
         } catch (IOException e) {
             log.error("Error occurred while initiating the logout request: ", e);
@@ -575,6 +577,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isBlank(callbackUrl)) {
             callbackUrl = getCallbackUrl(authenticatorProperties);
         }
+
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
                 .IS_BASIC_AUTH_ENABLED));
