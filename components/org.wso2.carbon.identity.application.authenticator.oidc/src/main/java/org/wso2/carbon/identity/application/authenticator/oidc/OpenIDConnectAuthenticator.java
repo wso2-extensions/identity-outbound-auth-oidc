@@ -45,6 +45,7 @@ import org.wso2.carbon.identity.application.authentication.framework.model.Authe
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
+import org.wso2.carbon.identity.application.authenticator.oidc.model.StateInfoOIDC;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.base.IdentityConstants;
@@ -87,7 +88,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
-    private String idTokenHint;
+
+    @Override
+    protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
+
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     public boolean canHandle(HttpServletRequest request) {
@@ -104,6 +110,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } else if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null &&
                 request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR) != null) {
             //if sends error like access_denied
+            return true;
+        }else if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null) {
+            //handle post logout response
             return true;
         }
         // TODO : What if IdP failed?
@@ -139,7 +148,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         return authenticatorProperties.get(OIDCAuthenticatorConstants.OIDC_LOGOUT_URL);
     }
-
 
     /**
      * Returns the token endpoint of OIDC federated authenticator
@@ -381,13 +389,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
-            idTokenHint=idToken;
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
                 throw new AuthenticationFailedException("Id token is required and is missing in OIDC response from "
                         + "token endpoint: " + getTokenEndpoint(authenticatorProperties) + " for clientId: " +
                         authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID));
             }
+
+            StateInfoOIDC stateInfoOIDC=new StateInfoOIDC();
+            stateInfoOIDC.setIdTokenHint(idToken);
+            context.setStateInfo(stateInfoOIDC);
 
             context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
 
@@ -437,16 +448,30 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     @Override
-    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
 
-        try {
-            if (StringUtils.isNotEmpty(getLogoutUrl(context.getAuthenticatorProperties()))) {
-//                String idToken = context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.ID_TOKEN);
-                response.sendRedirect(getLogoutUrl(context.getAuthenticatorProperties())+ "?id_token_hint="+idTokenHint);
+    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response,
+                                         AuthenticationContext context) throws LogoutFailedException {
+
+        if (StringUtils.isNotBlank(getLogoutUrl(context.getAuthenticatorProperties()))) {
+            String logoutPage = getLogoutUrl(context.getAuthenticatorProperties());
+            String idTokenHint = ((StateInfoOIDC) context.getStateInfo()).getIdTokenHint();
+            String sessionID = context.getContextIdentifier();
+            if (StringUtils.isNotBlank(idTokenHint)) {
+                logoutPage = logoutPage + "?id_token_hint=" + idTokenHint;
             }
-        } catch (IOException e) {
-            log.error("Error occurred while initiating the logout request: ", e);
-            throw new LogoutFailedException(e.getMessage(), e);
+            String callback = getCallbackUrl(context.getAuthenticatorProperties());
+            if (StringUtils.isNotBlank(callback)) {
+                logoutPage = logoutPage + "&post_logout_redirect_uri=" + callback;
+            }
+            if (StringUtils.isNotBlank(sessionID)) {
+                logoutPage = logoutPage + "&state=" + sessionID;
+            }
+            try {
+                response.sendRedirect(logoutPage);
+            } catch (IOException e) {
+                log.error("Error occurred while initiating the logout request: ", e);
+                throw new LogoutFailedException(e.getMessage(), e);
+            }
         }
     }
 
@@ -577,7 +602,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isBlank(callbackUrl)) {
             callbackUrl = getCallbackUrl(authenticatorProperties);
         }
-
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
                 .IS_BASIC_AUTH_ENABLED));
