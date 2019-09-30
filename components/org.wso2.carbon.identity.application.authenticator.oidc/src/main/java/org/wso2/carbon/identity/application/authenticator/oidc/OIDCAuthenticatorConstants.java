@@ -45,6 +45,9 @@ public class OIDCAuthenticatorConstants {
 
     public static final String HTTP_ORIGIN_HEADER = "Origin";
 
+    public static final String POST_LOGOUT_REDIRECT_URI = "post_logout_redirect_uri";
+    public static final String ID_TOKEN_HINT = "id_token_hint";
+
     public class AuthenticatorConfParams {
         private AuthenticatorConfParams() {
         }

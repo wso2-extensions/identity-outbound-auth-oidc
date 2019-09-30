@@ -18,7 +18,10 @@ package org.wso2.carbon.identity.application.authenticator.oidc.model;
 
 import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorStateInfo;
 
-public class StateInfoOIDC extends AuthenticatorStateInfo {
+/**
+ * This class holds state info of the OIDC authenticator
+ */
+public class OIDCStateInfo extends AuthenticatorStateInfo {
 
     private String idTokenHint;
 
