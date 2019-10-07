@@ -32,8 +32,8 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 
 @Component(
-         name = "identity.application.authenticator.oidc.component", 
-         immediate = true
+        name = "identity.application.authenticator.oidc.component",
+        immediate = true
 )
 public class OpenIDConnectAuthenticatorServiceComponent {
 
@@ -41,6 +41,7 @@ public class OpenIDConnectAuthenticatorServiceComponent {
 
     @Activate
     protected void activate(ComponentContext ctxt) {
+
         try {
             OpenIDConnectAuthenticator openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
             ctxt.getBundleContext().registerService(ApplicationAuthenticator.class.getName(), openIDConnectAuthenticator, null);
@@ -54,18 +55,20 @@ public class OpenIDConnectAuthenticatorServiceComponent {
 
     @Deactivate
     protected void deactivate(ComponentContext ctxt) {
+
         if (log.isDebugEnabled()) {
             log.debug("OpenID Connect Authenticator bundle is deactivated");
         }
     }
 
     @Reference(
-             name = "realm.service", 
-             service = org.wso2.carbon.user.core.service.RealmService.class, 
-             cardinality = ReferenceCardinality.MANDATORY, 
-             policy = ReferencePolicy.DYNAMIC, 
-             unbind = "unsetRealmService")
+            name = "realm.service",
+            service = org.wso2.carbon.user.core.service.RealmService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRealmService")
     protected void setRealmService(RealmService realmService) {
+
         if (log.isDebugEnabled()) {
             log.debug("Setting the Realm Service");
         }
@@ -73,6 +76,7 @@ public class OpenIDConnectAuthenticatorServiceComponent {
     }
 
     protected void unsetRealmService(RealmService realmService) {
+
         if (log.isDebugEnabled()) {
             log.debug("UnSetting the Realm Service");
         }
@@ -87,11 +91,13 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             unbind = "unsetClaimManagementService"
     )
     protected void setClaimManagementService(ClaimMetadataManagementService claimMetadataManagementService) {
+
         OpenIDConnectAuthenticatorDataHolder.getInstance()
                 .setClaimMetadataManagementService(claimMetadataManagementService);
     }
 
     protected void unsetClaimManagementService(ClaimMetadataManagementService claimMetadataManagementService) {
+
         OpenIDConnectAuthenticatorDataHolder.getInstance()
                 .setClaimMetadataManagementService(null);
     }

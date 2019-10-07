@@ -85,8 +85,8 @@ import static org.testng.Assert.assertTrue;
  * Unit test class for OpenIDConnectAuthenticatorTest class.
  */
 @PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
-                 OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
-                 OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class})
+        OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
+        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -160,6 +160,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @BeforeTest
     public void init() {
+
         openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
         authenticatorProperties = new HashMap<>();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
@@ -187,9 +188,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         return new String[][]{
                 // When all parameters not null.
-                {"openid","active,OIDC", "BASIC", "Error Login.",  "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
+                {"openid", "active,OIDC", "BASIC", "Error Login.", "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
                 // When gran_type and login_type are null.
-                {null,"active,OIDC", null, "Error Login.", "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
+                {null, "active,OIDC", null, "Error Login.", "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
                 // When all parameters null.
                 {null, null, null, null, "false", null, "Invalid can handle response for the request.", "Invalid context identifier."}
         };
@@ -197,7 +198,6 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test(dataProvider = "requestDataHandler")
     public void testCanHandle(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws IOException {
-
 
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)).thenReturn(grantType);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE)).thenReturn(state);
@@ -211,12 +211,14 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testGetAuthorizationServerEndpoint() throws IOException {
+
         assertNull(openIDConnectAuthenticator.getAuthorizationServerEndpoint(authenticatorProperties),
                 "Unable to get the authorization server endpoint.");
     }
 
     @Test
     public void testGetCallbackUrl() throws IOException {
+
         assertEquals(openIDConnectAuthenticator.getCallBackURL(authenticatorProperties),
                 "http://localhost:8080/playground2/oauth2client",
                 "Callback URL is not valid.");
@@ -224,30 +226,35 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testGetTokenEndpoint() throws IOException {
+
         assertNotNull(openIDConnectAuthenticator.getTokenEndpoint(authenticatorProperties),
                 "Unable to get the token endpoint.");
     }
 
     @Test
     public void testGetState() throws IOException {
+
         assertEquals(openIDConnectAuthenticator.getState("OIDC", authenticatorProperties),
                 "OIDC", "Unable to get the scope.");
     }
 
     @Test
     public void testGetScope() throws IOException {
+
         assertEquals(openIDConnectAuthenticator.getScope("openid", authenticatorProperties),
                 "openid", "Unable to get the scope.");
     }
 
     @Test
     public void testRequiredIDToken() throws IOException {
+
         assertTrue(openIDConnectAuthenticator.requiredIDToken(authenticatorProperties),
                 "Does not require the ID token.");
     }
 
     @Test
     public void testGetCallBackURL() throws IOException {
+
         assertEquals(openIDConnectAuthenticator.getCallBackURL(authenticatorProperties),
                 "http://localhost:8080/playground2/oauth2client",
                 "Callback URL is not valid.");
@@ -255,6 +262,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testGetUserInfoEndpoint() throws IOException {
+
         assertEquals(openIDConnectAuthenticator.getUserInfoEndpoint(token, authenticatorProperties),
                 "https://localhost:9443/oauth2/userinfo", "unable to get the user infor endpoint");
     }
@@ -262,6 +270,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test
     public void testGetSubjectAttributes() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException, IOException {
+
         Map<ClaimMapping, String> result;
         // Test with no json response.
         when(mockOAuthClientResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN)).
@@ -294,16 +303,17 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 {"scope=openid&state=OIDC&loginType=basic&redirect_uri=https://localhost:9443/redirect", "https://localhost:9443/redirect", "The redirect URI is invalid"},
                 // If condition : queryString != null && queryString.contains("scope=").
                 {"state=OIDC&loginType=basic&redirect_uri=https://localhost:9443/redirect",
-                         "https://localhost:9443/redirect", "The redirect URI is invalid"},
+                        "https://localhost:9443/redirect", "The redirect URI is invalid"},
                 // If condition : queryString != null && queryString.contains("redirect_uri=").
                 {"state=OIDC&loginType=basic", "https://localhost:9443/redirect", "The redirect URI is invalid"}
         };
     }
 
-    @Test ( dataProvider = "commonAuthParamProvider")
+    @Test(dataProvider = "commonAuthParamProvider")
     public void testInitiateAuthenticationRequest(String authParam, String expectedValue,
                                                   String errorMsg) throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException, UserStoreException {
+
         mockAuthenticationRequestContext(mockAuthenticationContext);
         when(mockServletResponse.encodeRedirectURL(anyString())).thenReturn("https://localhost:9443/redirect");
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
@@ -319,18 +329,19 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     }
 
-    @Test ( expectedExceptions = AuthenticationFailedException.class)
+    @Test(expectedExceptions = AuthenticationFailedException.class)
     public void testInitiateAuthenticationRequestNullProperties() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException, UserStoreException {
+
         mockAuthenticationRequestContext(mockAuthenticationContext);
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(null);
         openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
                 mockAuthenticationContext);
     }
 
-
     @Test
     public void testPassProcessAuthenticationResponse() throws Exception {
+
         setupTest();
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
@@ -353,6 +364,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test(expectedExceptions = AuthenticationFailedException.class)
     public void testPassProcessAuthenticationResponseWithoutAccessToken() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException, UserStoreException {
+
         setupTest();
         // Empty access token and id token
         setParametersForOAuthClientResponse(mockOAuthClientResponse, "", "");
@@ -362,6 +374,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testPassProcessAuthenticationWithBlankCallBack() throws Exception {
+
         setupTest();
         authenticatorProperties.put("callbackUrl", " ");
         mockStatic(IdentityUtil.class);
@@ -379,10 +392,11 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testPassProcessAuthenticationWithParamValue() throws Exception {
+
         setupTest();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
         Map<String, String> paramMap = new HashMap<>();
-        paramMap.put("redirect_uri","http:/localhost:9443/oauth2/redirect");
+        paramMap.put("redirect_uri", "http:/localhost:9443/oauth2/redirect");
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramMap);
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
@@ -398,6 +412,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test(dataProvider = "seperator")
     public void testBuildClaimMappings(String separator) throws Exception {
+
         Map<ClaimMapping, String> claims = new HashMap<>();
         Map<String, Object> entries = new HashMap<>();
         entries.put("scope", new Object());
@@ -422,6 +437,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
      */
     @Test
     public void testClaimMappingWithNullValues() {
+
         Map<ClaimMapping, String> claims = new HashMap<>();
         Map<String, Object> entries = new HashMap<>();
         entries.put("zoneinfo", "GMT");
@@ -438,6 +454,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test(dataProvider = "requestDataHandler")
     public void testGetContextIdentifier(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws Exception {
+
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)).thenReturn(grantType);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE)).thenReturn(state);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.LOGIN_TYPE)).thenReturn(loginType);
@@ -449,18 +466,21 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test
     public void testGetFriendlyName() throws Exception {
+
         assertEquals(openIDConnectAuthenticator.getFriendlyName(), "openidconnect",
                 "Invalid friendly name.");
     }
 
     @Test
     public void testGetName() throws Exception {
+
         assertEquals(openIDConnectAuthenticator.getName(), "OpenIDConnectAuthenticator",
                 "Invalid authenticator name.");
     }
 
     @Test
     public void testGetClaimDialectURI() throws Exception {
+
         assertEquals(openIDConnectAuthenticator.getClaimDialectURI(), "http://wso2.org/oidc/claim",
                 "Invalid claim dialect uri.");
     }
@@ -497,18 +517,18 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         assertTrue(!result.isEmpty(), "The send request should not be empty.");
     }
 
-
     @Test
     public void testGetOauthResponseWithoutExceptions() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException {
+
         when(mockOAuthClient.accessToken(mockOAuthClientRequest)).thenReturn(mockOAuthJSONAccessTokenResponse);
         Assert.assertNotNull(openIDConnectAuthenticator.getOauthResponse(mockOAuthClient, mockOAuthClientRequest));
     }
 
-
     @Test(expectedExceptions = AuthenticationFailedException.class)
     public void testGetOauthResponseWithExceptions() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException {
+
         OAuthClientRequest oAuthClientRequest = mock(OAuthClientRequest.class);
         OAuthClient oAuthClient = mock(OAuthClient.class);
         when(oAuthClient.accessToken(oAuthClientRequest)).thenThrow(OAuthSystemException.class);
@@ -518,6 +538,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test(expectedExceptions = AuthenticationFailedException.class)
     public void testGetOauthResponseWithOAuthProblemExceptions() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException {
+
         OAuthClientRequest oAuthClientRequest = mock(OAuthClientRequest.class);
         OAuthClient oAuthClient = mock(OAuthClient.class);
         when(oAuthClient.accessToken(oAuthClientRequest)).thenThrow(OAuthProblemException.class);
@@ -526,6 +547,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @ObjectFactory
     public IObjectFactory getObjectFactory() {
+
         return new org.powermock.modules.testng.PowerMockObjectFactory();
     }
 
@@ -538,6 +560,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
      */
     private void setupTest() throws OAuthSystemException, UserStoreException,
             OAuthProblemException, AuthenticationFailedException {
+
         mockStatic(OAuthAuthzResponse.class);
         when(OAuthAuthzResponse.oauthCodeAuthzResponse(mockServletRequest)).thenReturn(mockOAuthzResponse);
         when(mockServletRequest.getParameter("domain")).thenReturn("carbon.super");
@@ -563,11 +586,13 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     private void setParametersForOAuthClientResponse(OAuthClientResponse mockOAuthClientResponse,
                                                      String accessToken, String idToken) {
+
         when(mockOAuthClientResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN)).thenReturn(accessToken);
         when(mockOAuthClientResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN)).thenReturn(idToken);
     }
 
     private void mockAuthenticationRequestContext(AuthenticationContext mockAuthenticationContext) {
+
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
         paramValueMap = new HashMap<>();
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramValueMap);

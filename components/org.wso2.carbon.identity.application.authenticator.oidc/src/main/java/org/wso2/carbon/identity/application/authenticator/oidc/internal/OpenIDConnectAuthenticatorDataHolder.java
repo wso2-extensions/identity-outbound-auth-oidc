@@ -27,25 +27,32 @@ public class OpenIDConnectAuthenticatorDataHolder {
 
     private ClaimMetadataManagementService claimMetadataManagementService;
 
-    private OpenIDConnectAuthenticatorDataHolder() {}
+    private OpenIDConnectAuthenticatorDataHolder() {
+
+    }
 
     public static OpenIDConnectAuthenticatorDataHolder getInstance() {
+
         return instance;
     }
 
     public RealmService getRealmService() {
+
         return realmService;
     }
 
     public void setRealmService(RealmService realmService) {
+
         this.realmService = realmService;
     }
 
     public ClaimMetadataManagementService getClaimMetadataManagementService() {
+
         return claimMetadataManagementService;
     }
 
     public void setClaimMetadataManagementService(ClaimMetadataManagementService claimMetadataManagementService) {
+
         this.claimMetadataManagementService = claimMetadataManagementService;
     }
 }
