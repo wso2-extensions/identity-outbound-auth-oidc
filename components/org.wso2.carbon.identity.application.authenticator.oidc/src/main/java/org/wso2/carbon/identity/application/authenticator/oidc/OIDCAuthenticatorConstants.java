@@ -38,7 +38,6 @@ public class OIDCAuthenticatorConstants {
     public static final String CLIENT_SECRET = "ClientSecret";
     public static final String OAUTH2_AUTHZ_URL = "OAuth2AuthzEPUrl";
     public static final String OAUTH2_TOKEN_URL = "OAuth2TokenEPUrl";
-    public static final String OIDC_LOGOUT_URL = "OIDCLogoutEPUrl";
     public static final String IS_BASIC_AUTH_ENABLED = "IsBasicAuthEnabled";
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
@@ -63,6 +62,7 @@ public class OIDCAuthenticatorConstants {
         public static final String CLIENT_SECRET = "ClientSecret";
         public static final String AUTHORIZATION_EP = "AuthorizationEndPoint";
         public static final String TOKEN_EP = "TokenEndPoint";
+        public static final String OIDC_LOGOUT_URL = "OIDCLogoutEPUrl";
         public static final String USER_INFO_EP = "UserInfoEndPoint";
     }
 

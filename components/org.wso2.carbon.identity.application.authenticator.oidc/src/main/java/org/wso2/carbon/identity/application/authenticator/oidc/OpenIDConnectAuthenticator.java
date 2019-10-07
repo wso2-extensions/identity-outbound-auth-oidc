@@ -90,9 +90,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
 
     @Override
-    protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
+    protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response,
+                                         AuthenticationContext context) {
 
-        throw new UnsupportedOperationException();
+        log.debug("Handled logout response from service provider " + request.getParameter("sp") +
+                " in tenant domain " + request.getParameter("tenantDomain"));
     }
 
     @Override
@@ -136,8 +138,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     protected String getLogoutUrl(Map<String, String> authenticatorProperties) {
 
-        return authenticatorProperties.get(OIDCAuthenticatorConstants.OIDC_LOGOUT_URL);
+        return authenticatorProperties.get(OIDCAuthenticatorConstants.IdPConfParams.OIDC_LOGOUT_URL);
     }
+
 
     /**
      * Returns the token endpoint of OIDC federated authenticator
@@ -386,7 +389,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID));
             }
 
-            OIDCStateInfo stateInfoOIDC=new OIDCStateInfo();
+            OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
             stateInfoOIDC.setIdTokenHint(idToken);
             context.setStateInfo(stateInfoOIDC);
 
@@ -467,7 +470,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 throw new LogoutFailedException("Error occurred while initiating the logout request to IdP: " + idpName
                         + " of tenantDomain: " + tenantDomain, e);
             }
-        }else {
+        } else {
             super.initiateLogoutRequest(request, response, context);
         }
     }
