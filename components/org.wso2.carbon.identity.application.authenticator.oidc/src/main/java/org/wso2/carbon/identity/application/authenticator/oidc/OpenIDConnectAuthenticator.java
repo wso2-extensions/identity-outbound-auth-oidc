@@ -19,7 +19,6 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import com.nimbusds.jose.util.JSONObjectUtils;
 import net.minidev.json.JSONArray;
-import net.minidev.json.JSONValue;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
@@ -46,6 +45,7 @@ import org.wso2.carbon.identity.application.authentication.framework.model.Authe
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
+import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.base.IdentityConstants;
@@ -90,22 +90,23 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
 
     @Override
+    protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response,
+                                         AuthenticationContext context) {
+
+        log.debug("Handled logout response from service provider " + request.getParameter("sp") +
+                " in tenant domain " + request.getParameter("tenantDomain"));
+    }
+
+    @Override
     public boolean canHandle(HttpServletRequest request) {
 
         if (log.isTraceEnabled()) {
             log.trace("Inside OpenIDConnectAuthenticator.canHandle()");
         }
-
-        // Check commonauth got an OIDC response
-        if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE) != null
-                && request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null
-                && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
-            return true;
-        } else if (request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE) != null &&
-                request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR) != null) {
-            //if sends error like access_denied
+        if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
             return true;
         }
+
         // TODO : What if IdP failed?
 
         return false;
@@ -388,6 +389,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID));
             }
 
+            OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
+            stateInfoOIDC.setIdTokenHint(idToken);
+            context.setStateInfo(stateInfoOIDC);
+
             context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
 
             AuthenticatedUser authenticatedUser;
@@ -436,16 +441,52 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     @Override
-    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
 
-        try {
+    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response,
+                                         AuthenticationContext context) throws LogoutFailedException {
+
+        if (isLogoutEnabled(context)) {
             String logoutUrl = getLogoutUrl(context.getAuthenticatorProperties());
-            if (StringUtils.isNotEmpty(logoutUrl)) {
-                response.sendRedirect(logoutUrl);
+
+            Map<String,String> paramMap = new HashMap<>();
+
+            String idTokenHint = getIdTokenHint(context);
+            if (StringUtils.isNotBlank(idTokenHint)) {
+                paramMap.put(OIDCAuthenticatorConstants.ID_TOKEN_HINT, idTokenHint);
             }
-        } catch (IOException e) {
-            throw new LogoutFailedException("Error occurred while initiating the logout request");
+
+            String callback = getCallbackUrl(context.getAuthenticatorProperties());
+            paramMap.put(OIDCAuthenticatorConstants.POST_LOGOUT_REDIRECT_URI, callback);
+
+            String sessionID = getStateParameter(context, context.getAuthenticatorProperties());
+            paramMap.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, sessionID);
+
+            try {
+                logoutUrl = FrameworkUtils.buildURLWithQueryParams(logoutUrl, paramMap);
+                response.sendRedirect(logoutUrl);
+            } catch (IOException e) {
+                String idpName = context.getExternalIdP().getName();
+                String tenantDomain = context.getTenantDomain();
+                throw new LogoutFailedException("Error occurred while initiating the logout request to IdP: " + idpName
+                        + " of tenantDomain: " + tenantDomain, e);
+            }
+        } else {
+            super.initiateLogoutRequest(request, response, context);
         }
+    }
+
+    private boolean isLogoutEnabled(AuthenticationContext context) {
+
+        String logoutUrl = getLogoutUrl(context.getAuthenticatorProperties());
+        return StringUtils.isNotBlank(logoutUrl);
+    }
+
+    private String getIdTokenHint(AuthenticationContext context) {
+
+        if (context.getStateInfo() instanceof OIDCStateInfo) {
+            return ((OIDCStateInfo) context.getStateInfo()).getIdTokenHint();
+        }
+        return null;
     }
 
     private Map<String, Object> getIdTokenClaims(AuthenticationContext context, String idToken) {
