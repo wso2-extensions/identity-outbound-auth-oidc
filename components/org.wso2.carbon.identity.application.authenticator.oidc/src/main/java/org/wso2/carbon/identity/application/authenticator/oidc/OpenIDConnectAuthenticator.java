@@ -41,6 +41,7 @@ import org.wso2.carbon.identity.application.authentication.framework.AbstractApp
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
+import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
@@ -134,6 +135,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
         return callbackUrl;
     }
+
+    protected String getLogoutUrl(Map<String, String> authenticatorProperties) {
+
+        return authenticatorProperties.get(OIDCAuthenticatorConstants.IdPConfParams.OIDC_LOGOUT_URL);
+    }
+
 
     /**
      * Returns the token endpoint of OIDC federated authenticator
@@ -437,6 +444,19 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         } catch (OAuthProblemException e) {
             throw new AuthenticationFailedException("Authentication process failed", context.getSubject(), e);
+        }
+    }
+
+    @Override
+    protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response, AuthenticationContext context) throws LogoutFailedException {
+
+        try {
+            String logoutUrl = getLogoutUrl(context.getAuthenticatorProperties());
+            if (StringUtils.isNotEmpty(logoutUrl)) {
+                response.sendRedirect(logoutUrl);
+            }
+        } catch (IOException e) {
+            throw new LogoutFailedException("Error occurred while initiating the logout request");
         }
     }
 

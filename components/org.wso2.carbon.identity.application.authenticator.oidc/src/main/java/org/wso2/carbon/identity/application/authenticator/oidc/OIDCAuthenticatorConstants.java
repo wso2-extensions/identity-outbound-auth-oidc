@@ -65,6 +65,7 @@ public class OIDCAuthenticatorConstants {
         public static final String CLIENT_SECRET = "ClientSecret";
         public static final String AUTHORIZATION_EP = "AuthorizationEndPoint";
         public static final String TOKEN_EP = "TokenEndPoint";
+        public static final String OIDC_LOGOUT_URL = "OIDCLogoutEPUrl";
         public static final String USER_INFO_EP = "UserInfoEndPoint";
     }
 
