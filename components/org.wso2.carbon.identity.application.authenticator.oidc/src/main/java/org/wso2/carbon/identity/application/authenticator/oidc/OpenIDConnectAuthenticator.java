@@ -47,6 +47,7 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
@@ -67,6 +68,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -737,8 +739,99 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * @subject
+     * Get Configuration Properties.
      */
+    @Override
+    public List<Property> getConfigurationProperties() {
+
+        List<Property> configProperties = new ArrayList<>();
+        Property clientId = new Property();
+        clientId.setName(IdentityApplicationConstants.Authenticator.OIDC.CLIENT_ID);
+        clientId.setDisplayName("Client Id");
+        clientId.setRequired(true);
+        clientId.setDescription("Enter OAuth2/OpenID Connect client identifier value");
+        clientId.setType("string");
+        clientId.setDisplayOrder(1);
+        configProperties.add(clientId);
+
+        Property clientSecret = new Property();
+        clientSecret.setName(IdentityApplicationConstants.Authenticator.OIDC.CLIENT_SECRET);
+        clientSecret.setDisplayName("Client Secret");
+        clientSecret.setRequired(true);
+        clientSecret.setDescription("Enter OAuth2/OpenID Connect client secret value");
+        clientSecret.setType("string");
+        clientSecret.setDisplayOrder(2);
+        configProperties.add(clientSecret);
+
+        Property authzEpUrl = new Property();
+        authzEpUrl.setName(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_AUTHZ_URL);
+        authzEpUrl.setDisplayName("Authorization Endpoint URL");
+        authzEpUrl.setRequired(true);
+        authzEpUrl.setDescription("Enter OAuth2/OpenID Connect authorization endpoint URL value");
+        authzEpUrl.setType("string");
+        authzEpUrl.setDisplayOrder(3);
+        configProperties.add(authzEpUrl);
+
+        Property tokenEpUrl = new Property();
+        tokenEpUrl.setName(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_TOKEN_URL);
+        tokenEpUrl.setDisplayName("Token Endpoint URL");
+        tokenEpUrl.setRequired(true);
+        tokenEpUrl.setDescription("Enter OAuth2/OpenID Connect token endpoint URL value");
+        tokenEpUrl.setType("string");
+        tokenEpUrl.setDisplayOrder(4);
+        configProperties.add(tokenEpUrl);
+
+        Property callBackUrl = new Property();
+        callBackUrl.setName(IdentityApplicationConstants.Authenticator.OIDC.CALLBACK_URL);
+        callBackUrl.setDisplayName("Callback Url");
+        callBackUrl.setRequired(false);
+        callBackUrl.setDescription("Enter value corresponding to callback url");
+        callBackUrl.setType("string");
+        callBackUrl.setDisplayOrder(5);
+        configProperties.add(callBackUrl);
+
+        Property userInfoUrl = new Property();
+        userInfoUrl.setName(IdentityApplicationConstants.Authenticator.OIDC.USER_INFO_URL);
+        userInfoUrl.setDisplayName("Userinfo Endpoint URL");
+        userInfoUrl.setRequired(false);
+        userInfoUrl.setDescription("Enter value corresponding to userinfo endpoint url");
+        userInfoUrl.setType("string");
+        userInfoUrl.setDisplayOrder(6);
+        configProperties.add(userInfoUrl);
+
+        Property userIdLocation = new Property();
+        userIdLocation.setName(IdentityApplicationConstants.Authenticator.OIDC.IS_USER_ID_IN_CLAIMS);
+        userIdLocation.setDisplayName("OpenID Connect User ID Location");
+        userIdLocation.setRequired(false);
+        userIdLocation.setDescription("Specifies the location to find the user identifier in the ID token assertion");
+        userIdLocation.setType("boolean");
+        userIdLocation.setDisplayOrder(7);
+        configProperties.add(userIdLocation);
+
+        Property additionalParams = new Property();
+        additionalParams.setName("commonAuthQueryParams");
+        additionalParams.setDisplayName("Additional Query Parameters");
+        additionalParams.setRequired(false);
+        additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");
+        additionalParams.setType("string");
+        additionalParams.setDisplayOrder(8);
+        configProperties.add(additionalParams);
+
+        Property enableBasicAuth = new Property();
+        enableBasicAuth.setName(IdentityApplicationConstants.Authenticator.OIDC.IS_BASIC_AUTH_ENABLED);
+        enableBasicAuth.setDisplayName("Enable HTTP basic auth for client authentication");
+        enableBasicAuth.setRequired(false);
+        enableBasicAuth.setDescription("Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
+        enableBasicAuth.setType("boolean");
+        enableBasicAuth.setDisplayOrder(9);
+        configProperties.add(enableBasicAuth);
+
+        return configProperties;
+    }
+
+        /**
+         * @subject
+         */
     protected String getSubjectFromUserIDClaimURI(AuthenticationContext context) {
 
         String subject = null;
