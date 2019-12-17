@@ -871,8 +871,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 // Try to find the userIdClaimUri within the claimMappings.
                 if (!ArrayUtils.isEmpty(claimMappings)) {
                     for (ClaimMapping claimMapping : claimMappings) {
-                        if (log.isTraceEnabled()) {
-                            log.trace("evaluating " + claimMapping.getRemoteClaim().getClaimUri() + " against " + userIdClaimUri);
+                        if (log.isDebugEnabled()) {
+                            log.debug("Evaluating " + claimMapping.getRemoteClaim().getClaimUri() + " against " +
+                                    userIdClaimUri);
                         }
                         if (StringUtils.equals(claimMapping.getRemoteClaim().getClaimUri(), userIdClaimUri)) {
                             // Get the subject claim in OIDC dialect.
@@ -912,8 +913,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         ExternalClaim oidcUserIdClaim = null;
 
         for (ExternalClaim externalClaim : externalClaims) {
-            if (log.isTraceEnabled()) {
-                log.trace("evaluating " + userIdClaimInLocalDialect + " against " + externalClaim.getMappedLocalClaim());
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Evaluating " + userIdClaimInLocalDialect + " against " + externalClaim.getMappedLocalClaim());
             }
             if (userIdClaimInLocalDialect.equals(externalClaim.getMappedLocalClaim())) {
                 oidcUserIdClaim = externalClaim;
