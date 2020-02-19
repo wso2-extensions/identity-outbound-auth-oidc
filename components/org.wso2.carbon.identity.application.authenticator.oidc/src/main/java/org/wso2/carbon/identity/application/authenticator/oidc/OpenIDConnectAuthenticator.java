@@ -714,10 +714,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String state = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
         if (state != null) {
-            return state.split(",")[1];
-        } else {
-            return null;
+            String[] stateElements = state.split(",");
+            if (stateElements.length > 1) {
+                return stateElements[1];
+            }
         }
+        return null;
     }
 
     @Override
