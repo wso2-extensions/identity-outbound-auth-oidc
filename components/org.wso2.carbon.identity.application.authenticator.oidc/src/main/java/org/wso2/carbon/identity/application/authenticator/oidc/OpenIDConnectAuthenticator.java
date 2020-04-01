@@ -763,6 +763,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         clientSecret.setDescription("Enter OAuth2/OpenID Connect client secret value");
         clientSecret.setType("string");
         clientSecret.setDisplayOrder(2);
+        clientSecret.setConfidential(true);
         configProperties.add(clientSecret);
 
         Property authzEpUrl = new Property();
