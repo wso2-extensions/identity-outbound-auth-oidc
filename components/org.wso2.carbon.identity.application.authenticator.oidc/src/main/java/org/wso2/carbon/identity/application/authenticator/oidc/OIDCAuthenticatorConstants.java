@@ -49,6 +49,9 @@ public class OIDCAuthenticatorConstants {
     public static final String POST_LOGOUT_REDIRECT_URI = "post_logout_redirect_uri";
     public static final String ID_TOKEN_HINT = "id_token_hint";
 
+    public static final String AUTH_PARAM = "$authparam";
+    public static final String DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX = "\\$authparam\\{(\\w+)\\}";
+
     public class AuthenticatorConfParams {
 
         private AuthenticatorConfParams() {

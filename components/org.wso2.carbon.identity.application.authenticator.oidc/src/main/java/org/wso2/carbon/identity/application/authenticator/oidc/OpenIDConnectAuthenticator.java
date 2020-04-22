@@ -289,7 +289,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 OAuthClientRequest authzRequest;
 
                 String queryString = getQueryString(authenticatorProperties);
-                queryString = interpretQueryString(queryString, request.getParameterMap());
+                queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
 
                 if (StringUtils.isNotBlank(queryString)) {
@@ -977,10 +977,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return builder.toString();
     }
 
-    private String interpretQueryString(String queryString, Map<String, String[]> parameters) {
+    private String interpretQueryString(AuthenticationContext context, String queryString,
+                                        Map<String, String[]> parameters) {
 
         if (StringUtils.isBlank(queryString)) {
             return null;
+        }
+        if (queryString.contains(OIDCAuthenticatorConstants.AUTH_PARAM)) {
+            return getQueryStringWithAuthenticatorParam(context, queryString);
         }
         Matcher matcher = pattern.matcher(queryString);
         while (matcher.find()) {
@@ -1004,6 +1008,54 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             log.debug("Output QueryString: " + queryString);
         }
         return queryString;
+    }
+
+    /**
+     * To capture the additional authenticator params from the adaptive script and interpret the query string with
+     * additional params.
+     *
+     * @param context Authentication context
+     * @param queryString the query string with additional param
+     * @return interpreted query string
+     */
+    private String getQueryStringWithAuthenticatorParam(AuthenticationContext context, String queryString) {
+
+        Matcher matcher = Pattern.compile(OIDCAuthenticatorConstants.DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX)
+                .matcher(queryString);
+        String value = null;
+        while (matcher.find()) {
+            String paramName = matcher.group(1);
+            if (StringUtils.isNotEmpty(getRuntimeParams(context).get(paramName))) {
+                value = getRuntimeParams(context).get(paramName);
+            }
+            if (StringUtils.isNotEmpty(value)) {
+                try {
+                    value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+                    if (log.isDebugEnabled()) {
+                        log.debug("InterpretQueryString with authenticator param: " + paramName + "," +
+                                " value: " + value);
+                    }
+                } catch (UnsupportedEncodingException e) {
+                    log.error("Error while encoding the authenticator param: " + paramName +
+                            " with value: " + value, e);
+                }
+                queryString = queryString.replaceAll("\\$authparam\\{" + paramName + "}",
+                        Matcher.quoteReplacement(value));
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("Authenticator param value for the param name :" + paramName + " is null");
+                }
+            }
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("Output QueryString with Authenticator Params : " + queryString);
+        }
+        // If the query string replaced the '$authparam{paramName}' with the actual value for the given paramName
+        // then return the interpreted query string, otherwise return null.
+        if (!queryString.contains(OIDCAuthenticatorConstants.AUTH_PARAM)) {
+            return queryString;
+        }
+        return null;
     }
 
     private String getCallbackUrlFromInitialRequestParamMap(AuthenticationContext context) {
