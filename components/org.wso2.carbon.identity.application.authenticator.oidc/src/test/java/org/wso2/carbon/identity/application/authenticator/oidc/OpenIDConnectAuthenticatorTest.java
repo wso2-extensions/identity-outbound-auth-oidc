@@ -174,6 +174,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         authenticatorProperties.put(IdentityApplicationConstants.Authenticator.SAML2SSO.IS_USER_ID_IN_CLAIMS, "true");
         authenticatorParamProperties = new HashMap<>();
         authenticatorParamProperties.put("username", "testUser");
+        authenticatorParamProperties.put("fidp", "google");
         token = null;
 
     }
@@ -310,7 +311,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                         "https://localhost:9443/redirect", "The redirect URI is invalid"},
                 // If condition : queryString != null && queryString.contains("redirect_uri=").
                 {"state=OIDC&loginType=basic", "https://localhost:9443/redirect", "The redirect URI is invalid"},
-                {"login_hint=$authparam{username}", "https://localhost:9443/redirect", "The redirect URI is invalid"}
+                {"login_hint=$authparam{username}", "https://localhost:9443/redirect", "The redirect URI is invalid"},
+                {"login_hint=$authparam{username}&domain=$authparam{fidp}", "https://localhost:9443/redirect",
+                        "The redirect URI is invalid"}
         };
     }
 
@@ -328,7 +331,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 mockAuthenticationContext);
 
         authenticatorProperties.put("commonAuthQueryParams", authParam);
-        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).thenReturn(authenticatorParamProperties);
+        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).
+                thenReturn(authenticatorParamProperties);
         openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
                 mockAuthenticationContext);
         assertEquals(mockServletResponse.encodeRedirectURL("encodeRedirectUri"), expectedValue, errorMsg);
@@ -336,13 +340,25 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testInitiateAuthenticationRequestWithAuthParam() throws Exception {
+    public void testGetQueryStringWithAuthenticatorParam() throws Exception {
 
         mockAuthenticationRequestContext(mockAuthenticationContext);
-        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).thenReturn(authenticatorParamProperties);
+        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).
+                thenReturn(authenticatorParamProperties);
         assertEquals(Whitebox.invokeMethod(openIDConnectAuthenticator,
                 "getQueryStringWithAuthenticatorParam", mockAuthenticationContext,
                 "login_hint=$authparam{username}"), "login_hint=testUser");
+    }
+
+    @Test
+    public void testGetQueryStringWithMultipleAuthenticatorParam() throws Exception {
+
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).
+                thenReturn(authenticatorParamProperties);
+        assertEquals(Whitebox.invokeMethod(openIDConnectAuthenticator,
+                "getQueryStringWithAuthenticatorParam", mockAuthenticationContext,
+                "login_hint=$authparam{username}&domain=$authparam{fidp}"), "login_hint=testUser&domain=google");
     }
 
     @Test(expectedExceptions = AuthenticationFailedException.class)
