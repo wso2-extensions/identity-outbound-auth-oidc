@@ -49,6 +49,8 @@ import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDCo
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
+import org.wso2.carbon.identity.core.ServiceURL;
+import org.wso2.carbon.identity.core.ServiceURLBuilder;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.user.api.RealmConfiguration;
@@ -86,7 +88,7 @@ import static org.testng.Assert.assertTrue;
  */
 @PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
         OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
-        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class})
+        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -140,6 +142,12 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Mock
     private OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder;
 
+    @Mock
+    private ServiceURLBuilder serviceURLBuilder;
+
+    @Mock
+    private ServiceURL serviceURL;
+
     OpenIDConnectAuthenticator openIDConnectAuthenticator;
 
     private static Map<String, String> authenticatorProperties;
@@ -176,7 +184,6 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         authenticatorParamProperties.put("username", "testUser");
         authenticatorParamProperties.put("fidp", "google");
         token = null;
-
     }
 
     @DataProvider(name = "seperator")
@@ -319,9 +326,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Test(dataProvider = "commonAuthParamProvider")
     public void testInitiateAuthenticationRequest(String authParam, String expectedValue,
-                                                  String errorMsg) throws OAuthSystemException,
-            OAuthProblemException, AuthenticationFailedException, UserStoreException {
+                                                  String errorMsg) throws Exception {
 
+        setupTest();
         mockAuthenticationRequestContext(mockAuthenticationContext);
         when(mockServletResponse.encodeRedirectURL(anyString())).thenReturn("https://localhost:9443/redirect");
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
@@ -394,8 +401,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test(expectedExceptions = AuthenticationFailedException.class)
-    public void testPassProcessAuthenticationResponseWithoutAccessToken() throws OAuthSystemException,
-            OAuthProblemException, AuthenticationFailedException, UserStoreException {
+    public void testPassProcessAuthenticationResponseWithoutAccessToken() throws Exception {
 
         setupTest();
         // Empty access token and id token
@@ -590,8 +596,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
      * @throws AuthenticationFailedException an instance of AuthenticationFailedException
      * @throws UserStoreException an instance of UserStoreException
      */
-    private void setupTest() throws OAuthSystemException, UserStoreException,
-            OAuthProblemException, AuthenticationFailedException {
+    private void setupTest() throws Exception {
 
         mockStatic(OAuthAuthzResponse.class);
         when(OAuthAuthzResponse.oauthCodeAuthzResponse(mockServletRequest)).thenReturn(mockOAuthzResponse);
@@ -614,6 +619,12 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 .thenReturn(",");
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL("", false, false)).thenReturn("https://localhost:9443");
+
+        mockStatic(ServiceURLBuilder.class);
+        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.addPath(anyString())).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.addParameter(anyString(), anyString())).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.build()).thenReturn(serviceURL);
     }
 
     private void setParametersForOAuthClientResponse(OAuthClientResponse mockOAuthClientResponse,

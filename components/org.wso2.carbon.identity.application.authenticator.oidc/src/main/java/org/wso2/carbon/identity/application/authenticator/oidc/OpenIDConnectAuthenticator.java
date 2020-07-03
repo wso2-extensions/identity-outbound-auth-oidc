@@ -41,6 +41,7 @@ import org.wso2.carbon.identity.application.authentication.framework.FederatedAp
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.FrameworkRuntimeException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
@@ -52,7 +53,10 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationConst
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.claim.metadata.mgt.model.ExternalClaim;
+import org.wso2.carbon.identity.core.ServiceURLBuilder;
+import org.wso2.carbon.identity.core.URLBuilderException;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 import org.wso2.carbon.user.api.UserRealm;
@@ -95,8 +99,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response,
                                          AuthenticationContext context) {
 
-        log.debug("Handled logout response from service provider " + request.getParameter("sp") +
-                " in tenant domain " + request.getParameter("tenantDomain"));
+        if (log.isDebugEnabled()) {
+            if (IdentityTenantUtil.isTenantQualifiedUrlsEnabled()) {
+                log.debug("Handled logout response from service provider " + request.getParameter("sp") +
+                        " in tenant domain " + IdentityTenantUtil.getTenantDomainFromContext());
+            } else {
+                log.debug("Handled logout response from service provider " + request.getParameter("sp") +
+                        " in tenant domain " + request.getParameter("tenantDomain"));
+            }
+        }
+
     }
 
     @Override
@@ -134,7 +146,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String callbackUrl = authenticatorProperties.get(IdentityApplicationConstants.OAuth2.CALLBACK_URL);
         if (StringUtils.isBlank(callbackUrl)) {
-            callbackUrl = IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
+            try {
+                callbackUrl = ServiceURLBuilder.create().addPath(FrameworkConstants.COMMONAUTH).build()
+                        .getAbsolutePublicURL();
+            } catch (URLBuilderException e) {
+                throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
+            }
         }
         return callbackUrl;
     }
@@ -660,7 +677,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     log.debug("Authenticating to token endpoint: " + tokenEndPoint + " including client credentials "
                             + "in request body.");
                 }
-
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
                         (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
@@ -668,7 +684,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             // set 'Origin' header to access token request.
             if (accessTokenRequest != null) {
                 // fetch the 'Hostname' configured in carbon.xml
-                String serverURL = IdentityUtil.getServerURL("", false, false);
+                String serverURL = ServiceURLBuilder.create().build().getAbsolutePublicURL();
                 accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HTTP_ORIGIN_HEADER, serverURL);
             }
         } catch (OAuthSystemException e) {
@@ -677,6 +693,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             throw new AuthenticationFailedException(e.getMessage(), e);
+        } catch (URLBuilderException e) {
+            throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
         }
 
         return accessTokenRequest;
