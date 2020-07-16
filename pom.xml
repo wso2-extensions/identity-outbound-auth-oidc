@@ -175,7 +175,7 @@
                 <version>${commons-collections.wso2.version}</version>
             </dependency>
             <dependency>
-                <groupId>commons-codec.wso2</groupId>
+                <groupId>org.wso2.orbit.commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>${commons-codec.version}</version>
             </dependency>
@@ -332,7 +332,7 @@
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
-        <commons-codec.version>1.4.0.wso2v1</commons-codec.version>
+        <commons-codec.version>1.14.0.wso2v1</commons-codec.version>
 
         <identity.framework.package.import.version.range>[5.14.0, 6.0.0)
         </identity.framework.package.import.version.range>
