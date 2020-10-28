@@ -162,7 +162,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return authenticatorProperties.get(OIDCAuthenticatorConstants.IdPConfParams.OIDC_LOGOUT_URL);
     }
 
-
     /**
      * Returns the token endpoint of OIDC federated authenticator
      *
@@ -370,6 +369,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getCode(),
                         ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getMessage());
             }
+        } catch (UnsupportedEncodingException e) {
+            if (log.isDebugEnabled()) {
+                log.debug("Error while encoding the additional query parameters", e);
+            }
+            throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
+                    e.getMessage(), e);
         } catch (IOException e) {
             throw new AuthenticationFailedException(ErrorMessages.IO_ERROR.getCode(), e.getMessage(), e);
         } catch (OAuthSystemException e) {
@@ -486,7 +491,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (isLogoutEnabled(context)) {
             String logoutUrl = getLogoutUrl(context.getAuthenticatorProperties());
 
-            Map<String,String> paramMap = new HashMap<>();
+            Map<String, String> paramMap = new HashMap<>();
 
             String idTokenHint = getIdTokenHint(context);
             if (StringUtils.isNotBlank(idTokenHint)) {
@@ -637,7 +642,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 }
             }
         } else {
-            claimValue = entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
+            claimValue =
+                    entry.getValue() != null ? new StringBuilder(entry.getValue().toString()) : new StringBuilder();
         }
         claims.put(ClaimMapping.build(entry.getKey(), entry.getKey(), null, false),
                 claimValue != null ? claimValue.toString() : StringUtils.EMPTY);
@@ -852,7 +858,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setName(IdentityApplicationConstants.Authenticator.OIDC.IS_BASIC_AUTH_ENABLED);
         enableBasicAuth.setDisplayName("Enable HTTP basic auth for client authentication");
         enableBasicAuth.setRequired(false);
-        enableBasicAuth.setDescription("Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
+        enableBasicAuth.setDescription(
+                "Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
         enableBasicAuth.setDisplayOrder(9);
         configProperties.add(enableBasicAuth);
@@ -860,9 +867,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return configProperties;
     }
 
-        /**
-         * @subject
-         */
+    /**
+     * @subject
+     */
     protected String getSubjectFromUserIDClaimURI(AuthenticationContext context) {
 
         String subject = null;
@@ -909,14 +916,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         if (StringUtils.equals(claimMapping.getRemoteClaim().getClaimUri(), userIdClaimUri)) {
                             // Get the subject claim in OIDC dialect.
                             String userIdClaimUriInLocalDialect = claimMapping.getLocalClaim().getClaimUri();
-                            userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain);
+                            userIdClaimUriInOIDCDialect =
+                                    getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain);
                             break;
                         }
                     }
                 }
             }
             if (log.isDebugEnabled()) {
-                log.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " + userIdClaimUriInOIDCDialect);
+                log.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " +
+                        userIdClaimUriInOIDCDialect);
             }
             Object subject = idTokenClaims.get(userIdClaimUriInOIDCDialect);
             if (subject instanceof String) {
@@ -1046,21 +1055,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @param paramMap addition query param and value
      * @return evaluated query string
      */
-    private String getEvaluatedQueryString(Map<String, String> paramMap) {
+    private String getEvaluatedQueryString(Map<String, String> paramMap) throws UnsupportedEncodingException {
 
         StringBuilder queryString = new StringBuilder();
         if (paramMap.isEmpty()) {
             return queryString.toString();
         }
         for (Map.Entry param : paramMap.entrySet()) {
-            try {
-                queryString.append(param.getKey()).append("=")
-                        .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
-                        .append("&");
-            } catch (UnsupportedEncodingException e) {
-                log.error("Error while encoding the query param: " + param.getKey().toString() + " with value: " +
-                        param.getValue().toString(), e);
-            }
+
+            queryString.append(param.getKey()).append("=")
+                    .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
+                    .append("&");
+
         }
         return queryString.substring(0, queryString.length() - 1);
     }
