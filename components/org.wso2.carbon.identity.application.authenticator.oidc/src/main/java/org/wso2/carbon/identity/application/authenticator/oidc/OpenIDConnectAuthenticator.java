@@ -1053,7 +1053,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             return queryString.toString();
         }
         for (Map.Entry param : paramMap.entrySet()) {
-            queryString.append(param.getKey()).append("=").append(param.getValue()).append("&");
+            try {
+                queryString.append(param.getKey()).append("=")
+                        .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
+                        .append("&");
+            } catch (UnsupportedEncodingException e) {
+                log.error("Error while encoding the query param: " + param.getKey().toString() + " with value: " +
+                        param.getValue().toString(), e);
+            }
         }
         return queryString.substring(0, queryString.length() - 1);
     }
