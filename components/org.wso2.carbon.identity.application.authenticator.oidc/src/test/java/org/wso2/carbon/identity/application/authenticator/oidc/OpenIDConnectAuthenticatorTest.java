@@ -201,8 +201,13 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         return new String[][]{
                 // When all parameters not null.
                 {"openid", "active,OIDC", "BASIC", "Error Login.", "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
-                // When gran_type and login_type are null.
-                {null, "active,OIDC", null, "Error Login.", "true", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
+                // When grant_type is null.
+                {null, "active,OIDC", "BASIC", "Error Login.", "false", "active", "Invalid can handle response for the request.", "Invalid context identifier."},
+                // When login_type is null.
+                {"openid", "active,OIDC", null, "Error Login.", "true", "active", "Invalid can handle response for " +
+                        "the request.", "Invalid context identifier."},
+                // When grant_type and login_type are null.
+                {null, "active,OIDC", null, "Error Login.", "false", "active", "Invalid can handle response for the " + "request.", "Invalid context identifier."},
                 // When all parameters null.
                 {null, null, null, null, "false", null, "Invalid can handle response for the request.", "Invalid context identifier."}
         };
