@@ -120,7 +120,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-        if (code != null && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
+        if (StringUtils.isNotBlank(code) && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
             return true;
         }
 
