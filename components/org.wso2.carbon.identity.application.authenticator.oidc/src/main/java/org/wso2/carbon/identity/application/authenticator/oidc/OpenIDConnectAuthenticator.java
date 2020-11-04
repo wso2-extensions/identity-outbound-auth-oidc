@@ -118,7 +118,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (log.isTraceEnabled()) {
             log.trace("Inside OpenIDConnectAuthenticator.canHandle()");
         }
-        if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
+
+        String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+        if (StringUtils.isNotBlank(code) && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
             return true;
         }
 
