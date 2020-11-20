@@ -102,7 +102,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                            AuthenticationContext context)
             throws AuthenticationFailedException, LogoutFailedException {
 
-        if (!context.isLogoutRequest() && !isCodeResponse(request)) {
+        if (!context.isLogoutRequest() && !hasCodeParamInRequest(request)) {
             if (canHandle(request) || Boolean.TRUE.equals(request.getAttribute(FrameworkConstants.REQ_ATTR_HANDLED))) {
                 if (getName().equals(context.getProperty(FrameworkConstants.LAST_FAILED_AUTHENTICATOR))) {
                     context.setRetrying(true);
@@ -148,7 +148,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return false;
     }
 
-    private boolean isCodeResponse(HttpServletRequest request) {
+    private boolean hasCodeParamInRequest(HttpServletRequest request) {
 
         String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
         return StringUtils.isNotBlank(code);
