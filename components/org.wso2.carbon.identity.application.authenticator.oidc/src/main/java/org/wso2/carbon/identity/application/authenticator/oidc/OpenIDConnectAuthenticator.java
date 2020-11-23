@@ -37,6 +37,7 @@ import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.apache.oltu.oauth2.common.utils.JSONUtils;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorFlowStatus;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
@@ -97,6 +98,25 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
 
     @Override
+    public AuthenticatorFlowStatus process(HttpServletRequest request, HttpServletResponse response,
+                                           AuthenticationContext context)
+            throws AuthenticationFailedException, LogoutFailedException {
+
+        if (!context.isLogoutRequest() && !hasCodeParamInRequest(request)) {
+            if (canHandle(request) || Boolean.TRUE.equals(request.getAttribute(FrameworkConstants.REQ_ATTR_HANDLED))) {
+                if (getName().equals(context.getProperty(FrameworkConstants.LAST_FAILED_AUTHENTICATOR))) {
+                    context.setRetrying(true);
+                }
+                initiateAuthenticationRequest(request, response, context);
+                context.setCurrentAuthenticator(getName());
+                context.setRetrying(false);
+                return AuthenticatorFlowStatus.INCOMPLETE;
+            }
+        }
+        return super.process(request, response, context);
+    }
+
+    @Override
     protected void processLogoutResponse(HttpServletRequest request, HttpServletResponse response,
                                          AuthenticationContext context) {
 
@@ -119,14 +139,19 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             log.trace("Inside OpenIDConnectAuthenticator.canHandle()");
         }
 
-        String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-        if (StringUtils.isNotBlank(code) && OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
+        if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
             return true;
         }
 
         // TODO : What if IdP failed?
 
         return false;
+    }
+
+    private boolean hasCodeParamInRequest(HttpServletRequest request) {
+
+        String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+        return StringUtils.isNotBlank(code);
     }
 
     /**
