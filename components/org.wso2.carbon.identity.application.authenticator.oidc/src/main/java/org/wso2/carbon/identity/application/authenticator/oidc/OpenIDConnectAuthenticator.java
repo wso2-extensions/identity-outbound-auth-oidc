@@ -86,6 +86,8 @@ import java.util.regex.Pattern;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
+
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
 
@@ -475,6 +477,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     }
                     throw new AuthenticationFailedException(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getCode(),
                             errorMessage);
+                }
+
+                String idpName = context.getExternalIdP().getIdPName();
+                String sidClaim = (String) jsonObject.get(OIDCAuthenticatorConstants.SID);
+                if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
+                    context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
                 }
 
                 if (log.isDebugEnabled() && IdentityUtil

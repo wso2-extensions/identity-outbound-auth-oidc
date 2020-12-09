@@ -52,6 +52,8 @@ public class OIDCAuthenticatorConstants {
     public static final String AUTH_PARAM = "$authparam";
     public static final String DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX = "\\$authparam\\{(\\w+)\\}";
 
+    public static final String SID = "sid";
+
     public class AuthenticatorConfParams {
 
         private AuthenticatorConfParams() {
