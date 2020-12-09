@@ -482,7 +482,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String idpName = context.getExternalIdP().getIdPName();
                 String sidClaim = (String) jsonObject.get(OIDCAuthenticatorConstants.SID);
                 if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
-                    //Add SId claim into authentication context, to be stored in the UserSessionStore for
+                    //Add 'sid' claim into authentication context, to be stored in the UserSessionStore for
                     // single logout.
                     context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
                 }
