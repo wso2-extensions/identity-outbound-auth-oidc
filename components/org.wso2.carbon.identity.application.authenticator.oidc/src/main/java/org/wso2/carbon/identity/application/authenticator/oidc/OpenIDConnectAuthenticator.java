@@ -104,7 +104,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                            AuthenticationContext context)
             throws AuthenticationFailedException, LogoutFailedException {
 
-        if (!context.isLogoutRequest() && !hasCodeParamInRequest(request)) {
+        /* In the OIDC Authenticator, the canHandle() returns true whenever the state parameter for the request
+        satisfy the loginType condition.
+        This fails in a scenario as described in wso2/product-is#10057, where there
+        are more than one redirections before the user is prompted for authentication and an authorization code is
+        returned. In such scenarios as per the current behaviour, the OIDC Authenticator would call the
+        processAuthenticationResponse, even if no code parameter is returned in the request.
+        Also in cases described in wso2/product-is#10697, where making the authentication request to federated IDP
+        even the response contains an error. In order to mitigate that in this code segment the error parameter is
+        also checked before initiating the authentication request. */
+        if (isInitialRequest(context, request)) {
             if (canHandle(request) || Boolean.TRUE.equals(request.getAttribute(FrameworkConstants.REQ_ATTR_HANDLED))) {
                 if (getName().equals(context.getProperty(FrameworkConstants.LAST_FAILED_AUTHENTICATOR))) {
                     context.setRetrying(true);
@@ -148,6 +157,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         // TODO : What if IdP failed?
 
         return false;
+    }
+
+    private boolean isInitialRequest(AuthenticationContext context, HttpServletRequest request) {
+
+        return !context.isLogoutRequest() && !hasCodeParamInRequest(request) && !hasErrorParamInRequest(request);
+    }
+
+    private boolean hasErrorParamInRequest(HttpServletRequest request) {
+
+        String error = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR);
+        return StringUtils.isNotBlank(error);
     }
 
     private boolean hasCodeParamInRequest(HttpServletRequest request) {
