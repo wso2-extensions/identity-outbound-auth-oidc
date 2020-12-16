@@ -162,7 +162,13 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.ui; version="${carbon.kernel.package.import.version.range}",
                             com.nimbusds.jose.*; version="${nimbusds.osgi.version.range}",
-                            com.nimbusds.jwt; version="${nimbusds.osgi.version.range}"
+                            com.nimbusds.jwt; version="${nimbusds.osgi.version.range}",
+                            com.nimbusds.oauth2.sdk.id.*;
+                            com.nimbusds.openid.connect.sdk.*;
+                            org.wso2.carbon.identity.oauth2.*;
+                            version="${carbon.identity.inbound.oauth.package.import.version.range}",
+                            org.wso2.carbon.idp.mgt; version="${identity.framework.package.import.version.range}",
+                            org.wso2.carbon.identity.application.common.util;
                         </Import-Package>
                         <Export-Package>
                             !org.wso2.carbon.identity.application.authenticator.oidc.internal,

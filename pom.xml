@@ -224,6 +224,11 @@
                 <artifactId>nimbus-jose-jwt</artifactId>
                 <version>${nimbusds.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>oauth2-oidc-sdk</artifactId>
+                <version>8.28.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -334,6 +339,8 @@
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
         <commons-codec.version>1.14.0.wso2v1</commons-codec.version>
 
+        <carbon.identity.inbound.oauth.package.import.version.range>[6.0.0, 7.0.0)
+        </carbon.identity.inbound.oauth.package.import.version.range>
         <identity.framework.package.import.version.range>[5.14.0, 6.0.0)
         </identity.framework.package.import.version.range>
         <carbon.kernel.package.import.version.range>[4.5.0, 5.0.0)</carbon.kernel.package.import.version.range>
