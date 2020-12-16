@@ -109,4 +109,14 @@ public class OIDCAuthenticatorConstants {
         public static final String ADDRESS = "address";
         public static final String UPDATED_AT = "updated_at";
     }
+
+    public class JWT {
+
+        private JWT() {
+
+        }
+
+        public static final String JWKS_VALIDATION_ENABLE_CONFIG = "JWTValidatorConfigs.Enable";
+        public static final String JWKS_URI = "jwksUri";
+    }
 }
