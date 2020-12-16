@@ -16,30 +16,31 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc;
+package org.wso2.carbon.identity.application.authenticator.oidc.context;
 
-import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
+import org.wso2.carbon.identity.core.bean.context.MessageContext;
 
+import java.util.HashMap;
+import java.util.Map;
 
-public class LogoutException extends FrameworkException {
+public class LogoutContext extends MessageContext {
 
-    public LogoutException(String message) {
+    private IdentityRequest identityRequest = null;
 
-        super(message);
+    public LogoutContext(Map parameters) {
+
+        super(parameters);
     }
 
-    public LogoutException(String errorCode, String message) {
+    public LogoutContext(IdentityRequest identityRequest) {
 
-        super(errorCode, message);
+        super(new HashMap());
+        this.identityRequest = identityRequest;
     }
 
-    public LogoutException(String message, Throwable cause) {
+    public IdentityRequest getIdentityRequest() {
 
-        super(message, cause);
-    }
-
-    public LogoutException(String errorCode, String message, Throwable cause) {
-
-        super(errorCode, message, cause);
+        return identityRequest;
     }
 }
