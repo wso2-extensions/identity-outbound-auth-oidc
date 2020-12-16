@@ -18,6 +18,8 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
+import java.util.regex.Pattern;
+
 public class OIDCAuthenticatorConstants {
 
     private OIDCAuthenticatorConstants() {
@@ -53,6 +55,9 @@ public class OIDCAuthenticatorConstants {
     public static final String DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX = "\\$authparam\\{(\\w+)\\}";
 
     public static final String SID = "sid";
+
+    public static final Pattern OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN =
+            Pattern.compile("(.*)/identity/oidc/slo?");
 
     public class AuthenticatorConfParams {
 
