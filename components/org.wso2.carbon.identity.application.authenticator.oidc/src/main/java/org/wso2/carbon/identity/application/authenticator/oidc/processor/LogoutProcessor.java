@@ -83,6 +83,7 @@ public class LogoutProcessor extends IdentityProcessor {
     private static final String OIDC_IDP_ENTITY_ID = "IdPEntityId";
     private static final String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openidnet/event/backchannel-logout";
     private static final String BACKCHANNEL_LOGOUT_EVENT_CLAIM = "{}";
+    private static final int notBeforeTimeMillis = 30 * 60 * 1000;
 
     @Override
     public IdentityResponse.IdentityResponseBuilder process(IdentityRequest identityRequest) throws FrameworkException {
@@ -255,35 +256,21 @@ public class LogoutProcessor extends IdentityProcessor {
 
     private boolean validateIat(Date iat, IdentityProvider identityProvider) throws IdentityOAuth2Exception {
 
-        String notBeforeTime = null;
         if (iat != null) {
-            for (Property property : identityProvider.getDefaultAuthenticatorConfig().getProperties()) {
-                String propertyName = (String) property.getName();
-                if (propertyName.equals("OIDCNotBeforeTime")) {
-                    notBeforeTime = property.getValue();
-                    break;
-                }
-            }
-            if (notBeforeTime == null) {
-                log.debug("iat claim validation is not set");
-                return true;
-            } else {
-                long issuedAtTimeMillis = iat.getTime();
-                long currentTimeInMillis = System.currentTimeMillis();
-                if (currentTimeInMillis - issuedAtTimeMillis > (Integer.parseInt(notBeforeTime) * 1000)) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Token is used after Issued Not Before Time." +
-                                ", Issued Not Before Time(m) : " + (Integer.parseInt(notBeforeTime) / 60) +
-                                ", Current Time : " + currentTimeInMillis +
-                                ". Token Rejected and validation terminated.");
-                    }
-                    throw new IdentityOAuth2Exception("Token is used before Not_Before_Time.");
-                }
+            long issuedAtTimeMillis = iat.getTime();
+            long currentTimeInMillis = System.currentTimeMillis();
+            if (currentTimeInMillis - issuedAtTimeMillis > notBeforeTimeMillis) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Not Before Time(nbf) of Token was validated successfully.");
+                    log.debug("Token is used after Issued Not Before Time." +
+                            ", Issued Not Before Time(ms) : " + notBeforeTimeMillis +
+                            ", Current Time : " + currentTimeInMillis +
+                            ". Token Rejected and validation terminated.");
                 }
+                throw new IdentityOAuth2Exception("Token is used before Not_Before_Time.");
             }
-
+            if (log.isDebugEnabled()) {
+                log.debug("Not Before Time(nbf) of Token was validated successfully.");
+            }
         }
         return true;
     }
