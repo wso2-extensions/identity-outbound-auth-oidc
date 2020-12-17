@@ -122,7 +122,7 @@ public class LogoutProcessor extends IdentityProcessor {
             if (StringUtils.isNotBlank(logoutToken)) {
                 log.info("Logout Token: " + logoutToken);
 
-                //check whether id token validation is enable
+                //check for id token encryption
                 boolean isEncryptionEnabled = false;
 
                 if (isEncryptionEnabled) {
@@ -135,19 +135,16 @@ public class LogoutProcessor extends IdentityProcessor {
 
                         JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
 
-                        String idp = (String) claimsSet.getIssuer();
+                        String idp = claimsSet.getIssuer();
                         String tenetDomain = logoutRequest.getTenantDomain();
                         IdentityProvider identityProvider = getIdentityProvider(idp, tenetDomain);
 
                         boolean isSignatureValid = validateSignature(signedJWT, identityProvider);
 
-                        Date exp = (Date) claimsSet.getExpirationTime();
-                        boolean isExpired = validateExp(exp);
-
                         List<String> aud = claimsSet.getAudience();
                         boolean isAudValid = validateAud(aud, identityProvider);
 
-                        Date iat = (Date) claimsSet.getIssueTime();
+                        Date iat = claimsSet.getIssueTime();
                         boolean isIatValid = validateIat(iat, identityProvider);
 
                         boolean isSidValid = validateSid(claimsSet);
@@ -157,7 +154,7 @@ public class LogoutProcessor extends IdentityProcessor {
 
                         boolean isvalidNonce = validateNonce(claimsSet);
 
-                        if (isExpired && isSignatureValid && isAudValid && isIatValid && isSidValid && isValidEvents &&
+                        if (isSignatureValid && isAudValid && isIatValid && isSidValid && isValidEvents &&
                                 isvalidNonce) {
                             String sid = (String) claimsSet.getClaim("sid");
                             doLogout(sid);
@@ -234,24 +231,6 @@ public class LogoutProcessor extends IdentityProcessor {
             }
         }
         return isValid;
-    }
-
-    private boolean validateExp(Date exp) throws IdentityOAuth2Exception {
-
-        if (exp != null) {
-            long expiredAtTimeMillis = exp.getTime();
-            long currentTimeInMillis = System.currentTimeMillis();
-            if (currentTimeInMillis > expiredAtTimeMillis) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Token is expired. Token Rejected and validation terminated.");
-                }
-                throw new IdentityOAuth2Exception("Token is used after expiry time.");
-            }
-            if (log.isDebugEnabled()) {
-                log.debug("Expiry time of Token was validated successfully.");
-            }
-        }
-        return true;
     }
 
     private boolean validateIat(Date iat, IdentityProvider identityProvider) throws IdentityOAuth2Exception {
