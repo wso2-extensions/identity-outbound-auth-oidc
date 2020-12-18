@@ -29,6 +29,8 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
@@ -61,11 +63,13 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 
 import static org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants.AnalyticsAttributes.SESSION_ID;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
 
 public class LogoutProcessor extends IdentityProcessor {
@@ -83,7 +87,8 @@ public class LogoutProcessor extends IdentityProcessor {
     private static final String OIDC_IDP_ENTITY_ID = "IdPEntityId";
     private static final String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openidnet/event/backchannel-logout";
     private static final String BACKCHANNEL_LOGOUT_EVENT_CLAIM = "{}";
-    private static final int notBeforeTimeMillis = 30 * 60 * 1000;
+    private static final String ENABLE_IAT_VALIDATION = "enableIatValidation";
+    private static final String IAT_VALIDITY_PERIOD = "iatValidityPeriod";
 
     @Override
     public IdentityResponse.IdentityResponseBuilder process(IdentityRequest identityRequest) throws FrameworkException {
@@ -100,11 +105,10 @@ public class LogoutProcessor extends IdentityProcessor {
             try {
                 identityResponseBuilder = oidcFederatedLogout(logoutContext);
             } catch (Exception e) {
-                throw e;
+                log.error(e);
             }
         } else {
             log.error("Can't handle the request");
-            throw new FrameworkException("Can't handle the request");
         }
 
         return identityResponseBuilder;
@@ -145,7 +149,7 @@ public class LogoutProcessor extends IdentityProcessor {
                         boolean isAudValid = validateAud(aud, identityProvider);
 
                         Date iat = claimsSet.getIssueTime();
-                        boolean isIatValid = validateIat(iat, identityProvider);
+                        boolean isIatValid = validateIat(iat);
 
                         boolean isSidValid = validateSid(claimsSet);
 
@@ -159,12 +163,12 @@ public class LogoutProcessor extends IdentityProcessor {
                             String sid = (String) claimsSet.getClaim("sid");
                             doLogout(sid);
                         } else {
-                            throw new LogoutException("Logout token signature validation failed !");
+                            log.error("Logout token signature validation failed !");
                         }
                     }
                 }
             } else {
-                throw new LogoutException("Back channel logout failed. Logout token is null");
+                log.error("Back channel logout failed. Logout token is null");
             }
         } catch (ParseException e) {
             log.error("Error while parsing logout token", e);
@@ -175,8 +179,7 @@ public class LogoutProcessor extends IdentityProcessor {
         } catch (IdentityOAuth2Exception e) {
             log.error("Error while validating claims", e);
         } catch (Exception e) {
-            log.error("Logout Token Error !");
-            throw e;
+            log.error("Logout Token Error. Rejecting the logout request");
         }
         return logoutResponseBuilder;
     }
@@ -195,12 +198,9 @@ public class LogoutProcessor extends IdentityProcessor {
                 log.info("Session terminated for session Id: " + sessionId);
             } else {
                 log.error("Unable to terminate session for session Id: " + sessionId);
-                throw new LogoutException(
-                        "Unable to terminate session for session Id: " + sessionId);
             }
         } else {
             log.error("Session Id doesn't exist for " + sid);
-            throw new LogoutException("Session Id doesn't exist for " + sid);
         }
     }
 
@@ -233,22 +233,31 @@ public class LogoutProcessor extends IdentityProcessor {
         return isValid;
     }
 
-    private boolean validateIat(Date iat, IdentityProvider identityProvider) throws IdentityOAuth2Exception {
+    private boolean validateIat(Date iat) {
 
         if (iat != null) {
-            long issuedAtTimeMillis = iat.getTime();
-            long currentTimeInMillis = System.currentTimeMillis();
-            if (currentTimeInMillis - issuedAtTimeMillis > notBeforeTimeMillis) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Token is used after Issued Not Before Time." +
-                            ", Issued Not Before Time(ms) : " + notBeforeTimeMillis +
-                            ", Current Time : " + currentTimeInMillis +
-                            ". Token Rejected and validation terminated.");
+            boolean enableIatValidation =
+                    Boolean.parseBoolean(getAuthenticatorConfig().getParameterMap().get(ENABLE_IAT_VALIDATION));
+            if (enableIatValidation) {
+                int iatValidtyPeriod =
+                        Integer.parseInt(getAuthenticatorConfig().getParameterMap().get(IAT_VALIDITY_PERIOD));
+                long issuedAtTimeMillis = iat.getTime();
+                long currentTimeInMillis = System.currentTimeMillis();
+                if (currentTimeInMillis - issuedAtTimeMillis > iatValidtyPeriod * 60 * 1000) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Token is used after iat validity period." +
+                                ", iat validity period(m) : " + iatValidtyPeriod +
+                                ", Current Time : " + currentTimeInMillis +
+                                ". Token Rejected and validation terminated.");
+                    }
+                    log.error("Token is used after iat validity period.");
                 }
-                throw new IdentityOAuth2Exception("Token is used before Not_Before_Time.");
+                if (log.isDebugEnabled()) {
+                    log.debug("iat validity period of Token was validated successfully.");
+                }
             }
             if (log.isDebugEnabled()) {
-                log.debug("Not Before Time(nbf) of Token was validated successfully.");
+                log.debug("iat validity period is not enabled");
             }
         }
         return true;
@@ -282,6 +291,17 @@ public class LogoutProcessor extends IdentityProcessor {
             isValid = true;
         }
         return isValid;
+    }
+
+    protected AuthenticatorConfig getAuthenticatorConfig() {
+
+        AuthenticatorConfig authConfig = FileBasedConfigurationBuilder.getInstance()
+                .getAuthenticatorBean(AUTHENTICATOR_NAME);
+        if (authConfig == null) {
+            authConfig = new AuthenticatorConfig();
+            authConfig.setParameterMap(new HashMap<String, String>());
+        }
+        return authConfig;
     }
 
     @Override
@@ -357,7 +377,8 @@ public class LogoutProcessor extends IdentityProcessor {
             residentIdentityProvider = IdentityProviderManager.getInstance().getResidentIdP(tenantDomain);
         } catch (IdentityProviderManagementException e) {
             String errorMsg = String.format(ERROR_GET_RESIDENT_IDP, tenantDomain);
-            throw new IdentityOAuth2Exception(errorMsg, e);
+            log.error(errorMsg, e);
+            return null;
         }
         FederatedAuthenticatorConfig[] fedAuthnConfigs = residentIdentityProvider.getFederatedAuthenticatorConfigs();
         FederatedAuthenticatorConfig oauthAuthenticatorConfig =
@@ -467,9 +488,9 @@ public class LogoutProcessor extends IdentityProcessor {
         try {
             x509Certificate.checkValidity();
         } catch (CertificateExpiredException e) {
-            throw new IdentityOAuth2Exception("X509Certificate has expired.", e);
+            log.error("X509Certificate has expired.", e);
         } catch (CertificateNotYetValidException e) {
-            throw new IdentityOAuth2Exception("X509Certificate is not yet valid.", e);
+            log.error("X509Certificate is not yet valid.", e);
         }
     }
 
@@ -490,6 +511,5 @@ public class LogoutProcessor extends IdentityProcessor {
     private void handleException(String errorMessage) throws IdentityOAuth2Exception {
 
         log.error(errorMessage);
-        throw new IdentityOAuth2Exception(errorMessage);
     }
 }
