@@ -20,7 +20,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc.dao;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
 
 import java.sql.Connection;
@@ -42,9 +42,9 @@ public class SessionInfoDAO {
      *
      * @param oidcSId Session Id of the OIDC Logout Request.
      * @return Map of session details.
-     * @throws LogoutException If DB execution fails.
+     * @throws LogoutServerException If DB execution fails.
      */
-    public Map<String, String> getSessionDetails(String oidcSId) throws LogoutException {
+    public Map<String, String> getSessionDetails(String oidcSId) throws LogoutServerException {
 
         final String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID = ?";
 
@@ -64,7 +64,7 @@ public class SessionInfoDAO {
                 return sessionDetails;
             }
         } catch (SQLException e) {
-            throw new LogoutException("Unable to retrieve session details from the database with OIDC sid: "
+            throw new LogoutServerException("Unable to retrieve session details from the database with OIDC sid: "
                     + oidcSId, e);
         }
     }

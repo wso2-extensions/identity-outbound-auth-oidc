@@ -24,14 +24,14 @@ import org.wso2.carbon.identity.application.authentication.framework.exception.F
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-
 
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
@@ -48,7 +48,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
     public boolean canHandle(FrameworkException exception) {
 
-        if (exception instanceof LogoutException) {
+        if (exception instanceof LogoutServerException || exception instanceof LogoutClientException) {
             return true;
         }
         return false;
@@ -87,13 +87,25 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
-        builder.setBody("Back channel logout failed!");
-        builder.setStatusCode(HttpServletResponse.SC_BAD_REQUEST);
-        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
-                OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
-        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
-                OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
-        builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+
+        if (frameworkException instanceof LogoutServerException) {
+            builder.setBody("Back channel logout failed due to server error.");
+            builder.setStatusCode(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
+                    OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
+            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
+                    OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
+            builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+        } else if (frameworkException instanceof LogoutClientException) {
+            builder.setBody("Back channel logout failed due to client error.");
+            builder.setStatusCode(HttpServletResponse.SC_BAD_REQUEST);
+            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
+                    OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
+            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
+                    OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
+            builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+        }
+
         return builder;
 
     }

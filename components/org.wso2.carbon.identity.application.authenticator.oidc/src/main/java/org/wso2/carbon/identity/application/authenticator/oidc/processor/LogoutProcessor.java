@@ -37,7 +37,8 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
@@ -94,21 +95,19 @@ public class LogoutProcessor extends IdentityProcessor {
     public IdentityResponse.IdentityResponseBuilder process(IdentityRequest identityRequest) throws FrameworkException {
 
         if (log.isDebugEnabled()) {
-            log.debug("Request processing started by OIDCFederatedLogoutProcessor.");
+            log.debug("Request processing started by OIDC LogoutProcessor.");
         }
-        log.info("Backchannel logout request received.");
         LogoutContext logoutContext = new LogoutContext(identityRequest);
 
         IdentityResponse.IdentityResponseBuilder identityResponseBuilder = null;
 
         if (identityRequest instanceof LogoutRequest) {
-            try {
-                identityResponseBuilder = oidcFederatedLogout(logoutContext);
-            } catch (Exception e) {
-                log.error(e);
-            }
+            identityResponseBuilder = oidcFederatedLogout(logoutContext);
         } else {
-            log.error("Can't handle the request");
+            if (log.isDebugEnabled()) {
+                log.debug("Can't handle the request");
+            }
+            throw new LogoutClientException("Can't handle the request");
         }
 
         return identityResponseBuilder;
@@ -116,7 +115,7 @@ public class LogoutProcessor extends IdentityProcessor {
     }
 
     protected IdentityResponse.IdentityResponseBuilder oidcFederatedLogout(
-            LogoutContext logoutContext) throws LogoutException {
+            LogoutContext logoutContext) throws LogoutClientException, LogoutServerException {
 
         LogoutResponse.LogoutResponseBuilder logoutResponseBuilder =
                 new LogoutResponse.LogoutResponseBuilder();
@@ -163,28 +162,30 @@ public class LogoutProcessor extends IdentityProcessor {
                             String sid = (String) claimsSet.getClaim("sid");
                             doLogout(sid);
                         } else {
-                            log.error("Logout token signature validation failed !");
+                            if (log.isDebugEnabled()) {
+                                log.debug("Logout token signature validation failed !");
+                            }
+                            throw new LogoutClientException("Logout token signature validation failed !");
                         }
                     }
                 }
             } else {
-                log.error("Back channel logout failed. Logout token is null");
+                if (log.isDebugEnabled()) {
+                    log.debug("Back channel logout failed. Logout token is null");
+                }
+                throw new LogoutClientException("Back channel logout failed. Logout token is null");
+
             }
         } catch (ParseException e) {
-            log.error("Error while parsing logout token", e);
-        } catch (JOSEException e) {
-            log.error("Error while validating the logout token sinature", e);
-        } catch (IdentityProviderManagementException e) {
-            log.error("Error while retrieving the identity provider", e);
-        } catch (IdentityOAuth2Exception e) {
-            log.error("Error while validating claims", e);
-        } catch (Exception e) {
-            log.error("Logout Token Error. Rejecting the logout request");
+            if (log.isDebugEnabled()) {
+                log.debug("Error while parsing logout token", e);
+            }
+            throw new LogoutClientException("Error while parsing logout token", e);
         }
         return logoutResponseBuilder;
     }
 
-    private void doLogout(String sid) throws LogoutException {
+    private void doLogout(String sid) throws LogoutServerException {
 
         log.info("SId: " + sid);
         //Get the Session Id related to sid claim from database
@@ -197,10 +198,16 @@ public class LogoutProcessor extends IdentityProcessor {
             if (sessionRemoved) {
                 log.info("Session terminated for session Id: " + sessionId);
             } else {
-                log.error("Unable to terminate session for session Id: " + sessionId);
+                if (log.isDebugEnabled()) {
+                    log.debug("Unable to terminate session for session Id: " + sessionId);
+                }
+                throw new LogoutServerException("Unable to terminate session for session Id: " + sessionId);
             }
         } else {
-            log.error("Session Id doesn't exist for " + sid);
+            if (log.isDebugEnabled()) {
+                log.debug("Session Id doesn't exist for " + sid);
+            }
+            throw new LogoutServerException("Session Id doesn't exist for " + sid);
         }
     }
 
@@ -233,7 +240,7 @@ public class LogoutProcessor extends IdentityProcessor {
         return isValid;
     }
 
-    private boolean validateIat(Date iat) {
+    private boolean validateIat(Date iat) throws LogoutClientException {
 
         if (iat != null) {
             boolean enableIatValidation =
@@ -250,7 +257,7 @@ public class LogoutProcessor extends IdentityProcessor {
                                 ", Current Time : " + currentTimeInMillis +
                                 ". Token Rejected and validation terminated.");
                     }
-                    log.error("Token is used after iat validity period.");
+                    throw new LogoutClientException("Logout token is used after iatValidityTime");
                 }
                 if (log.isDebugEnabled()) {
                     log.debug("iat validity period of Token was validated successfully.");
@@ -340,36 +347,46 @@ public class LogoutProcessor extends IdentityProcessor {
     }
 
     private IdentityProvider getIdentityProvider(String jwtIssuer, String tenantDomain)
-            throws IdentityProviderManagementException, IdentityOAuth2Exception {
+            throws LogoutServerException {
 
         IdentityProvider identityProvider = null;
-        identityProvider = IdentityProviderManager.getInstance().getIdPByMetadataProperty(
-                IdentityApplicationConstants.IDP_ISSUER_NAME, jwtIssuer, tenantDomain, false);
+        try {
+            identityProvider = IdentityProviderManager.getInstance().getIdPByMetadataProperty(
+                    IdentityApplicationConstants.IDP_ISSUER_NAME, jwtIssuer, tenantDomain, false);
 
-        if (identityProvider == null) {
-            if (log.isDebugEnabled()) {
-                log.debug("IDP not found when retrieving for IDP using property: " +
-                        IdentityApplicationConstants.IDP_ISSUER_NAME + " with value: " + jwtIssuer +
-                        ". Attempting to retrieve IDP using IDP Name as issuer.");
+            if (identityProvider == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("IDP not found when retrieving for IDP using property: " +
+                            IdentityApplicationConstants.IDP_ISSUER_NAME + " with value: " + jwtIssuer +
+                            ". Attempting to retrieve IDP using IDP Name as issuer.");
+                }
+                identityProvider = IdentityProviderManager.getInstance().getIdPByName(jwtIssuer, tenantDomain);
             }
-            identityProvider = IdentityProviderManager.getInstance().getIdPByName(jwtIssuer, tenantDomain);
-        }
-        if (identityProvider != null) {
-            // if no IDPs were found for a given name, the IdentityProviderManager returns a dummy IDP with the
-            // name "default". We need to handle this case.
-            if (StringUtils.equalsIgnoreCase(identityProvider.getIdentityProviderName(), DEFAULT_IDP_NAME)) {
-                //check whether this jwt was issued by the resident identity provider
-                identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
-                if (identityProvider == null) {
-                    handleException("No Registered IDP found for the JWT with issuer name : " + jwtIssuer);
+            if (identityProvider != null) {
+                // if no IDPs were found for a given name, the IdentityProviderManager returns a dummy IDP with the
+                // name "default". We need to handle this case.
+                if (StringUtils.equalsIgnoreCase(identityProvider.getIdentityProviderName(), DEFAULT_IDP_NAME)) {
+                    //check whether this jwt was issued by the resident identity provider
+                    identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
+                    if (identityProvider == null) {
+                        throw new LogoutServerException(
+                                "No Registered IDP found for the JWT with issuer name : " + jwtIssuer);
+                    }
                 }
             }
+        } catch (IdentityOAuth2Exception e) {
+            throw new LogoutServerException(
+                    e.getErrorCode(), e.getMessage());
+        } catch (IdentityProviderManagementException e) {
+            throw new LogoutServerException(
+                    e.getErrorCode(), e.getMessage());
         }
+
         return identityProvider;
     }
 
     private IdentityProvider getResidentIDPForIssuer(String tenantDomain, String jwtIssuer)
-            throws IdentityOAuth2Exception {
+            throws IdentityOAuth2Exception, LogoutServerException {
 
         String issuer = StringUtils.EMPTY;
         IdentityProvider residentIdentityProvider;
@@ -377,8 +394,10 @@ public class LogoutProcessor extends IdentityProcessor {
             residentIdentityProvider = IdentityProviderManager.getInstance().getResidentIdP(tenantDomain);
         } catch (IdentityProviderManagementException e) {
             String errorMsg = String.format(ERROR_GET_RESIDENT_IDP, tenantDomain);
-            log.error(errorMsg, e);
-            return null;
+            if (log.isDebugEnabled()) {
+                log.debug(errorMsg, e);
+            }
+            throw new LogoutServerException(errorMsg);
         }
         FederatedAuthenticatorConfig[] fedAuthnConfigs = residentIdentityProvider.getFederatedAuthenticatorConfigs();
         FederatedAuthenticatorConfig oauthAuthenticatorConfig =
@@ -392,7 +411,7 @@ public class LogoutProcessor extends IdentityProcessor {
     }
 
     private boolean validateSignature(SignedJWT signedJWT, IdentityProvider idp)
-            throws JOSEException, IdentityOAuth2Exception {
+            throws LogoutServerException {
 
         boolean isJWKSEnabled = false;
         boolean hasJWKSUri = false;
@@ -429,23 +448,32 @@ public class LogoutProcessor extends IdentityProcessor {
 
         if (isJWKSEnabled && hasJWKSUri) {
             JWKSBasedJWTValidator jwksBasedJWTValidator = new JWKSBasedJWTValidator();
-            return jwksBasedJWTValidator.validateSignature(signedJWT.getParsedString(), jwksUri, signedJWT.getHeader
-                    ().getAlgorithm().getName(), null);
+            try {
+                return jwksBasedJWTValidator.validateSignature(signedJWT.getParsedString(), jwksUri, signedJWT.getHeader
+                        ().getAlgorithm().getName(), null);
+            } catch (IdentityOAuth2Exception e) {
+                throw new LogoutServerException(e.getErrorCode(), e.getMessage());
+            }
         } else {
             JWSVerifier verifier = null;
             JWSHeader header = signedJWT.getHeader();
-            X509Certificate x509Certificate = resolveSignerCertificate(header, idp);
-            if (x509Certificate == null) {
-                handleException(
-                        "Unable to locate certificate for Identity Provider " + idp.getDisplayName() + "; JWT " +
-                                header.toString());
-            }
+            X509Certificate x509Certificate = null;
+            try {
+                x509Certificate = resolveSignerCertificate(header, idp);
+                if (x509Certificate == null) {
+                    throw new LogoutServerException(
+                            "Unable to locate certificate for Identity Provider " + idp.getDisplayName() + "; JWT " +
+                                    header.toString());
+                }
 
-            checkValidity(x509Certificate);
+                checkValidity(x509Certificate);
+            } catch (IdentityOAuth2Exception e) {
+                throw new LogoutServerException(e.getErrorCode(), e.getMessage());
+            }
 
             String alg = signedJWT.getHeader().getAlgorithm().getName();
             if (StringUtils.isEmpty(alg)) {
-                handleException("Algorithm must not be null.");
+                throw new LogoutServerException("Algorithm must not be null.");
             } else {
                 if (log.isDebugEnabled()) {
                     log.debug("Signature Algorithm found in the JWT Header: " + alg);
@@ -456,7 +484,7 @@ public class LogoutProcessor extends IdentityProcessor {
                     if (publicKey instanceof RSAPublicKey) {
                         verifier = new RSASSAVerifier((RSAPublicKey) publicKey);
                     } else {
-                        handleException("Public key is not an RSA public key.");
+                        throw new LogoutServerException("Public key is not an RSA public key.");
                     }
                 } else {
                     if (log.isDebugEnabled()) {
@@ -464,16 +492,20 @@ public class LogoutProcessor extends IdentityProcessor {
                     }
                 }
                 if (verifier == null) {
-                    handleException("Could not create a signature verifier for algorithm type: " + alg);
+                    throw new LogoutServerException("Could not create a signature verifier for algorithm type: " + alg);
                 }
             }
 
             // At this point 'verifier' will never be null;
-            return signedJWT.verify(verifier);
+            try {
+                return signedJWT.verify(verifier);
+            } catch (JOSEException e) {
+                throw new LogoutServerException(e.getMessage());
+            }
         }
     }
 
-    private void checkValidity(X509Certificate x509Certificate) throws IdentityOAuth2Exception {
+    private void checkValidity(X509Certificate x509Certificate) throws IdentityOAuth2Exception, LogoutServerException {
 
         String isEnforceCertificateValidity =
                 IdentityUtil.getProperty(ENFORCE_CERTIFICATE_VALIDITY);
@@ -488,28 +520,30 @@ public class LogoutProcessor extends IdentityProcessor {
         try {
             x509Certificate.checkValidity();
         } catch (CertificateExpiredException e) {
-            log.error("X509Certificate has expired.", e);
+            if (log.isDebugEnabled()) {
+                log.debug("X509Certificate has expired.", e);
+            }
+            throw new LogoutServerException("X509Certificate has expired.", e);
         } catch (CertificateNotYetValidException e) {
-            log.error("X509Certificate is not yet valid.", e);
+            if (log.isDebugEnabled()) {
+                log.debug("X509Certificate is not yet valid.", e);
+            }
+            throw new LogoutServerException("X509Certificate is not yet valid.", e);
         }
     }
 
     protected X509Certificate resolveSignerCertificate(JWSHeader header,
-                                                       IdentityProvider idp) throws IdentityOAuth2Exception {
+                                                       IdentityProvider idp) throws LogoutServerException {
 
         X509Certificate x509Certificate = null;
         try {
             x509Certificate = (X509Certificate) IdentityApplicationManagementUtil
                     .decodeCertificate(idp.getCertificate());
         } catch (CertificateException e) {
-            handleException("Error occurred while decoding public certificate of Identity Provider "
+
+            throw new LogoutServerException("Error occurred while decoding public certificate of Identity Provider "
                     + idp.getIdentityProviderName() + " for tenant domain " + tenantDomain);
         }
         return x509Certificate;
-    }
-
-    private void handleException(String errorMessage) throws IdentityOAuth2Exception {
-
-        log.error(errorMessage);
     }
 }
