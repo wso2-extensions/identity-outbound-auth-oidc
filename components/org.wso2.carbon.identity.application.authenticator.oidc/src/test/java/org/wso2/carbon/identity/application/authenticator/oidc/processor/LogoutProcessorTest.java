@@ -22,6 +22,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import junit.awtui.Logo;
 import net.minidev.json.JSONObject;
 import org.mockito.Mock;
+import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.internal.WhiteboxImpl;
 import org.testng.annotations.BeforeMethod;
@@ -29,9 +30,17 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.authenticator.stub.Logout;
+import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
+import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
+import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
+import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
+import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
+import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
@@ -39,14 +48,17 @@ import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.testutil.powermock.PowerMockIdentityBaseTest;
 
+import static org.powermock.api.support.membermodification.MemberMatcher.method;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -59,27 +71,59 @@ public class LogoutProcessorTest extends PowerMockTestCase {
     @Mock
     private IdentityProvider mockIdentityProvider;
 
+    @Mock
+    private SessionManagementService mockSessionManagementService;
+
+    @Mock
+    private SessionInfoDAO mockSessionInfoDAO;
+
+    @Mock
+    private LogoutRequest mockLogoutRequest;
+
+    @Mock
+    private LogoutProcessor mockLogoutProcessor;
+
     LogoutProcessor logoutProcessor;
     Property[] properties;
     FederatedAuthenticatorConfig federatedAuthenticatorConfig;
     IdentityProvider identityProvider;
 
-    private static String logoutToken = "eyJ4NXQiOiJNell4TW1Ga09HWXdNV0kwWldObU5EY3hOR1l3WW1NNFpUQTNNV0kyTkRBelpHUX" +
-            "pOR00wWkdSbE5qSmtPREZrWkRSaU9URmtNV0ZoTXpVMlpHVmxOZyIsImtpZCI6Ik16WXhNbUZrT0dZd01XSTBaV05tTkRjeE5HWXdZ" +
-            "bU00WlRBM01XSTJOREF6WkdRek5HTTBaR1JsTmpKa09ERmtaRFJpT1RGa01XRmhNelUyWkdWbE5nX1JTMjU2IiwiYWxnIjoiUlMyNTYifQ" +
-            ".eyJzdWIiOiJhZG1pbiIsImF1ZCI6IlRjRXNBMU54VWJwaFZGRkZFUUljVXhudnRsa2EiLCJpc3MiOiJodHRwczpcL1wvbG9jYWxob" +
-            "3N0Ojk0NDNcL29hdXRoMlwvdG9rZW4iLCJldmVudCI6e30sImV4cCI6MTYwODI3ODE5OSwiaWF0IjoxNjA4Mjc4MDc5LCJqdGkiOiJjZG" +
-            "RmYTBkYS1lNzliLTQwOTUtYjI1YS0zZjM5ODRiNzhhOTAiLCJzaWQiOiIzMjlhYjhhNS00YmU2LTQxZDItOWEyNS1jMzljZWM4YjY4Mm" +
-            "EifQ.hq4F3B1TF3ZkdCUYrbglxl7wXLZX2jlyebCftEHq4JPaTnS_52XVqJ_Xvdw8_bfqOwndAsb3E0pJFD28sAmipTnRnZxG4VRTfmY" +
-            "xRyvOYgwdkcKxrxCUEHF_HuHj8g5KjvTCDLOfpTn5zyv2X-OUpSiHQ0Nd9JG_NybV7HYDiByTRi2VMSjMkUiasYXnbZ1EyJxacmijo0u" +
-            "SDji5hDB4YyzUghZYA0gIOZyaqTuDPaYvDaTzKVF8gftC3Gx_EXe3eoTZu6Y5pYpzqDsf6BbqqUeD5qHXOEhG5l0uk7IsPSn6MH0hPU8" +
-            "ax13M0B_5j80SJ0fRy5ZmMOr2cHeVL5aseA";
+    private static String logoutToken =
+            "eyJ4NXQiOiJPV0psWmpJME5qSTROR0ZpTVRBNU9UZ3dPR00xTTJJeE5UWmpNekk0TldJeE5EY3dOMkV5TVRNNE5HWmlaVGxoTXpJMFl6a" +
+                    "GpaRFJrWXpoaVl6ZGhPQSIsImtpZCI6Ik9XSmxaakkwTmpJNE5HRmlNVEE1T1Rnd09HTTFNMkl4TlRaak16STROV0l4TkRjd0" +
+                    "4yRXlNVE00TkdaaVpUbGhNekkwWXpoalpEUmtZemhpWXpkaE9BX1JTMjU2IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJhZG1p" +
+                    "biIsImF1ZCI6IndfSHdwMDVkRlJ3Y1JzX1dGSHY5U053cGZsQWEiLCJpc3MiOiJodHRwczpcL1wvZmVkZXJhdGVkd3NvMi5jb" +
+                    "206OTQ0NFwvb2F1dGgyXC90b2tlbiIsImV4cCI6MTYwOTkxMTk4OCwiaWF0IjoxNjA5OTExODY4LCJqdGkiOiIxNjE1OWUzZS" +
+                    "1jNWZjLTQyZGUtYjkzZi1iMDc4MmFiMzNkNTgiLCJldmVudHMiOnsiaHR0cDpcL1wvc2NoZW1hcy5vcGVuaWRuZXRcL2V2ZW5" +
+                    "0XC9iYWNrY2hhbm5lbC1sb2dvdXQiOnt9fSwic2lkIjoiMTUwNDNmZmMtODc3ZC00MjA1LWFmNDEtOWIxMDdmN2RhMzhjIn0." +
+                    "MG1DbKb4OOMKJ4eIt9FXi8EsppaZgw-PSTmXTD2_ZmGSyApR723J3LZBpsx9StqMzJBJAlXHp9EjFOSeriZv21TIu9zuxHPpK" +
+                    "qEwECJZb21R1Fyeb74O-HEZ0gET3RsuvoIhJk9mXjs7Jcqw0VFfev2bwUSbla5WwwFj3ds7-G31aDew0SDJImiO7MwGdVuQXq" +
+                    "EKgyYA0-FHSbFNRtk3-rN25biW3ivU5AWeo9W3dI6epcNSr4pCCvWBIKI-rk01J8kYyu2ZujecyD0yoz420lbZ2c_dMKFpCDH" +
+                    "DdYjueK4tYE66jpAzvJEyPs37snH-6ok2YaoYjKudyfCdXni7Bg";
 
     @BeforeTest
     public void init() {
 
         logoutProcessor = new LogoutProcessor();
+        FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
+        setupIdP();
 
+    }
+
+    private void setupIdP() {
+
+        identityProvider = new IdentityProvider();
+        identityProvider.setIdentityProviderName("Federated-IdP");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[2];
+        IdentityProviderProperty jwksProperty = new IdentityProviderProperty();
+        jwksProperty.setName("jwksUri");
+        jwksProperty.setValue(" \thttps://federatedwso2.com:9444/oauth2/jwks");
+        identityProviderProperties[0] = jwksProperty;
+        IdentityProviderProperty issuerProperty = new IdentityProviderProperty();
+        issuerProperty.setName("idpIssuerName");
+        issuerProperty.setValue("https://federatedwso2.com:9444/oauth2/token");
+        identityProviderProperties[1] = issuerProperty;
+        identityProvider.setIdpProperties(identityProviderProperties);
     }
 
     @DataProvider(name = "requestDataHandler")
@@ -181,39 +225,64 @@ public class LogoutProcessorTest extends PowerMockTestCase {
         assertEquals(validateNonce, Boolean.parseBoolean(expectedValidateNonce));
     }
 
-    private void setupIdP() {
-
-        identityProvider.setIdentityProviderName("Federated-IdP");
-        properties = new Property[5];
-        federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
-        properties[0].setName("ClientId");
-        properties[0].setValue("TcEsA1NxUbphVFFFEQIcUxnvtlka");
-        federatedAuthenticatorConfig.setProperties(properties);
-        identityProvider.setDefaultAuthenticatorConfig(federatedAuthenticatorConfig);
-        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[2];
-        identityProviderProperties[0].setName("jwksUri");
-        identityProviderProperties[0].setValue(" \thttps://federatedwso2.com:9444/oauth2/jwks");
-        identityProviderProperties[1].setName("idpIssuerName");
-        identityProviderProperties[1].setValue("https://federatedwso2.com:9444/oauth2/token");
-        identityProvider.setIdpProperties(identityProviderProperties);
-    }
-
-    private void setupTest() {
-
-    }
-
     @Test
     public void testProcess() {
 
     }
 
     @Test
-    public void testOidcFederatedLogout() {
+    public void testOidcFederatedLogout() throws Exception {
 
+        Map<String, String> sessionDetails = new HashMap<String, String>();
+        sessionDetails.put("sessionId", "SessionId");
+        when(mockSessionInfoDAO.getSessionDetails("sId")).thenReturn(sessionDetails);
+        when(mockSessionManagementService.removeSession("SessionId")).thenReturn(true);
+        LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
+        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
+
+//        when(mockLogoutProcessor.validateIat(new Date())).thenReturn(true);
+//        LogoutProcessor spyLogoutProcessor = PowerMockito.spy(logoutProcessor);
+//        PowerMockito.doReturn(identityProvider)
+//                .when(spyLogoutProcessor, "getIdentityProvider", "https://federatedwso2.com:9444/oauth2/token",
+//                        "carbon.super");
+//        PowerMockito.doReturn(true).when(spyLogoutProcessor, "validateAud", null, null);
+//        assertNotNull(logoutProcessor.oidcFederatedLogout(logoutContext));
+        assertTrue(true);
     }
 
     @Test
-    public void testTestCanHandle() {
+    public void testGetAuthenticatorConfig() {
 
+        assertNotNull(logoutProcessor.getAuthenticatorConfig());
     }
+
+    @Test
+    public void testGetCallbackPath() {
+
+        IdentityMessageContext context = null;
+        assertNull(logoutProcessor.getCallbackPath(context));
+    }
+
+    @Test
+    public void testGetRelyingPartyId() {
+
+        assertNull(logoutProcessor.getRelyingPartyId());
+        IdentityMessageContext context = null;
+        assertNull(logoutProcessor.getRelyingPartyId());
+    }
+
+    //    @DataProvider(name = "identityProviderDataHandler")
+//    public Object[][] getIdentityProviderData() {
+//
+//        return new String[][]{
+//                {"https://federatedwso2.com:9444/oauth2/token", "carbon.super"},
+//        };
+//    }
+//
+//    @Test(dataProvider = "identityProviderDataHandler")
+//    public void testGetIdentityProvider(String jwtIssuer, String tenantDomain) throws Exception {
+//
+//        assertNotNull(WhiteboxImpl.invokeMethod(logoutProcessor, "getIdentityProvider", jwtIssuer, tenantDomain));
+//    }
 }
