@@ -19,13 +19,9 @@
 package org.wso2.carbon.identity.application.authenticator.oidc.processor;
 
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.JWSVerifier;
-import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import net.minidev.json.JSONObject;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -39,30 +35,20 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
-import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
-import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
-import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
-import org.wso2.carbon.identity.oauth2.validators.jwt.JWKSBasedJWTValidator;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
-import java.security.PublicKey;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateExpiredException;
-import java.security.cert.CertificateNotYetValidException;
-import java.security.cert.X509Certificate;
-import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;
@@ -79,10 +65,6 @@ public class LogoutProcessor extends IdentityProcessor {
     private static final Log log = LogFactory.getLog(LogoutProcessor.class);
     private SessionManagementService sessionManagementService = new SessionManagementService();
 
-    private String tenantDomain;
-
-    private static final String ENFORCE_CERTIFICATE_VALIDITY
-            = "JWTValidatorConfigs.EnforceCertificateExpiryTimeValidity";
     private static final String DEFAULT_IDP_NAME = "default";
     private static final String ERROR_GET_RESIDENT_IDP =
             "Error while getting Resident Identity Provider of '%s' tenant.";
@@ -216,14 +198,7 @@ public class LogoutProcessor extends IdentityProcessor {
             throw new LogoutServerException("Session Id doesn't exist for " + sid);
         }
     }
-
-    //Not necessary as validating signature will also validate this
-    private boolean validateIss(SignedJWT jwt) {
-
-        boolean isValid = false;
-        return isValid;
-    }
-
+    
     private boolean validateAud(List<String> aud, IdentityProvider idp) {
 
         boolean isValid = false;
