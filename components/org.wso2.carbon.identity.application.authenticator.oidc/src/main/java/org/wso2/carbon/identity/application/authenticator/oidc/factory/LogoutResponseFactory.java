@@ -33,6 +33,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutException.LOGOUT_CLIENT_EXCEPTION;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutException.LOGOUT_SERVER_EXCEPTION;
+
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
     private static final Log log = LogFactory.getLog(LogoutResponseFactory.class);
@@ -89,7 +92,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
 
         if (frameworkException instanceof LogoutServerException) {
-            builder.setBody("Back channel logout failed due to server error.");
+            builder.setBody(LOGOUT_SERVER_EXCEPTION);
             builder.setStatusCode(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                     OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
@@ -97,7 +100,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                     OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
             builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
         } else if (frameworkException instanceof LogoutClientException) {
-            builder.setBody("Back channel logout failed due to client error.");
+            builder.setBody(LOGOUT_CLIENT_EXCEPTION);
             builder.setStatusCode(HttpServletResponse.SC_BAD_REQUEST);
             builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                     OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
