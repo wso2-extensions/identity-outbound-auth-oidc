@@ -57,7 +57,7 @@ public class OIDCAuthenticatorConstants {
     public static final String SID = "sid";
 
     public static final Pattern OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN =
-            Pattern.compile("(.*)/identity/oidc/slo?");
+            Pattern.compile("(.*)/identity/oidc/slo(.*)");
 
     public class AuthenticatorConfParams {
 
@@ -108,16 +108,6 @@ public class OIDCAuthenticatorConstants {
         public static final String PHONE_NUMBER_VERIFIED = "phone_number_verified";
         public static final String ADDRESS = "address";
         public static final String UPDATED_AT = "updated_at";
-    }
-
-    public class JWT {
-
-        private JWT() {
-
-        }
-
-        public static final String JWKS_VALIDATION_ENABLE_CONFIG = "JWTValidatorConfigs.Enable";
-        public static final String JWKS_URI = "jwksUri";
     }
 
     public class SessionInfo {

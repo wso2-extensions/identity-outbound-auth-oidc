@@ -40,12 +40,10 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
     public boolean canHandle(HttpServletRequest request, HttpServletResponse response) {
 
         boolean canHandle = false;
-        if (request != null) {
-            Matcher registerMatcher =
-                    OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN.matcher(request.getRequestURI());
-            if (registerMatcher.matches()) {
-                canHandle = true;
-            }
+        Matcher registerMatcher =
+                OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN.matcher(request.getRequestURI());
+        if (registerMatcher.matches()) {
+            canHandle = true;
         }
         if (log.isDebugEnabled()) {
             log.debug("canHandle " + canHandle + " by OIDC LogoutProcessor.");

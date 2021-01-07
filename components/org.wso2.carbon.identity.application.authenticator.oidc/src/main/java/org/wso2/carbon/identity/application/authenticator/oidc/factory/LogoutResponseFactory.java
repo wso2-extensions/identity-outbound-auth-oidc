@@ -43,10 +43,8 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     @Override
     public boolean canHandle(IdentityResponse identityResponse) {
 
-        if (identityResponse instanceof LogoutResponse) {
-            return true;
-        }
-        return false;
+        return (identityResponse instanceof LogoutResponse);
+       
     }
 
     public boolean canHandle(FrameworkException exception) {
@@ -92,24 +90,26 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
 
         if (frameworkException instanceof LogoutServerException) {
-            builder.setBody(LOGOUT_SERVER_EXCEPTION);
-            builder.setStatusCode(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
-            builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+            builder = buildResponse(LOGOUT_SERVER_EXCEPTION, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         } else if (frameworkException instanceof LogoutClientException) {
-            builder.setBody(LOGOUT_CLIENT_EXCEPTION);
-            builder.setStatusCode(HttpServletResponse.SC_BAD_REQUEST);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
-            builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+            builder = buildResponse(LOGOUT_CLIENT_EXCEPTION, HttpServletResponse.SC_BAD_REQUEST);
         }
 
         return builder;
+    }
 
+    private HttpIdentityResponse.HttpIdentityResponseBuilder buildResponse(String errorMessage, int errorCode) {
+
+        HttpIdentityResponse.HttpIdentityResponseBuilder builder =
+                new HttpIdentityResponse.HttpIdentityResponseBuilder();
+        builder.setBody(errorMessage);
+        builder.setStatusCode(errorCode);
+        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
+                OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
+        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
+                OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
+        builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+
+        return builder;
     }
 }
