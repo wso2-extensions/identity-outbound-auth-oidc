@@ -22,6 +22,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import junit.awtui.Logo;
 import net.minidev.json.JSONObject;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.internal.WhiteboxImpl;
@@ -241,11 +242,14 @@ public class LogoutProcessorTest extends PowerMockTestCase {
         when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
         when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
 
+//        when(mockLogoutProcessor.getIdentityProvider(Mockito.anyString(), Mockito.anyString()))
+//                .thenReturn(identityProvider);
 //        when(mockLogoutProcessor.validateIat(new Date())).thenReturn(true);
 //        LogoutProcessor spyLogoutProcessor = PowerMockito.spy(logoutProcessor);
 //        PowerMockito.doReturn(identityProvider)
 //                .when(spyLogoutProcessor, "getIdentityProvider", "https://federatedwso2.com:9444/oauth2/token",
 //                        "carbon.super");
+
 //        PowerMockito.doReturn(true).when(spyLogoutProcessor, "validateAud", null, null);
 //        assertNotNull(logoutProcessor.oidcFederatedLogout(logoutContext));
         assertTrue(true);

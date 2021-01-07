@@ -119,4 +119,13 @@ public class OIDCAuthenticatorConstants {
         public static final String JWKS_VALIDATION_ENABLE_CONFIG = "JWTValidatorConfigs.Enable";
         public static final String JWKS_URI = "jwksUri";
     }
+
+    public class SessionInfo {
+
+        private SessionInfo() {
+
+        }
+
+        public static final String QUERY = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID = ?";
+    }
 }
