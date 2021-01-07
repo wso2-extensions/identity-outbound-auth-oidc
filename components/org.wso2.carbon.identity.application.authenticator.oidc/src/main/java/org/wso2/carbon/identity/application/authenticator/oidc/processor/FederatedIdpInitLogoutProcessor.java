@@ -60,9 +60,9 @@ import static org.wso2.carbon.identity.application.authentication.framework.util
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
 
-public class LogoutProcessor extends IdentityProcessor {
+public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
-    private static final Log log = LogFactory.getLog(LogoutProcessor.class);
+    private static final Log log = LogFactory.getLog(FederatedIdpInitLogoutProcessor.class);
     private SessionManagementService sessionManagementService = new SessionManagementService();
 
     private static final String DEFAULT_IDP_NAME = "default";
@@ -78,7 +78,7 @@ public class LogoutProcessor extends IdentityProcessor {
     public IdentityResponse.IdentityResponseBuilder process(IdentityRequest identityRequest) throws FrameworkException {
 
         if (log.isDebugEnabled()) {
-            log.debug("Request processing started by OIDC LogoutProcessor.");
+            log.debug("Request processing started by OIDC FederatedIdpInitLogoutProcessor.");
         }
         LogoutContext logoutContext = new LogoutContext(identityRequest);
 
@@ -322,7 +322,7 @@ public class LogoutProcessor extends IdentityProcessor {
             }
         }
         if (log.isDebugEnabled()) {
-            log.debug("canHandle " + canHandle + " by OIDCFederatedLogoutProcessor.");
+            log.debug("canHandle " + canHandle + " by OIDC FederatedIdpInitLogoutProcessor.");
         }
         return canHandle;
     }

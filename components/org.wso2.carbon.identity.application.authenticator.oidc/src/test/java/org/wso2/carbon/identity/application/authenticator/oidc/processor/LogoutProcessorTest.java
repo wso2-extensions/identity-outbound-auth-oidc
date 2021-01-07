@@ -64,7 +64,7 @@ import java.util.Properties;
 
 import static org.powermock.api.mockito.PowerMockito.when;
 
-public class LogoutProcessorTest extends PowerMockTestCase {
+public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     @Mock
     private IdentityRequest mockIdentityRequest;
@@ -82,9 +82,9 @@ public class LogoutProcessorTest extends PowerMockTestCase {
     private LogoutRequest mockLogoutRequest;
 
     @Mock
-    private LogoutProcessor mockLogoutProcessor;
+    private FederatedIdpInitLogoutProcessor mockLogoutProcessor;
 
-    LogoutProcessor logoutProcessor;
+    FederatedIdpInitLogoutProcessor logoutProcessor;
     Property[] properties;
     FederatedAuthenticatorConfig federatedAuthenticatorConfig;
     IdentityProvider identityProvider;
@@ -105,7 +105,7 @@ public class LogoutProcessorTest extends PowerMockTestCase {
     @BeforeTest
     public void init() {
 
-        logoutProcessor = new LogoutProcessor();
+        logoutProcessor = new FederatedIdpInitLogoutProcessor();
         FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
         setupIdP();
 
