@@ -111,8 +111,6 @@
         <dependency>
             <groupId>org.wso2.carbon.identity.inbound.auth.oauth2</groupId>
             <artifactId>org.wso2.carbon.identity.oauth</artifactId>
-            <version>6.4.80</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
     <build>
@@ -163,8 +161,6 @@
                             org.wso2.carbon.ui; version="${carbon.kernel.package.import.version.range}",
                             com.nimbusds.jose.*; version="${nimbusds.osgi.version.range}",
                             com.nimbusds.jwt; version="${nimbusds.osgi.version.range}",
-                            com.nimbusds.oauth2.sdk.id.*;
-                            com.nimbusds.openid.connect.sdk.*;
                             org.wso2.carbon.identity.oauth2.*;
                             version="${carbon.identity.inbound.oauth.package.import.version.range}",
                             org.wso2.carbon.idp.mgt; version="${identity.framework.package.import.version.range}",

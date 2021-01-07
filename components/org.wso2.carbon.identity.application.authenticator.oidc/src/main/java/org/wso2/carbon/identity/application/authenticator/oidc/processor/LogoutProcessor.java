@@ -52,6 +52,7 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationConst
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
+import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.identity.oauth2.validators.jwt.JWKSBasedJWTValidator;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
@@ -142,7 +143,8 @@ public class LogoutProcessor extends IdentityProcessor {
                         String tenetDomain = logoutRequest.getTenantDomain();
                         IdentityProvider identityProvider = getIdentityProvider(idp, tenetDomain);
 
-                        boolean isSignatureValid = validateSignature(signedJWT, identityProvider);
+                        boolean isSignatureValid = JWTSignatureValidationUtils.validateSignature(signedJWT,
+                                identityProvider);
 
                         List<String> aud = claimsSet.getAudience();
                         boolean isAudValid = validateAud(aud, identityProvider);
@@ -181,6 +183,10 @@ public class LogoutProcessor extends IdentityProcessor {
                 log.debug("Error while parsing logout token", e);
             }
             throw new LogoutClientException("Error while parsing logout token", e);
+        } catch (JOSEException e) {
+            throw new LogoutServerException("Error while validating the token signature", e);
+        } catch (IdentityOAuth2Exception e) {
+            throw new LogoutServerException("Error while validating the token signature", e);
         }
         return logoutResponseBuilder;
     }
@@ -410,140 +416,4 @@ public class LogoutProcessor extends IdentityProcessor {
         return jwtIssuer.equals(issuer) ? residentIdentityProvider : null;
     }
 
-    private boolean validateSignature(SignedJWT signedJWT, IdentityProvider idp)
-            throws LogoutServerException {
-
-        boolean isJWKSEnabled = false;
-        boolean hasJWKSUri = false;
-        String jwksUri = null;
-
-        String isJWKSEnalbedProperty = IdentityUtil.getProperty(
-                OIDCAuthenticatorConstants.JWT.JWKS_VALIDATION_ENABLE_CONFIG);
-        isJWKSEnabled = Boolean.parseBoolean(isJWKSEnalbedProperty);
-        if (isJWKSEnabled) {
-            if (log.isDebugEnabled()) {
-                log.debug("JWKS based JWT validation enabled.");
-            }
-        }
-
-        IdentityProviderProperty[] identityProviderProperties = idp.getIdpProperties();
-        if (!ArrayUtils.isEmpty(identityProviderProperties)) {
-            for (IdentityProviderProperty identityProviderProperty : identityProviderProperties) {
-                if (StringUtils.equals(identityProviderProperty.getName(), OIDCAuthenticatorConstants.JWT.JWKS_URI)) {
-                    hasJWKSUri = true;
-                    jwksUri = identityProviderProperty.getValue();
-                    if (log.isDebugEnabled()) {
-                        log.debug("JWKS endpoint set for the identity provider : " + idp.getIdentityProviderName() +
-                                ", jwks_uri : " + jwksUri);
-                    }
-                    break;
-                } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("JWKS endpoint not specified for the identity provider : " + idp
-                                .getIdentityProviderName());
-                    }
-                }
-            }
-        }
-
-        if (isJWKSEnabled && hasJWKSUri) {
-            JWKSBasedJWTValidator jwksBasedJWTValidator = new JWKSBasedJWTValidator();
-            try {
-                return jwksBasedJWTValidator.validateSignature(signedJWT.getParsedString(), jwksUri, signedJWT.getHeader
-                        ().getAlgorithm().getName(), null);
-            } catch (IdentityOAuth2Exception e) {
-                throw new LogoutServerException(e.getErrorCode(), e.getMessage());
-            }
-        } else {
-            JWSVerifier verifier = null;
-            JWSHeader header = signedJWT.getHeader();
-            X509Certificate x509Certificate = null;
-            try {
-                x509Certificate = resolveSignerCertificate(header, idp);
-                if (x509Certificate == null) {
-                    throw new LogoutServerException(
-                            "Unable to locate certificate for Identity Provider " + idp.getDisplayName() + "; JWT " +
-                                    header.toString());
-                }
-
-                checkValidity(x509Certificate);
-            } catch (IdentityOAuth2Exception e) {
-                throw new LogoutServerException(e.getErrorCode(), e.getMessage());
-            }
-
-            String alg = signedJWT.getHeader().getAlgorithm().getName();
-            if (StringUtils.isEmpty(alg)) {
-                throw new LogoutServerException("Algorithm must not be null.");
-            } else {
-                if (log.isDebugEnabled()) {
-                    log.debug("Signature Algorithm found in the JWT Header: " + alg);
-                }
-                if (alg.startsWith("RS")) {
-                    // At this point 'x509Certificate' will never be null.
-                    PublicKey publicKey = x509Certificate.getPublicKey();
-                    if (publicKey instanceof RSAPublicKey) {
-                        verifier = new RSASSAVerifier((RSAPublicKey) publicKey);
-                    } else {
-                        throw new LogoutServerException("Public key is not an RSA public key.");
-                    }
-                } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Signature Algorithm not supported yet : " + alg);
-                    }
-                }
-                if (verifier == null) {
-                    throw new LogoutServerException("Could not create a signature verifier for algorithm type: " + alg);
-                }
-            }
-
-            // At this point 'verifier' will never be null;
-            try {
-                return signedJWT.verify(verifier);
-            } catch (JOSEException e) {
-                throw new LogoutServerException(e.getMessage());
-            }
-        }
-    }
-
-    private void checkValidity(X509Certificate x509Certificate) throws IdentityOAuth2Exception, LogoutServerException {
-
-        String isEnforceCertificateValidity =
-                IdentityUtil.getProperty(ENFORCE_CERTIFICATE_VALIDITY);
-        if (StringUtils.isNotEmpty(isEnforceCertificateValidity)
-                && !Boolean.parseBoolean(isEnforceCertificateValidity)) {
-            if (log.isDebugEnabled()) {
-                log.debug("Check for the certificate validity is disabled.");
-            }
-            return;
-        }
-
-        try {
-            x509Certificate.checkValidity();
-        } catch (CertificateExpiredException e) {
-            if (log.isDebugEnabled()) {
-                log.debug("X509Certificate has expired.", e);
-            }
-            throw new LogoutServerException("X509Certificate has expired.", e);
-        } catch (CertificateNotYetValidException e) {
-            if (log.isDebugEnabled()) {
-                log.debug("X509Certificate is not yet valid.", e);
-            }
-            throw new LogoutServerException("X509Certificate is not yet valid.", e);
-        }
-    }
-
-    protected X509Certificate resolveSignerCertificate(JWSHeader header,
-                                                       IdentityProvider idp) throws LogoutServerException {
-
-        X509Certificate x509Certificate = null;
-        try {
-            x509Certificate = (X509Certificate) IdentityApplicationManagementUtil
-                    .decodeCertificate(idp.getCertificate());
-        } catch (CertificateException e) {
-
-            throw new LogoutServerException("Error occurred while decoding public certificate of Identity Provider "
-                    + idp.getIdentityProviderName() + " for tenant domain " + tenantDomain);
-        }
-        return x509Certificate;
-    }
 }

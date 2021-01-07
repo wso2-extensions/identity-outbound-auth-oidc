@@ -21,6 +21,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc.dao;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
+import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
 
 import java.sql.Connection;
@@ -46,10 +47,9 @@ public class SessionInfoDAO {
      */
     public Map<String, String> getSessionDetails(String oidcSId) throws LogoutServerException {
 
-        final String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID = ?";
-
         try (Connection connection = IdentityDatabaseUtil.getDBConnection(false);
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+             PreparedStatement preparedStatement =
+                     connection.prepareStatement(OIDCAuthenticatorConstants.SessionInfo.QUERY)) {
             preparedStatement.setString(1, oidcSId);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 Map<String, String> sessionDetails = new HashMap<>();

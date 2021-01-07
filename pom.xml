@@ -225,9 +225,10 @@
                 <version>${nimbusds.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.nimbusds</groupId>
-                <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>8.28.3</version>
+                <groupId>org.wso2.carbon.identity.inbound.auth.oauth2</groupId>
+                <artifactId>org.wso2.carbon.identity.oauth</artifactId>
+                <version>${carbon.identity.oauth.version}</version>
+                <scope>compile</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -334,6 +335,7 @@
         <maven.surefire.plugin.version>2.18.1</maven.surefire.plugin.version>
         <mokito.version>1.6.6</mokito.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
+        <carbon.identity.oauth.version>6.4.80</carbon.identity.oauth.version>
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
@@ -362,6 +364,7 @@
         <apache.felix.scr.ds.annotations.version>1.2.4</apache.felix.scr.ds.annotations.version>
         <maven.scr.plugin.version>1.22.0</maven.scr.plugin.version>
         <nimbusds.version>7.3.0.wso2v1</nimbusds.version>
+        <nimbusds.oauth.version>8.28.3</nimbusds.oauth.version>
         <nimbusds.osgi.version.range>[7.3.0,8.0.0)</nimbusds.osgi.version.range>
     </properties>
 
