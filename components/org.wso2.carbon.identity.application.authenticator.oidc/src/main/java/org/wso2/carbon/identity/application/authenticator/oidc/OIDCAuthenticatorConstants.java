@@ -119,8 +119,9 @@ public class OIDCAuthenticatorConstants {
         public static final String QUERY = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID = ?";
     }
 
-    public class LogoutException {
-        private LogoutException(){
+    public class LogoutExceptionError {
+
+        private LogoutExceptionError() {
 
         }
 

@@ -25,6 +25,7 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Htt
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
@@ -33,8 +34,8 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutException.LOGOUT_CLIENT_EXCEPTION;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutException.LOGOUT_SERVER_EXCEPTION;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_CLIENT_EXCEPTION;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_SERVER_EXCEPTION;
 
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
@@ -44,12 +45,12 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     public boolean canHandle(IdentityResponse identityResponse) {
 
         return (identityResponse instanceof LogoutResponse);
-       
+
     }
 
     public boolean canHandle(FrameworkException exception) {
 
-        if (exception instanceof LogoutServerException || exception instanceof LogoutClientException) {
+        if (exception instanceof LogoutException) {
             return true;
         }
         return false;
