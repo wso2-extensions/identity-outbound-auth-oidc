@@ -27,7 +27,7 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.factory.LogoutResponseFactory;
-import org.wso2.carbon.identity.application.authenticator.oidc.processor.LogoutProcessor;
+import org.wso2.carbon.identity.application.authenticator.oidc.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;
@@ -55,7 +55,7 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             ctxt.getBundleContext().registerService(HttpIdentityRequestFactory.class.getName(),
                     new LogoutRequestFactory(), null);
             ctxt.getBundleContext().registerService(IdentityProcessor.class.getName(),
-                    new LogoutProcessor(), null);
+                    new FederatedIdpInitLogoutProcessor(), null);
             ctxt.getBundleContext().registerService(HttpIdentityResponseFactory.class.getName(),
                     new LogoutResponseFactory(), null);
             if (log.isDebugEnabled()) {
