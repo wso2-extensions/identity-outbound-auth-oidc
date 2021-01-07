@@ -83,21 +83,13 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         LogoutContext logoutContext = new LogoutContext(identityRequest);
 
         IdentityResponse.IdentityResponseBuilder identityResponseBuilder = null;
-
-        if (identityRequest instanceof LogoutRequest) {
-            identityResponseBuilder = oidcFederatedLogout(logoutContext);
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("Can't handle the request");
-            }
-            throw new LogoutClientException("Can't handle the request");
-        }
+        identityResponseBuilder = handleOIDCFederatedLogoutRequest(logoutContext);
 
         return identityResponseBuilder;
 
     }
 
-    protected IdentityResponse.IdentityResponseBuilder oidcFederatedLogout(
+    protected IdentityResponse.IdentityResponseBuilder handleOIDCFederatedLogoutRequest(
             LogoutContext logoutContext) throws LogoutClientException, LogoutServerException {
 
         LogoutResponse.LogoutResponseBuilder logoutResponseBuilder =
@@ -106,8 +98,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         try {
             String logoutToken = logoutRequest.getParameter("logout_token");
             if (StringUtils.isNotBlank(logoutToken)) {
-                log.info("Logout Token: " + logoutToken);
-
+                if (log.isDebugEnabled()) {
+                    log.debug("Logout Token: " + logoutToken);
+                }
                 //check for id token encryption
                 boolean isEncryptionEnabled = false;
 
@@ -198,7 +191,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             throw new LogoutServerException("Session Id doesn't exist for " + sid);
         }
     }
-    
+
     private boolean validateAud(List<String> aud, IdentityProvider idp) {
 
         boolean isValid = false;
