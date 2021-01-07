@@ -20,7 +20,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 
-public class LogoutServerException extends FrameworkException {
+public class LogoutServerException extends LogoutException {
 
     public LogoutServerException(String message) {
 
