@@ -37,6 +37,10 @@ import javax.ws.rs.core.MediaType;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_CLIENT_EXCEPTION;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_SERVER_EXCEPTION;
 
+/**
+ * This class  builds a HTTP response instance based on the common IdentityRequest format used by
+ * the authentication framework.
+ */
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
     private static final Log log = LogFactory.getLog(LogoutResponseFactory.class);

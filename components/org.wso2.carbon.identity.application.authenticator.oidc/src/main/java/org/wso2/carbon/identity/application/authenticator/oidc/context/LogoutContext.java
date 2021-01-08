@@ -24,6 +24,9 @@ import org.wso2.carbon.identity.core.bean.context.MessageContext;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * This class holds data of the OIDC federated IdP initiated logout flow.
+ */
 public class LogoutContext extends MessageContext {
 
     private IdentityRequest identityRequest = null;

@@ -32,6 +32,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
 
+/**
+ * This class checks whether requests from the Identity servlet are OIDC Logout Requests and
+ * provides a builder to an instance of OIDC LogoutRequest.
+ */
 public class LogoutRequestFactory extends HttpIdentityRequestFactory {
 
     private static final Log log = LogFactory.getLog(LogoutRequestFactory.class);

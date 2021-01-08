@@ -37,6 +37,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientExcep
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
+import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
@@ -60,10 +61,12 @@ import static org.wso2.carbon.identity.application.authentication.framework.util
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
 
+/**
+ * This class process the OIDC federated idp initiated logout requests
+ */
 public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
     private static final Log log = LogFactory.getLog(FederatedIdpInitLogoutProcessor.class);
-    private SessionManagementService sessionManagementService = new SessionManagementService();
 
     private static final String DEFAULT_IDP_NAME = "default";
     private static final String ERROR_GET_RESIDENT_IDP =
@@ -89,6 +92,14 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
     }
 
+    /**
+     * Handles the logout request according to OIDC Back-channel logout specification
+     *
+     * @param logoutContext
+     * @return IdentityResponse.IdentityResponseBuilder
+     * @throws LogoutClientException Exception occurred due to error in the logout request
+     * @throws LogoutServerException Exception occurred from IS
+     */
     protected IdentityResponse.IdentityResponseBuilder handleOIDCFederatedLogoutRequest(
             LogoutContext logoutContext) throws LogoutClientException, LogoutServerException {
 
@@ -166,6 +177,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return logoutResponseBuilder;
     }
 
+    /**
+     * Terminate the session related to the sid value of the logout token
+     *
+     * @param sid
+     * @throws LogoutServerException
+     */
     private void doLogout(String sid) throws LogoutServerException {
 
         log.info("SId: " + sid);
@@ -175,6 +192,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         String sessionId = sessionDetails.get(SESSION_ID);
 
         if (StringUtils.isNotBlank(sessionId)) {
+            SessionManagementService sessionManagementService = new SessionManagementService();
             boolean sessionRemoved = sessionManagementService.removeSession(sessionId);
             if (sessionRemoved) {
                 log.info("Session terminated for session Id: " + sessionId);
@@ -192,6 +210,13 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         }
     }
 
+    /**
+     * Do the aud claim validation according to OIDC back-channel logout specification
+     *
+     * @param aud
+     * @param idp
+     * @return boolean if validation is successful
+     */
     private boolean validateAud(List<String> aud, IdentityProvider idp) {
 
         boolean isValid = false;
@@ -214,6 +239,15 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return isValid;
     }
 
+    /**
+     * Do the iat claim validation according to OIDC back-channel logout specification
+     * Read the authenticator configs to check whether the iat validation is enabled and if enabled the get the
+     * validity period
+     *
+     * @param iat
+     * @return boolean if validation is successful
+     * @throws LogoutClientException
+     */
     private boolean validateIat(Date iat) throws LogoutClientException {
 
         if (iat != null) {
@@ -244,6 +278,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return true;
     }
 
+    /**
+     * Do the sid claim validation according to OIDC back-channel logout specification
+     *
+     * @param claimsSet
+     * @return boolean if validation is successful
+     */
     private boolean validateSid(JWTClaimsSet claimsSet) {
 
         boolean isValid = false;
@@ -255,6 +295,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return isValid;
     }
 
+    /**
+     * Do the event claim validation according to OIDC back-channel logout specification
+     *
+     * @param event
+     * @return boolean if validation is successful
+     */
     private boolean validateEvent(JSONObject event) {
 
         String eventClaim = event.getAsString(BACKCHANNEL_LOGOUT_EVENT);
@@ -264,6 +310,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return false;
     }
 
+    /**
+     * Do the nonce claim validation according to OIDC back-channel logout specification
+     *
+     * @param claimsSet
+     * @return boolean if validation is successful
+     */
     private boolean validateNonce(JWTClaimsSet claimsSet) {
 
         boolean isValid = false;
@@ -274,6 +326,11 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return isValid;
     }
 
+    /**
+     * Get the OIDC authenticator configs from the xml file
+     *
+     * @return AuthenticatorConfig
+     */
     protected AuthenticatorConfig getAuthenticatorConfig() {
 
         AuthenticatorConfig authConfig = FileBasedConfigurationBuilder.getInstance()
@@ -320,6 +377,14 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return canHandle;
     }
 
+    /**
+     * Get the identity provider from issuer and tenant domain
+     *
+     * @param jwtIssuer
+     * @param tenantDomain
+     * @return IdentityProvider
+     * @throws LogoutServerException
+     */
     private IdentityProvider getIdentityProvider(String jwtIssuer, String tenantDomain)
             throws LogoutServerException {
 
@@ -359,6 +424,15 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         return identityProvider;
     }
 
+    /**
+     * Get the resident identity provider from issuer and tenant domain
+     *
+     * @param tenantDomain
+     * @param jwtIssuer
+     * @return
+     * @throws IdentityOAuth2Exception
+     * @throws LogoutServerException
+     */
     private IdentityProvider getResidentIDPForIssuer(String tenantDomain, String jwtIssuer)
             throws IdentityOAuth2Exception, LogoutServerException {
 

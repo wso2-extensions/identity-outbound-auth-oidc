@@ -21,7 +21,11 @@ package org.wso2.carbon.identity.application.authenticator.oidc.model;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 
-
+/**
+ * This class  holds the necessary parameters for building the HTTPServletResponse.
+ * LogoutResponseBuilder is an inner class of this class and it is responsible
+ * or building a concrete instance of OIDC LogoutResponse for the framework when needed.
+ */
 public class LogoutResponse extends IdentityResponse {
 
     protected LogoutResponse(

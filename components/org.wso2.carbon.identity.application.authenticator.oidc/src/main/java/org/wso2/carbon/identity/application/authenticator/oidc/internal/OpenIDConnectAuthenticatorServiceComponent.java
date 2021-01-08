@@ -114,5 +114,4 @@ public class OpenIDConnectAuthenticatorServiceComponent {
         OpenIDConnectAuthenticatorDataHolder.getInstance()
                 .setClaimMetadataManagementService(null);
     }
-
 }

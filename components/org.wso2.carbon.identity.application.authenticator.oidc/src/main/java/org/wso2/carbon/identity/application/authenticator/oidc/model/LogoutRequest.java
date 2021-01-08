@@ -25,7 +25,11 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-
+/**
+ * This class holds the necessary parameters of the HTTPServletRequest.
+ * LogoutRequestBuilder is an inner class of this class and it is responsible
+ * for building a concrete instance of OIDC LogoutRequest for the framework when needed.
+ */
 public class LogoutRequest extends IdentityRequest {
 
     protected LogoutRequest(

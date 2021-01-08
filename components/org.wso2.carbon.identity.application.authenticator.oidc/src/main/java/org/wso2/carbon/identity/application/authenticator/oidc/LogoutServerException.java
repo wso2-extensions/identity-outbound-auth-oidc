@@ -18,8 +18,9 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
-import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
-
+/**
+ * This class handle server side errors
+ */
 public class LogoutServerException extends LogoutException {
 
     public LogoutServerException(String message) {
