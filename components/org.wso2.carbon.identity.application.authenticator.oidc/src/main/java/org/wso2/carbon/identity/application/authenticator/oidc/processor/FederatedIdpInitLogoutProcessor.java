@@ -27,11 +27,15 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
+import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
+import org.wso2.carbon.identity.application.authentication.framework.dao.impl.UserSessionDAOImpl;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.exception.session.mgt.SessionManagementServerException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
+import org.wso2.carbon.identity.application.authentication.framework.model.UserSession;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
@@ -185,28 +189,34 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      */
     private void doLogout(String sid) throws LogoutServerException {
 
-        log.info("SId: " + sid);
-        //Get the Session Id related to sid claim from database
-        SessionInfoDAO sessionInfoDAO = new SessionInfoDAO();
-        Map<String, String> sessionDetails = sessionInfoDAO.getSessionDetails(sid);
-        String sessionId = sessionDetails.get(SESSION_ID);
 
-        if (StringUtils.isNotBlank(sessionId)) {
-            SessionManagementService sessionManagementService = new SessionManagementService();
-            boolean sessionRemoved = sessionManagementService.removeSession(sessionId);
-            if (sessionRemoved) {
-                log.info("Session terminated for session Id: " + sessionId);
+        if (log.isDebugEnabled()) {
+            log.debug("sid: " + sid);
+        }
+        //Get the Session Id related to sid claim from database
+        UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
+        try {
+            Map<String,String> sessionDetails = userSessionDAO.getSessionDetails(sid);
+            String sessionId = sessionDetails.get(SESSION_ID);
+            if (StringUtils.isNotBlank(sessionId)) {
+                SessionManagementService sessionManagementService = new SessionManagementService();
+                boolean sessionRemoved = sessionManagementService.removeSession(sessionId);
+                if (sessionRemoved) {
+                    log.info("Session terminated for session Id: " + sessionId);
+                } else {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Unable to terminate session for session Id: " + sessionId);
+                    }
+                    throw new LogoutServerException("Unable to terminate session for session Id: " + sessionId);
+                }
             } else {
                 if (log.isDebugEnabled()) {
-                    log.debug("Unable to terminate session for session Id: " + sessionId);
+                    log.debug("Session Id doesn't exist for " + sid);
                 }
-                throw new LogoutServerException("Unable to terminate session for session Id: " + sessionId);
+                throw new LogoutServerException("Session Id doesn't exist for " + sid);
             }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("Session Id doesn't exist for " + sid);
-            }
-            throw new LogoutServerException("Session Id doesn't exist for " + sid);
+        } catch (SessionManagementServerException e) {
+            throw new LogoutServerException("Error while retrieving the session info",e);
         }
     }
 
