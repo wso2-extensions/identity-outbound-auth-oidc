@@ -35,13 +35,10 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
-import org.wso2.carbon.identity.application.authentication.framework.model.UserSession;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
-import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
-import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
@@ -189,14 +186,16 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      */
     private void doLogout(String sid) throws LogoutServerException {
 
-
         if (log.isDebugEnabled()) {
             log.debug("sid: " + sid);
         }
         //Get the Session Id related to sid claim from database
+//        SessionInfoDAO sessionInfoDAO = new SessionInfoDAO();
+//        Map<String, String> sessionDetails = sessionInfoDAO.getSessionDetails(sid);
+
         UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
         try {
-            Map<String,String> sessionDetails = userSessionDAO.getSessionDetails(sid);
+            Map<String, String> sessionDetails = userSessionDAO.getSessionDetails(sid);
             String sessionId = sessionDetails.get(SESSION_ID);
             if (StringUtils.isNotBlank(sessionId)) {
                 SessionManagementService sessionManagementService = new SessionManagementService();
@@ -216,7 +215,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 throw new LogoutServerException("Session Id doesn't exist for " + sid);
             }
         } catch (SessionManagementServerException e) {
-            throw new LogoutServerException("Error while retrieving the session info",e);
+            e.printStackTrace();
         }
     }
 

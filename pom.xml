@@ -335,7 +335,7 @@
         <maven.surefire.plugin.version>2.18.1</maven.surefire.plugin.version>
         <mokito.version>1.6.6</mokito.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
-        <carbon.identity.oauth.version>6.4.80</carbon.identity.oauth.version>
+        <carbon.identity.oauth.version>6.4.117</carbon.identity.oauth.version>
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
