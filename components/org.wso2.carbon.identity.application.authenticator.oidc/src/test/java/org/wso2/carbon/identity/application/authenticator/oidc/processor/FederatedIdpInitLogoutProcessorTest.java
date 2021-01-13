@@ -34,14 +34,17 @@ import org.testng.annotations.Test;
 import org.wso2.carbon.authenticator.stub.Logout;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
+import org.wso2.carbon.identity.application.authentication.framework.context.AuthHistory;
+import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
+import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
+import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
-import org.wso2.carbon.identity.application.authenticator.oidc.dao.SessionInfoDAO;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
@@ -81,10 +84,10 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     private SessionManagementService mockSessionManagementService;
 
     @Mock
-    private SessionInfoDAO mockSessionInfoDAO;
+    private LogoutRequest mockLogoutRequest;
 
     @Mock
-    private LogoutRequest mockLogoutRequest;
+    private UserSessionDAO userSessionDAO;
 
     @Mock
     private FederatedIdpInitLogoutProcessor mockLogoutProcessor;
@@ -117,38 +120,11 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         logoutProcessor = new FederatedIdpInitLogoutProcessor();
         FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
         setupIdP();
-
-    }
-
-    private void setupIdP() {
-
-        identityProvider = new IdentityProvider();
-        identityProvider.setIdentityProviderName("Federated-IdP");
-        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
-        IdentityProviderProperty issuerProperty = new IdentityProviderProperty();
-        issuerProperty.setName("idpIssuerName");
-        issuerProperty.setValue("https://federatedwso2.com:9444/oauth2/token");
-        identityProviderProperties[0] = issuerProperty;
-        identityProvider.setCertificate("Owner: CN=federatedwso2.com, OU=is, O=wso2, L=colombo, ST=western, C=SL\n" +
-                "Issuer: CN=federatedwso2.com, OU=is, O=wso2, L=colombo, ST=western, C=SL\n" +
-                "Serial number: 2b09b96b\n" +
-                "Valid from: Tue Dec 15 15:45:03 IST 2020 until: Mon Mar 15 15:45:03 IST 2021\n" +
-                "Certificate fingerprints:\n" +
-                "\t SHA1: B7:08:30:1A:9F:B1:C1:4C:13:BD:6D:38:35:C4:21:35:E4:C6:27:F6\n" +
-                "\t SHA256: 9B:EF:24:62:84:AB:10:99:80:8C:53:B1:56:C3:28:5B:14:70:7A:21:38:4F:BE:9A:32:4C:8C:D4:DC:8B:C7:A8\n" +
-                "Signature algorithm name: SHA256withRSA\n" +
-                "Subject Public Key Algorithm: 2048-bit RSA key\n" +
-                "Version: 3\n" +
-                "\n" +
-                "Extensions: \n" +
-                "\n" +
-                "#1: ObjectId: 2.5.29.14 Criticality=false\n" +
-                "SubjectKeyIdentifier [\n" +
-                "KeyIdentifier [\n" +
-                "0000: 5D E9 37 60 3C 1D 4E 93   3C 0E 9B 6F FA 1C F7 B2  ].7`<.N.<..o....\n" +
-                "0010: A0 CE 24 3E                                        ..$>\n" +
-                "]\n");
-        identityProvider.setIdpProperties(identityProviderProperties);
+        try {
+            setupSessionStore();
+        } catch (UserSessionException e) {
+            e.printStackTrace();
+        }
     }
 
     @DataProvider(name = "requestDataHandler")
@@ -252,63 +228,90 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     @Test
     public void testProcess() {
+//        assertTrue(true);
 
     }
 
-//    private JWTClaimsSet generateLogoutToken() throws IdentityOAuth2Exception {
-//
-//        String sub = "admin";
-//        String jti = UUID.randomUUID().toString();
-//        String iss = "https://federatedwso2.com:9444/oauth2/token";
-//        List<String> audience = Arrays.asList("w_Hwp05dFRwcRs_WFHv9SNwpflAa");
-//        long logoutTokenValidityInMillis = 2 * 60 * 1000;
-//        long currentTimeInMillis = Calendar.getInstance().getTimeInMillis();
-//        Date iat = new Date(currentTimeInMillis);
-//        String sid = "15043ffc-877d-4205-af41-9b107f7da38c";
-//        JSONObject event = new JSONObject().appendField(BACKCHANNEL_LOGOUT_EVENT,
-//                new JSONObject());
-//
-//        JWTClaimsSet.Builder jwtClaimsSetBuilder = new JWTClaimsSet.Builder();
-//        jwtClaimsSetBuilder.subject(sub);
-//        jwtClaimsSetBuilder.issuer(iss);
-//        jwtClaimsSetBuilder.audience(audience);
-//        jwtClaimsSetBuilder.claim("jti", jti);
-//        jwtClaimsSetBuilder.claim("events", event);
-//        jwtClaimsSetBuilder.expirationTime(new Date(currentTimeInMillis + logoutTokenValidityInMillis));
-//        jwtClaimsSetBuilder.claim("iat", iat);
-//        jwtClaimsSetBuilder.claim("sid", sid);
-//
-//        return jwtClaimsSetBuilder.build();
-//    }
-//
-//    @Test
-//    public void testOidcFederatedLogout() throws Exception {
-//
-//        Map<String, String> sessionDetails = new HashMap<String, String>();
-//        sessionDetails.put("sessionId", "SessionId");
-//        when(mockSessionInfoDAO.getSessionDetails("sId")).thenReturn(sessionDetails);
-//        when(mockSessionManagementService.removeSession("SessionId")).thenReturn(true);
-//        LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
-//        JWTClaimsSet jwtClaimsSet = generateLogoutToken();
-//        String logoutToken = OAuth2Util.signJWT(jwtClaimsSet, JWSAlgorithm.parse(SIGNATURE_ALGORITHM),
-//                TENANT_DOMAIN).serialize();
-//        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
-//        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
-//
-//
-//
-////        when(mockLogoutProcessor.getIdentityProvider(Mockito.anyString(), Mockito.anyString()))
-////                .thenReturn(identityProvider);
-////        when(mockLogoutProcessor.validateIat(new Date())).thenReturn(true);
-////        LogoutProcessor spyLogoutProcessor = PowerMockito.spy(logoutProcessor);
-////        PowerMockito.doReturn(identityProvider)
-////                .when(spyLogoutProcessor, "getIdentityProvider", "https://federatedwso2.com:9444/oauth2/token",
-////                        "carbon.super");
-//
-////        PowerMockito.doReturn(true).when(spyLogoutProcessor, "validateAud", null, null);
-////        assertNotNull(logoutProcessor.oidcFederatedLogout(logoutContext));
-//        assertTrue(true);
-//    }
+    private void setupIdP() {
+
+        identityProvider = new IdentityProvider();
+        identityProvider.setIdentityProviderName("Federated-IdP");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        IdentityProviderProperty issuerProperty = new IdentityProviderProperty();
+        issuerProperty.setName("idpIssuerName");
+        issuerProperty.setValue("https://federatedwso2.com:9444/oauth2/token");
+        identityProviderProperties[0] = issuerProperty;
+        identityProvider.setCertificate("Owner: CN=federatedwso2.com, OU=is, O=wso2, L=colombo, ST=western, C=SL\n" +
+                "Issuer: CN=federatedwso2.com, OU=is, O=wso2, L=colombo, ST=western, C=SL\n" +
+                "Serial number: 2b09b96b\n" +
+                "Valid from: Tue Dec 15 15:45:03 IST 2020 until: Mon Mar 15 15:45:03 IST 2021\n" +
+                "Certificate fingerprints:\n" +
+                "\t SHA1: B7:08:30:1A:9F:B1:C1:4C:13:BD:6D:38:35:C4:21:35:E4:C6:27:F6\n" +
+                "\t SHA256: 9B:EF:24:62:84:AB:10:99:80:8C:53:B1:56:C3:28:5B:14:70:7A:21:38:4F:BE:9A:32:4C:8C:D4:DC:8B:C7:A8\n" +
+                "Signature algorithm name: SHA256withRSA\n" +
+                "Subject Public Key Algorithm: 2048-bit RSA key\n" +
+                "Version: 3\n" +
+                "\n" +
+                "Extensions: \n" +
+                "\n" +
+                "#1: ObjectId: 2.5.29.14 Criticality=false\n" +
+                "SubjectKeyIdentifier [\n" +
+                "KeyIdentifier [\n" +
+                "0000: 5D E9 37 60 3C 1D 4E 93   3C 0E 9B 6F FA 1C F7 B2  ].7`<.N.<..o....\n" +
+                "0010: A0 CE 24 3E                                        ..$>\n" +
+                "]\n");
+        identityProvider.setIdpProperties(identityProviderProperties);
+    }
+
+    private void setupSessionStore() throws UserSessionException {
+
+        AuthHistory authHistory = new AuthHistory("OpenIDConnectAuthenticator", "Federated-IdP");
+        authHistory.setIdpSessionIndex("15043ffc-877d-4205-af41-9b107f7da38c");
+        authHistory.setRequestType("oidc");
+
+        UserSessionStore.getInstance()
+                .storeFederatedAuthSessionInfo("02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4",
+                        authHistory);
+    }
+
+    private JWTClaimsSet generateLogoutToken() throws IdentityOAuth2Exception {
+
+        String sub = "admin";
+        String jti = UUID.randomUUID().toString();
+        String iss = "https://federatedwso2.com:9444/oauth2/token";
+        List<String> audience = Arrays.asList("w_Hwp05dFRwcRs_WFHv9SNwpflAa");
+        long logoutTokenValidityInMillis = 2 * 60 * 1000;
+        long currentTimeInMillis = Calendar.getInstance().getTimeInMillis();
+        Date iat = new Date(currentTimeInMillis);
+        String sid = "15043ffc-877d-4205-af41-9b107f7da38c";
+        JSONObject event = new JSONObject().appendField(BACKCHANNEL_LOGOUT_EVENT,
+                new JSONObject());
+
+        JWTClaimsSet.Builder jwtClaimsSetBuilder = new JWTClaimsSet.Builder();
+        jwtClaimsSetBuilder.subject(sub);
+        jwtClaimsSetBuilder.issuer(iss);
+        jwtClaimsSetBuilder.audience(audience);
+        jwtClaimsSetBuilder.claim("jti", jti);
+        jwtClaimsSetBuilder.claim("events", event);
+        jwtClaimsSetBuilder.expirationTime(new Date(currentTimeInMillis + logoutTokenValidityInMillis));
+        jwtClaimsSetBuilder.claim("iat", iat);
+        jwtClaimsSetBuilder.claim("sid", sid);
+
+        return jwtClaimsSetBuilder.build();
+    }
+
+    @Test
+    public void testOidcFederatedLogout() throws Exception {
+
+        LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
+        JWTClaimsSet jwtClaimsSet = generateLogoutToken();
+        String logoutToken = OAuth2Util.signJWT(jwtClaimsSet, JWSAlgorithm.parse(SIGNATURE_ALGORITHM),
+                TENANT_DOMAIN).serialize();
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
+        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
+
+        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(logoutContext));
+    }
 
     @Test
     public void testGetAuthenticatorConfig() {
