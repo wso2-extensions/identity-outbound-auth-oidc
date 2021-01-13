@@ -19,21 +19,17 @@
 package org.wso2.carbon.identity.application.authenticator.oidc.processor;
 
 import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
-import junit.awtui.Logo;
+import com.nimbusds.jwt.SignedJWT;
 import net.minidev.json.JSONObject;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.internal.WhiteboxImpl;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import org.wso2.carbon.authenticator.stub.Logout;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
-import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthHistory;
 import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
 import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
@@ -41,8 +37,6 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
-import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
-import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
@@ -50,12 +44,9 @@ import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorC
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.model.Property;
-import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
-import org.wso2.carbon.identity.testutil.powermock.PowerMockIdentityBaseTest;
 
-import static org.powermock.api.support.membermodification.MemberMatcher.method;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -64,10 +55,7 @@ import static org.testng.Assert.assertTrue;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.UUID;
 
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -81,16 +69,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     private IdentityProvider mockIdentityProvider;
 
     @Mock
-    private SessionManagementService mockSessionManagementService;
-
-    @Mock
     private LogoutRequest mockLogoutRequest;
-
-    @Mock
-    private UserSessionDAO userSessionDAO;
-
-    @Mock
-    private FederatedIdpInitLogoutProcessor mockLogoutProcessor;
 
     FederatedIdpInitLogoutProcessor logoutProcessor;
     Property[] properties;
@@ -99,7 +78,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     private static String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openidnet/event/backchannel-logout";
     private static String TENANT_DOMAIN = "carbon.super";
-    private static String SIGNATURE_ALGORITHM = "SHA256withRSA";
+    private static String SIGNATURE_ALGORITHM = "RS256";
 
 //    private static String logoutToken =
 //            "eyJ4NXQiOiJPV0psWmpJME5qSTROR0ZpTVRBNU9UZ3dPR00xTTJJeE5UWmpNekk0TldJeE5EY3dOMkV5TVRNNE5HWmlaVGxoTXpJMFl6a" +
@@ -120,11 +99,6 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         logoutProcessor = new FederatedIdpInitLogoutProcessor();
         FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
         setupIdP();
-        try {
-            setupSessionStore();
-        } catch (UserSessionException e) {
-            e.printStackTrace();
-        }
     }
 
     @DataProvider(name = "requestDataHandler")
@@ -305,12 +279,14 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
         LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
         JWTClaimsSet jwtClaimsSet = generateLogoutToken();
-        String logoutToken = OAuth2Util.signJWT(jwtClaimsSet, JWSAlgorithm.parse(SIGNATURE_ALGORITHM),
-                TENANT_DOMAIN).serialize();
+        JWT logout_Token = OAuth2Util.signJWT(jwtClaimsSet, JWSAlgorithm.parse(SIGNATURE_ALGORITHM),
+                TENANT_DOMAIN);
+        String logoutToken= logout_Token.serialize();
         when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
         when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
 
         assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(logoutContext));
+        assertTrue(true);
     }
 
     @Test
