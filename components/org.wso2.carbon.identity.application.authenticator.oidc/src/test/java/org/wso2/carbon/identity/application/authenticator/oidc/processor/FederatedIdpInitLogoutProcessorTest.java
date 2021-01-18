@@ -18,50 +18,65 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.processor;
 
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import net.minidev.json.JSONObject;
+import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.lang.StringUtils;
 import org.mockito.Mock;
+
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.internal.WhiteboxImpl;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import org.wso2.carbon.base.CarbonBaseConstants;
-import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
-import org.wso2.carbon.identity.application.authentication.framework.context.AuthHistory;
-import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
-import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
+import org.wso2.carbon.identity.application.authentication.framework.context.SessionContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
-import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
-import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.model.Property;
+import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
+import org.wso2.carbon.identity.common.testng.WithH2Database;
+import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
-import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
+import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
+import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
+import static org.mockito.Mockito.mock;
+import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.powermock.api.mockito.PowerMockito.when;
 
+@PrepareForTest({SignedJWT.class, IdentityProviderManager.class, JWTSignatureValidationUtils.class,
+        IdentityDatabaseUtil.class, FrameworkUtils.class})
+@PowerMockIgnore("jdk.internal.reflect.*")
+@WithH2Database(files = {"dbscripts/h2.sql"})
 public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     @Mock
@@ -78,32 +93,26 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     FederatedAuthenticatorConfig federatedAuthenticatorConfig;
     IdentityProvider identityProvider;
 
-    private static final String CARBON_HOME =
-            Paths.get(System.getProperty("user.dir"), "src", "test", "resources").toString();
-
+    private static Map<String, BasicDataSource> dataSourceMap = new HashMap<>();
+    private static final String DB_NAME = "testOIDCSLO";
     private static String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openidnet/event/backchannel-logout";
-    private static String TENANT_DOMAIN = "carbon.super";
-    private static String SIGNATURE_ALGORITHM = "RS256";
-
-//    private static String logoutToken =
-//            "eyJ4NXQiOiJPV0psWmpJME5qSTROR0ZpTVRBNU9UZ3dPR00xTTJJeE5UWmpNekk0TldJeE5EY3dOMkV5TVRNNE5HWmlaVGxoTXpJMFl6a" +
-//                    "GpaRFJrWXpoaVl6ZGhPQSIsImtpZCI6Ik9XSmxaakkwTmpJNE5HRmlNVEE1T1Rnd09HTTFNMkl4TlRaak16STROV0l4TkRjd0" +
-//                    "4yRXlNVE00TkdaaVpUbGhNekkwWXpoalpEUmtZemhpWXpkaE9BX1JTMjU2IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJhZG1p" +
-//                    "biIsImF1ZCI6IndfSHdwMDVkRlJ3Y1JzX1dGSHY5U053cGZsQWEiLCJpc3MiOiJodHRwczpcL1wvZmVkZXJhdGVkd3NvMi5jb" +
-//                    "206OTQ0NFwvb2F1dGgyXC90b2tlbiIsImV4cCI6MTYwOTkxMTk4OCwiaWF0IjoxNjA5OTExODY4LCJqdGkiOiIxNjE1OWUzZS" +
-//                    "1jNWZjLTQyZGUtYjkzZi1iMDc4MmFiMzNkNTgiLCJldmVudHMiOnsiaHR0cDpcL1wvc2NoZW1hcy5vcGVuaWRuZXRcL2V2ZW5" +
-//                    "0XC9iYWNrY2hhbm5lbC1sb2dvdXQiOnt9fSwic2lkIjoiMTUwNDNmZmMtODc3ZC00MjA1LWFmNDEtOWIxMDdmN2RhMzhjIn0." +
-//                    "MG1DbKb4OOMKJ4eIt9FXi8EsppaZgw-PSTmXTD2_ZmGSyApR723J3LZBpsx9StqMzJBJAlXHp9EjFOSeriZv21TIu9zuxHPpK" +
-//                    "qEwECJZb21R1Fyeb74O-HEZ0gET3RsuvoIhJk9mXjs7Jcqw0VFfev2bwUSbla5WwwFj3ds7-G31aDew0SDJImiO7MwGdVuQXq" +
-//                    "EKgyYA0-FHSbFNRtk3-rN25biW3ivU5AWeo9W3dI6epcNSr4pCCvWBIKI-rk01J8kYyu2ZujecyD0yoz420lbZ2c_dMKFpCDH" +
-//                    "DdYjueK4tYE66jpAzvJEyPs37snH-6ok2YaoYjKudyfCdXni7Bg";
+    private static String logoutTokenStatic =
+            "eyJ4NXQiOiJPV0psWmpJME5qSTROR0ZpTVRBNU9UZ3dPR00xTTJJeE5UWmpNekk0TldJeE5EY3dOMkV5TVRNNE5HWmlaVGxoTXpJMFl6a" +
+                    "GpaRFJrWXpoaVl6ZGhPQSIsImtpZCI6Ik9XSmxaakkwTmpJNE5HRmlNVEE1T1Rnd09HTTFNMkl4TlRaak16STROV0l4TkRjd0" +
+                    "4yRXlNVE00TkdaaVpUbGhNekkwWXpoalpEUmtZemhpWXpkaE9BX1JTMjU2IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJhZG1p" +
+                    "biIsImF1ZCI6IndfSHdwMDVkRlJ3Y1JzX1dGSHY5U053cGZsQWEiLCJpc3MiOiJodHRwczpcL1wvZmVkZXJhdGVkd3NvMi5jb" +
+                    "206OTQ0NFwvb2F1dGgyXC90b2tlbiIsImV4cCI6MTYwOTkxMTk4OCwiaWF0IjoxNjA5OTExODY4LCJqdGkiOiIxNjE1OWUzZS" +
+                    "1jNWZjLTQyZGUtYjkzZi1iMDc4MmFiMzNkNTgiLCJldmVudHMiOnsiaHR0cDpcL1wvc2NoZW1hcy5vcGVuaWRuZXRcL2V2ZW5" +
+                    "0XC9iYWNrY2hhbm5lbC1sb2dvdXQiOnt9fSwic2lkIjoiMTUwNDNmZmMtODc3ZC00MjA1LWFmNDEtOWIxMDdmN2RhMzhjIn0." +
+                    "MG1DbKb4OOMKJ4eIt9FXi8EsppaZgw-PSTmXTD2_ZmGSyApR723J3LZBpsx9StqMzJBJAlXHp9EjFOSeriZv21TIu9zuxHPpK" +
+                    "qEwECJZb21R1Fyeb74O-HEZ0gET3RsuvoIhJk9mXjs7Jcqw0VFfev2bwUSbla5WwwFj3ds7-G31aDew0SDJImiO7MwGdVuQXq" +
+                    "EKgyYA0-FHSbFNRtk3-rN25biW3ivU5AWeo9W3dI6epcNSr4pCCvWBIKI-rk01J8kYyu2ZujecyD0yoz420lbZ2c_dMKFpCDH" +
+                    "DdYjueK4tYE66jpAzvJEyPs37snH-6ok2YaoYjKudyfCdXni7Bg";
 
     @BeforeTest
-    public void init() {
+    public void init() throws Exception {
 
-        System.setProperty(CarbonBaseConstants.CARBON_HOME, CARBON_HOME);
         logoutProcessor = new FederatedIdpInitLogoutProcessor();
-        FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
         setupIdP();
     }
 
@@ -240,18 +249,89 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
                 "0000: 5D E9 37 60 3C 1D 4E 93   3C 0E 9B 6F FA 1C F7 B2  ].7`<.N.<..o....\n" +
                 "0010: A0 CE 24 3E                                        ..$>\n" +
                 "]\n");
+        FederatedAuthenticatorConfig federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
+        Property[] properties = new Property[1];
+        Property property = new Property();
+        property.setName("ClientId");
+        property.setValue("w_Hwp05dFRwcRs_WFHv9SNwpflAa");
+        properties[0] = property;
+        federatedAuthenticatorConfig.setProperties(properties);
+        identityProvider.setDefaultAuthenticatorConfig(federatedAuthenticatorConfig);
         identityProvider.setIdpProperties(identityProviderProperties);
     }
 
-    private void setupSessionStore() throws UserSessionException {
+    private void initiateH2Base(String databaseName, String scriptPath) throws Exception {
 
-        AuthHistory authHistory = new AuthHistory("OpenIDConnectAuthenticator", "Federated-IdP");
-        authHistory.setIdpSessionIndex("15043ffc-877d-4205-af41-9b107f7da38c");
-        authHistory.setRequestType("oidc");
+        BasicDataSource dataSource = new BasicDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUsername("username");
+        dataSource.setPassword("password");
+        dataSource.setUrl("jdbc:h2:mem:test" + databaseName);
+        try (Connection connection = dataSource.getConnection()) {
+            connection.createStatement().executeUpdate("RUNSCRIPT FROM '" + scriptPath + "'");
+        }
+        dataSourceMap.put(databaseName, dataSource);
+    }
 
-        UserSessionStore.getInstance()
-                .storeFederatedAuthSessionInfo("02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4",
-                        authHistory);
+    private static String getFilePath(String fileName) {
+
+        if (StringUtils.isNotBlank(fileName)) {
+            return Paths.get(System.getProperty("user.dir"), "src", "test", "resources", "dbscripts", fileName)
+                    .toString();
+        }
+        throw new IllegalArgumentException("DB Script file name cannot be empty.");
+    }
+
+    private static Connection getConnection(String database) throws SQLException {
+
+        if (dataSourceMap.get(database) != null) {
+            return dataSourceMap.get(database).getConnection();
+        }
+        throw new RuntimeException("No datasource initiated for database: " + database);
+    }
+
+    private void prepareConnection(Connection connection1, boolean b) {
+
+        mockStatic(IdentityDatabaseUtil.class);
+        PowerMockito.when(IdentityDatabaseUtil.getDBConnection(b)).thenReturn(connection1);
+    }
+
+    private void setupSessionStore() throws Exception {
+
+        initiateH2Base(DB_NAME, getFilePath("h2.sql"));
+
+        String SESSION_CONTEXT_KEY = "02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4";
+        String IDP_SESSION_INDEX = "15043ffc-877d-4205-af41-9b107f7da38c";
+        String IDP_NAME = "Federated-IdP";
+        String AUTHENTICATOR_ID = "OpenIDConnectAuthenticator";
+        String PROTOCOL_TYPE = "oidc";
+
+        try (Connection connection1 = getConnection(DB_NAME)) {
+            prepareConnection(connection1, false);
+
+            String sql = "INSERT INTO IDN_FED_AUTH_SESSION_MAPPING " +
+                    "(IDP_SESSION_ID, SESSION_ID, IDP_NAME,  AUTHENTICATOR_ID, PROTOCOL_TYPE) VALUES ( '" +
+                    IDP_SESSION_INDEX + "' , '" + SESSION_CONTEXT_KEY + "' , '" + IDP_NAME + "' , '" +
+                    AUTHENTICATOR_ID +
+                    "', '" + PROTOCOL_TYPE + "');";
+
+            PreparedStatement statement = connection1.prepareStatement(sql);
+            statement.execute();
+        }
+
+        try (Connection connection1 = getConnection(DB_NAME)) {
+            prepareConnection(connection1, false);
+            String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
+            PreparedStatement statement2 = connection1.prepareStatement(query);
+            statement2.setString(1, "15043ffc-877d-4205-af41-9b107f7da38c");
+            ResultSet resultSet = statement2.executeQuery();
+            String result = null;
+            if (resultSet.next()) {
+                result = resultSet.getString("SESSION_ID");
+            }
+            assertEquals(SESSION_CONTEXT_KEY, result, "Failed to handle for valid input");
+        }
+
     }
 
     private JWTClaimsSet generateLogoutToken() throws IdentityOAuth2Exception {
@@ -283,21 +363,47 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     @Test
     public void testOidcFederatedLogout() throws Exception {
 
-//        LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
-//        JWTClaimsSet jwtClaimsSet = generateLogoutToken();
-//        String logoutToken = OAuth2Util.signJWT(jwtClaimsSet, JWSAlgorithm.parse(SIGNATURE_ALGORITHM),
-//                TENANT_DOMAIN).serialize();
-//        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
-//        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
-//
-//        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(logoutContext));
-        assertTrue(true);
-    }
+        LogoutContext logoutContext = new LogoutContext(mockLogoutRequest);
+        JWTClaimsSet jwtClaimsSet = generateLogoutToken();
 
-    @Test
-    public void testGetAuthenticatorConfig() {
+        mockStatic(SignedJWT.class);
+        SignedJWT signedJWT = mock(SignedJWT.class);
+        when(SignedJWT.parse(logoutTokenStatic)).thenReturn(signedJWT);
+        when(SignedJWT.parse(logoutTokenStatic).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutTokenStatic);
+        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
+        mockStatic(IdentityProviderManager.class);
+        IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
+        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
+        when(IdentityProviderManager.getInstance().getIdPByMetadataProperty(
+                IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
+                "carbon.super", false)).thenReturn(identityProvider);
 
-        assertNotNull(logoutProcessor.getAuthenticatorConfig());
+        mockStatic(JWTSignatureValidationUtils.class);
+        when(JWTSignatureValidationUtils.validateSignature(signedJWT,
+                identityProvider)).thenReturn(true);
+
+        setupSessionStore();
+        mockStatic(IdentityDatabaseUtil.class);
+        when(IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
+
+        SessionContext sessionContext = mock(SessionContext.class);
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+        authenticatedUser.setAuthenticatedSubjectIdentifier("admin");
+        authenticatedUser.setFederatedIdPName("Federated-IdP");
+        authenticatedUser.setUserName("admin");
+        authenticatedUser.setTenantDomain("carbon.super");
+        when(sessionContext.getProperty("AuthenticatedUser")).thenReturn(authenticatedUser);
+
+        mockStatic(FrameworkUtils.class);
+        when(FrameworkUtils.getSessionContextFromCache("15043ffc-877d-4205-af41-9b107f7da38c"))
+                .thenReturn(sessionContext);
+
+        SessionManagementService sessionManagementService = mock(SessionManagementService.class);
+        when(sessionManagementService.removeSession("02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4"))
+                .thenReturn(true);
+
+        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(logoutContext));
     }
 
     @Test

@@ -110,15 +110,6 @@ public class OIDCAuthenticatorConstants {
         public static final String UPDATED_AT = "updated_at";
     }
 
-    public class SessionInfo {
-
-        private SessionInfo() {
-
-        }
-
-        public static final String QUERY = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID = ?";
-    }
-
     public class LogoutExceptionError {
 
         private LogoutExceptionError() {
