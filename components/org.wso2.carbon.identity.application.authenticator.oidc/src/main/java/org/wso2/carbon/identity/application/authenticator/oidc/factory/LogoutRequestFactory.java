@@ -50,7 +50,7 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
             canHandle = true;
         }
         if (log.isDebugEnabled()) {
-            log.debug("canHandle " + canHandle + " by OIDC LogoutProcessor.");
+            log.debug("canHandle " + canHandle + " by OIDC LogoutRequestFactory.");
         }
         return canHandle;
     }

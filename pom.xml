@@ -230,6 +230,12 @@
                 <version>${carbon.identity.oauth.version}</version>
                 <scope>compile</scope>
             </dependency>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>${h2database.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -366,6 +372,8 @@
         <nimbusds.version>7.3.0.wso2v1</nimbusds.version>
         <nimbusds.oauth.version>8.28.3</nimbusds.oauth.version>
         <nimbusds.osgi.version.range>[7.3.0,8.0.0)</nimbusds.osgi.version.range>
+
+        <h2database.version>1.4.199</h2database.version>
     </properties>
 
     <modules>
