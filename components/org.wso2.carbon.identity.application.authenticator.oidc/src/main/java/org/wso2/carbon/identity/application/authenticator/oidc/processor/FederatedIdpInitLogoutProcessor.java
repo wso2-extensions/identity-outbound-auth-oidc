@@ -25,6 +25,7 @@ import net.minidev.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
 import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
@@ -35,10 +36,12 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
+import org.wso2.carbon.identity.application.authentication.framework.model.FederatedUserSession;
 import org.wso2.carbon.identity.application.authentication.framework.services.SessionManagementService;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
+import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
@@ -86,11 +89,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         }
         LogoutContext logoutContext = new LogoutContext(identityRequest);
 
-        IdentityResponse.IdentityResponseBuilder identityResponseBuilder = null;
-        identityResponseBuilder = handleOIDCFederatedLogoutRequest(logoutContext);
-
-        return identityResponseBuilder;
-
+        return handleOIDCFederatedLogoutRequest(logoutContext);
     }
 
     /**
@@ -195,11 +194,13 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
         UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
         try {
-            Map<String, String> sessionDetails = userSessionDAO.getSessionDetails(sid);
-            String sessionId = sessionDetails.get(SESSION_ID);
+            FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
+            String sessionId = federatedUserSession.getSessionId();
             if (StringUtils.isNotBlank(sessionId)) {
-                SessionManagementService sessionManagementService = new SessionManagementService();
-                boolean sessionRemoved = sessionManagementService.removeSession(sessionId);
+                ServerSessionManagementService serverSessionManagementService =
+                        OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
+                boolean sessionRemoved
+                        = serverSessionManagementService.removeSession(sessionId);
                 if (sessionRemoved) {
                     log.info("Session terminated for session Id: " + sessionId);
                 } else {

@@ -21,6 +21,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.osgi.service.component.ComponentContext;
 import org.wso2.carbon.identity.application.authentication.framework.ApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityRequestFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
@@ -113,5 +114,31 @@ public class OpenIDConnectAuthenticatorServiceComponent {
 
         OpenIDConnectAuthenticatorDataHolder.getInstance()
                 .setClaimMetadataManagementService(null);
+    }
+
+    @Reference(
+            name = "server.session.management.service",
+            service = ServerSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetServerSessionManagementService"
+    )
+    protected void setServerSessionManagementService(ServerSessionManagementService
+                                                             serverSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is set in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance()
+                .setServerSessionManagementService(serverSessionManagementService);
+    }
+
+    protected void unsetServerSessionManagementService(ServerSessionManagementService
+                                                               serverSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is unset in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance().setServerSessionManagementService(null);
     }
 }
