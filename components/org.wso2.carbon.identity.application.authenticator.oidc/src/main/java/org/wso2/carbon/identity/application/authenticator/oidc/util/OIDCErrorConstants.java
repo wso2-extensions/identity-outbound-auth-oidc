@@ -38,6 +38,14 @@ public class OIDCErrorConstants {
                 "Authentication process failed"),
         USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP("OID-60005",
                 "Cannot find the userId from the id_token sent by the federated IDP."),
+        LOGOUT_TOKEN_EMPTY_OR_NULL("OID-60006",
+                "Back channel logout failed. Logout token is null"),
+        LOGOUT_TOKEN_PARSING_FAILURE("OID-60007",
+                "Error while parsing logout token"),
+        LOGOUT_TOKEN_IAT_VALIDATION_FAILED("OID-60008",
+                "Logout token is used after iatValidityTime"),
+        LOGOUT_TOKEN_CLAIM_VALIDATION_FAILURE("OID-60009",
+                "Logout token claim validation failed"),
 
         RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED("OID-65001",
                 "Error while retrieving properties. Authenticator Properties cannot be null"),
@@ -51,7 +59,20 @@ public class OIDCErrorConstants {
         REQUESTING_ACCESS_TOKEN_FAILED("OID-65006",
                 "Exception while requesting access token"),
         EXECUTING_CLAIM_TRANSFORMATION_FOR_IDP_FAILED("OID-65007",
-                "Error while executing claim transformation for IDP: %s");
+                "Error while executing claim transformation for IDP: %s"),
+        LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED("OID-65008",
+                "Error while validating the logout token signature"),
+        FEDERATED_SESSION_TERMINATION_FAILED("OID-65009",
+                "Unable to terminate session for session Id: %s"),
+        RETRIEVING_SESSION_ID_MAPPING_FAILED("OID-65010",
+                "Error while retrieving session Id mapping for sid: %s"),
+        RETRIEVING_IDENTITY_PROVIDER_FAILED("OID-65011",
+                "Error while retrieving the identity provider"),
+        NO_REGISTERED_IDP_FOR_ISSUER("OID-65012",
+                "No Registered IDP found for the JWT with issuer name : %s"),
+        GETTING_RESIDENT_IDP_FAILED("OID-65013",
+                "Error while getting Resident Identity Provider of '%s' tenant.");
+
 
         private final String code;
         private final String message;
