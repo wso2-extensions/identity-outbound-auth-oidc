@@ -98,6 +98,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
+    private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
 
     @Override
     public AuthenticatorFlowStatus process(HttpServletRequest request, HttpServletResponse response,
@@ -515,9 +516,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jsonObject);
                 String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
 
-                for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
-                    buildClaimMappings(claims, entry, attributeSeparator);
-                }
+                jsonObject.entrySet().stream()
+                        .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
+                        .forEach(entry -> buildClaimMappings(claims, entry, attributeSeparator));
+                
                 authenticatedUser = AuthenticatedUser
                         .createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
             } else {
