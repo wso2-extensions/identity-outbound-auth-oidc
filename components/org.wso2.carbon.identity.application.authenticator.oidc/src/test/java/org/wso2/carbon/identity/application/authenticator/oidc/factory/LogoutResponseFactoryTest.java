@@ -28,12 +28,11 @@ import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientExcep
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_CLIENT_EXCEPTION;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_SERVER_EXCEPTION;
 
 public class LogoutResponseFactoryTest extends PowerMockTestCase {
 
@@ -74,7 +73,7 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 logoutResponseFactory.handleException(new LogoutServerException("Server Error"));
-        assertEquals(builder.build().getBody(), LOGOUT_SERVER_EXCEPTION);
+        assertEquals(builder.build().getBody(), OIDCErrorConstants.LOGOUT_SERVER_EXCEPTION);
         assertEquals(builder.build().getStatusCode(), 500);
     }
 
@@ -83,7 +82,7 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 logoutResponseFactory.handleException(new LogoutClientException("Server Error"));
-        assertEquals(builder.build().getBody(), LOGOUT_CLIENT_EXCEPTION);
+        assertEquals(builder.build().getBody(), OIDCErrorConstants.LOGOUT_CLIENT_EXCEPTION);
         assertEquals(builder.build().getStatusCode(), 400);
     }
 }

@@ -22,6 +22,7 @@ import org.apache.commons.logging.LogFactory;
 import org.osgi.service.component.ComponentContext;
 import org.wso2.carbon.identity.application.authentication.framework.ApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
+import org.wso2.carbon.identity.application.authentication.framework.UserSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityRequestFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
@@ -140,5 +141,31 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             log.debug("Server Session Management Service is unset in the OpenID Connect Authenticator");
         }
         OpenIDConnectAuthenticatorDataHolder.getInstance().setServerSessionManagementService(null);
+    }
+
+    @Reference(
+            name = "user.session.management.service",
+            service = UserSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetUserSessionManagementService"
+    )
+    protected void setUserSessionManagementService(UserSessionManagementService
+                                                           userSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is set in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance()
+                .setUserSessionManagementService(userSessionManagementService);
+    }
+
+    protected void unsetUserSessionManagementService(UserSessionManagementService
+                                                             userSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is unset in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance().setUserSessionManagementService(null);
     }
 }

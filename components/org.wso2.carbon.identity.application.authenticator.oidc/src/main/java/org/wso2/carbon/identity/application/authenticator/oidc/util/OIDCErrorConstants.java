@@ -23,6 +23,9 @@ package org.wso2.carbon.identity.application.authenticator.oidc.util;
  */
 public class OIDCErrorConstants {
 
+    public static final String LOGOUT_SERVER_EXCEPTION = "Back channel logout failed due to server error.";
+    public static final String LOGOUT_CLIENT_EXCEPTION = "Back channel logout failed due to client error.";
+
     /**
      * Relevant error messages and error codes.
      */
@@ -71,7 +74,9 @@ public class OIDCErrorConstants {
         NO_REGISTERED_IDP_FOR_ISSUER("OID-65012",
                 "No Registered IDP found for the JWT with issuer name : %s"),
         GETTING_RESIDENT_IDP_FAILED("OID-65013",
-                "Error while getting Resident Identity Provider of '%s' tenant.");
+                "Error while getting Resident Identity Provider of '%s' tenant."),
+        USER_SESSION_TERMINATION_FAILURE("OID-65014",
+                "Error while terminating the sessions for the user: %s");
 
 
         private final String code;

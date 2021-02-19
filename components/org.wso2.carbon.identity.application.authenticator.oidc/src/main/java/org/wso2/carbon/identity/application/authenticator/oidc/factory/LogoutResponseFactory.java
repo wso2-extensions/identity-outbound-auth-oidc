@@ -28,14 +28,12 @@ import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientExcep
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_CLIENT_EXCEPTION;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogoutExceptionError.LOGOUT_SERVER_EXCEPTION;
 
 /**
  * This class  builds a HTTP response instance based on the common IdentityRequest format used by
@@ -95,9 +93,10 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
 
         if (frameworkException instanceof LogoutServerException) {
-            builder = buildResponse(LOGOUT_SERVER_EXCEPTION, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            builder = buildResponse(OIDCErrorConstants.LOGOUT_SERVER_EXCEPTION,
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         } else if (frameworkException instanceof LogoutClientException) {
-            builder = buildResponse(LOGOUT_CLIENT_EXCEPTION, HttpServletResponse.SC_BAD_REQUEST);
+            builder = buildResponse(OIDCErrorConstants.LOGOUT_CLIENT_EXCEPTION, HttpServletResponse.SC_BAD_REQUEST);
         }
 
         return builder;
