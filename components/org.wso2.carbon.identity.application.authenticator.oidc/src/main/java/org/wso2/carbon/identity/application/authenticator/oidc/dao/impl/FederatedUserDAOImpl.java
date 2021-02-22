@@ -29,6 +29,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * Access the federated user information.
+ */
 public class FederatedUserDAOImpl implements FederatedUserDAO {
 
     private static final Log log = LogFactory.getLog(FederatedUserDAO.class);

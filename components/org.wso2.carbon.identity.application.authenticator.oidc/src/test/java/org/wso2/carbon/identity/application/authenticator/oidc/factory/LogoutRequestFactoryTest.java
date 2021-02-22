@@ -29,8 +29,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.base.CarbonBaseConstants;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
-import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
-import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 
 import java.io.BufferedReader;
 import java.io.StringReader;
@@ -47,6 +45,9 @@ import javax.servlet.http.HttpServletResponse;
 import static org.powermock.api.mockito.PowerMockito.when;
 import static org.testng.Assert.assertNotNull;
 
+/**
+ * Unit test class for  LogoutRequestFactory
+ */
 @PrepareForTest({PrivilegedCarbonContext.class})
 @PowerMockIgnore("jdk.internal.reflect.*")
 public class LogoutRequestFactoryTest extends PowerMockTestCase {

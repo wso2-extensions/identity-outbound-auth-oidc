@@ -80,6 +80,9 @@ import javax.xml.stream.XMLInputFactory;
 
 import static org.powermock.api.mockito.PowerMockito.when;
 
+/**
+ * Unit test class for FederatedIdpInitLogoutProcessor
+ */
 @PrepareForTest({SignedJWT.class, IdentityProviderManager.class, JWTSignatureValidationUtils.class,
         IdentityDatabaseUtil.class, FrameworkUtils.class, XMLInputFactory.class, DataSource.class,
         ServerSessionManagementService.class, OpenIDConnectAuthenticatorDataHolder.class})
