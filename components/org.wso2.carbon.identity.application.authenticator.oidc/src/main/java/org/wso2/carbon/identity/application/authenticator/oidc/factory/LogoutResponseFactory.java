@@ -53,10 +53,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     @Override
     public boolean canHandle(FrameworkException exception) {
 
-        if (exception instanceof LogoutException) {
-            return true;
-        }
-        return false;
+        return (exception instanceof LogoutException);
     }
 
     @Override

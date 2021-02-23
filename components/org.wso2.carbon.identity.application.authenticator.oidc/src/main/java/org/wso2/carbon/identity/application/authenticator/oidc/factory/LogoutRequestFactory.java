@@ -60,9 +60,6 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
                                                      HttpServletResponse response)
             throws FrameworkClientException {
 
-        if (log.isDebugEnabled()) {
-            log.debug("Create LogoutRequest.LogoutRequestBuilder from HttpServletRequest and HttpServletResponse.");
-        }
         LogoutRequest.LogoutRequestBuilder logoutRequestBuilder = new LogoutRequest.
                 LogoutRequestBuilder(request, response);
         create(logoutRequestBuilder, request, response);

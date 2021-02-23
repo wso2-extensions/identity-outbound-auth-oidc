@@ -115,8 +115,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 }
                 SignedJWT signedJWT = SignedJWT.parse(logoutToken);
                 JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
-                boolean isClaimValid;
-                isClaimValid = validateClaims(signedJWT, logoutRequest.getTenantDomain());
+                boolean isClaimValid = validateClaims(signedJWT, logoutRequest.getTenantDomain());
                 if (log.isDebugEnabled()) {
                     log.debug("Claim validation: " + isClaimValid);
                 }
