@@ -23,9 +23,6 @@ package org.wso2.carbon.identity.application.authenticator.oidc.util;
  */
 public class OIDCErrorConstants {
 
-    public static final String LOGOUT_SERVER_EXCEPTION = "Back channel logout failed due to server error.";
-    public static final String LOGOUT_CLIENT_EXCEPTION = "Back channel logout failed due to client error.";
-
     /**
      * Relevant error messages and error codes.
      */
@@ -49,6 +46,7 @@ public class OIDCErrorConstants {
                 "Logout token is used after iatValidityTime"),
         LOGOUT_TOKEN_CLAIM_VALIDATION_FAILURE("OID-60009",
                 "Logout token claim validation failed"),
+        LOGOUT_CLIENT_EXCEPTION("OID-60010", "Back channel logout failed due to client error."),
 
         RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED("OID-65001",
                 "Error while retrieving properties. Authenticator Properties cannot be null"),
@@ -76,8 +74,8 @@ public class OIDCErrorConstants {
         GETTING_RESIDENT_IDP_FAILED("OID-65013",
                 "Error while getting Resident Identity Provider of '%s' tenant."),
         USER_SESSION_TERMINATION_FAILURE("OID-65014",
-                "Error while terminating the sessions for the user: %s");
-
+                "Error while terminating the sessions for the user: %s"),
+        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error.");
 
         private final String code;
         private final String message;

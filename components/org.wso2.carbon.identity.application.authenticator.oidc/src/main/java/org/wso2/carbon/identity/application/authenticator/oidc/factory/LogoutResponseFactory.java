@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * Copyright (c) 2021, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
  * WSO2 Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -50,6 +50,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
     }
 
+    @Override
     public boolean canHandle(FrameworkException exception) {
 
         if (exception instanceof LogoutException) {
@@ -70,9 +71,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     @Override
     public void create(HttpIdentityResponse.HttpIdentityResponseBuilder builder, IdentityResponse identityResponse) {
 
-        LogoutResponse logoutResponse = null;
         if (identityResponse instanceof LogoutResponse) {
-            logoutResponse = (LogoutResponse) identityResponse;
             builder.setStatusCode(HttpServletResponse.SC_OK);
             builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                     OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
@@ -93,10 +92,11 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
 
         if (frameworkException instanceof LogoutServerException) {
-            builder = buildResponse(OIDCErrorConstants.LOGOUT_SERVER_EXCEPTION,
+            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         } else if (frameworkException instanceof LogoutClientException) {
-            builder = buildResponse(OIDCErrorConstants.LOGOUT_CLIENT_EXCEPTION, HttpServletResponse.SC_BAD_REQUEST);
+            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage(),
+                    HttpServletResponse.SC_BAD_REQUEST);
         }
 
         return builder;

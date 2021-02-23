@@ -120,5 +120,4 @@ public class OIDCAuthenticatorConstants {
         public static final String LOGOUT_TOKEN = "logout_token";
 
     }
-
 }

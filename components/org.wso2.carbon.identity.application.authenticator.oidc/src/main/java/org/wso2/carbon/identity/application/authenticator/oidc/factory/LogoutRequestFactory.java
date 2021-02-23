@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * Copyright (c) 2021, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
  * WSO2 Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -61,7 +61,7 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
             throws FrameworkClientException {
 
         if (log.isDebugEnabled()) {
-            log.debug("create LogoutRequest.LogoutRequestBuilder by LogoutRequestFactory.");
+            log.debug("Create LogoutRequest.LogoutRequestBuilder from HttpServletRequest and HttpServletResponse.");
         }
         LogoutRequest.LogoutRequestBuilder logoutRequestBuilder = new LogoutRequest.
                 LogoutRequestBuilder(request, response);
