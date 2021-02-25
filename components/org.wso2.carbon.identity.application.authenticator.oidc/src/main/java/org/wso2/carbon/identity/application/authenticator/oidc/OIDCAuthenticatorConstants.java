@@ -54,8 +54,9 @@ public class OIDCAuthenticatorConstants {
     public static final String AUTH_PARAM = "$authparam";
     public static final String DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX = "\\$authparam\\{(\\w+)\\}";
 
-    public static final Pattern OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN =
-            Pattern.compile("(.*)/identity/oidc/slo(.*)");
+    public static final String LOGOUT_TOKEN = "logout_token";
+    public static final Pattern OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN = Pattern.compile("(.*)/identity/oidc" +
+            "/slo(.*)");
 
     public class AuthenticatorConfParams {
 
@@ -106,18 +107,9 @@ public class OIDCAuthenticatorConstants {
         public static final String PHONE_NUMBER_VERIFIED = "phone_number_verified";
         public static final String ADDRESS = "address";
         public static final String UPDATED_AT = "updated_at";
+        // Logout token claims.
         public static final String SID = "sid";
         public static final String NONCE = "nonce";
         public static final String EVENTS = "events";
-    }
-
-    public class Logout {
-
-        private Logout() {
-
-        }
-
-        public static final String LOGOUT_TOKEN = "logout_token";
-
     }
 }

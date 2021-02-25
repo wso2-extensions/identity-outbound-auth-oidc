@@ -18,15 +18,12 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.factory;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
@@ -36,12 +33,10 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
 /**
- * This class  builds a HTTP response instance based on the common IdentityRequest format used by
+ * Builds a HTTP response instance based on the common IdentityRequest format used by
  * the authentication framework.
  */
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
-
-    private static final Log log = LogFactory.getLog(LogoutResponseFactory.class);
 
     @Override
     public boolean canHandle(IdentityResponse identityResponse) {
@@ -68,37 +63,37 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     @Override
     public void create(HttpIdentityResponse.HttpIdentityResponseBuilder builder, IdentityResponse identityResponse) {
 
-        if (identityResponse instanceof LogoutResponse) {
-            builder.setStatusCode(HttpServletResponse.SC_OK);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
-            builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
-                    OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
-            builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
-            builder.setBody("Back channel logout success!");
-        } else {
-            // This else part will not be reached from application logic.
-            log.error("Can't create httpIdentityResponseBuilder. identityResponse is not an instance of " +
-                    "LogoutResponse");
-        }
+        builder.setStatusCode(HttpServletResponse.SC_OK);
+        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
+                OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
+        builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
+                OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
+        builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+        builder.setBody("Back channel logout success!");
     }
 
+    @Override
     public HttpIdentityResponse.HttpIdentityResponseBuilder handleException(FrameworkException frameworkException) {
 
-        HttpIdentityResponse.HttpIdentityResponseBuilder builder =
-                new HttpIdentityResponse.HttpIdentityResponseBuilder();
-
-        if (frameworkException instanceof LogoutServerException) {
-            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
-                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        } else if (frameworkException instanceof LogoutClientException) {
+        HttpIdentityResponse.HttpIdentityResponseBuilder builder;
+        if (frameworkException instanceof LogoutClientException) {
             builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage(),
                     HttpServletResponse.SC_BAD_REQUEST);
+        } else {
+            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
         return builder;
     }
 
+    /**
+     * Build Identity response based on the error message and code.
+     *
+     * @param errorMessage
+     * @param errorCode
+     * @return
+     */
     private HttpIdentityResponse.HttpIdentityResponseBuilder buildResponse(String errorMessage, int errorCode) {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =

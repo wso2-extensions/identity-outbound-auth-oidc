@@ -26,7 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * This class holds the necessary parameters of the HTTPServletRequest.
+ * Holds the necessary parameters of the HTTPServletRequest.
  * LogoutRequestBuilder is an inner class of this class and it is responsible
  * for building a concrete instance of OIDC LogoutRequest for the framework when needed.
  */

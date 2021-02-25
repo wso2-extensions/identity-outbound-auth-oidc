@@ -30,10 +30,10 @@ import java.util.regex.Matcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
 
 /**
- * This class checks whether requests from the Identity servlet are OIDC Logout Requests and
+ * Checks whether requests from the Identity servlet are OIDC Logout Requests and
  * provides a builder to an instance of OIDC LogoutRequest.
  */
 public class LogoutRequestFactory extends HttpIdentityRequestFactory {
@@ -45,7 +45,7 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
 
         boolean canHandle = false;
         Matcher registerMatcher =
-                OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN.matcher(request.getRequestURI());
+                OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN.matcher(request.getRequestURI());
         if (registerMatcher.matches()) {
             canHandle = true;
         }

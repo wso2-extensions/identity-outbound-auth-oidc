@@ -32,6 +32,7 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.dao.UserSessionDAO;
 import org.wso2.carbon.identity.application.authentication.framework.dao.impl.UserSessionDAOImpl;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.session.mgt.SessionManagementException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.session.mgt.SessionManagementServerException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
@@ -39,14 +40,11 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.model.FederatedUserSession;
+import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
-import org.wso2.carbon.identity.application.authenticator.oidc.context.LogoutContext;
-import org.wso2.carbon.identity.application.authenticator.oidc.dao.FederatedUserDAO;
-import org.wso2.carbon.identity.application.authenticator.oidc.dao.impl.FederatedUserDAOImpl;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
-import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutRequest;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
@@ -66,11 +64,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
 
 /**
- * This class process the OIDC federated idp initiated logout requests
+ * Processes the OIDC federated idp initiated logout requests.
  */
 public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
@@ -89,135 +87,90 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         if (log.isDebugEnabled()) {
             log.debug("Request processing started by OIDC FederatedIdpInitLogoutProcessor.");
         }
-        LogoutContext logoutContext = new LogoutContext(identityRequest);
-        return handleOIDCFederatedLogoutRequest(logoutContext);
+        return handleOIDCFederatedLogoutRequest(identityRequest);
     }
 
     /**
-     * Handles the logout request according to OIDC Back-channel logout specification
+     * Handles the logout request according to OIDC Back-channel logout specification.
      *
-     * @param logoutContext
-     * @return IdentityResponse.IdentityResponseBuilder
-     * @throws LogoutClientException Exception occurred due to error in the logout request
-     * @throws LogoutServerException Exception occurred from IS
+     * @param logoutRequest
+     * @return IdentityResponse.IdentityResponseBuilder.
+     * @throws LogoutClientException Exception occurred due to error in the logout request.
+     * @throws LogoutServerException Exception occurred from IS.
      */
     protected IdentityResponse.IdentityResponseBuilder handleOIDCFederatedLogoutRequest(
-            LogoutContext logoutContext) throws LogoutClientException, LogoutServerException {
+            IdentityRequest logoutRequest) throws LogoutClientException, LogoutServerException {
 
-        LogoutResponse.LogoutResponseBuilder logoutResponseBuilder =
-                new LogoutResponse.LogoutResponseBuilder();
-        LogoutRequest logoutRequest = (LogoutRequest) logoutContext.getIdentityRequest();
         try {
-            String logoutToken = logoutRequest.getParameter(OIDCAuthenticatorConstants.Logout.LOGOUT_TOKEN);
-            if (StringUtils.isNotBlank(logoutToken)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Logout Token: " + logoutToken);
-                }
-                SignedJWT signedJWT = SignedJWT.parse(logoutToken);
-                JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
-                boolean isClaimValid = validateClaims(signedJWT, logoutRequest.getTenantDomain());
-                if (log.isDebugEnabled()) {
-                    log.debug("Claim validation: " + isClaimValid);
-                }
-                if (isClaimValid) {
-                    //check for sid or sub claims in the logout token.
-                    if (validateSid(claimsSet)) {
-                        //check whether the sid has an entry in the federated authentication session details table.
-                        String sid = (String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID);
-                        UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
-                        FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
-                        if (federatedUserSession != null) {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Can terminate the session using sid claim");
-                            }
-                            logoutUsingSid(sid, federatedUserSession);
-                        }
-                        //if sid didn't have an entry in the table, then try to terminate the sessions using sub claim.
-                        else {
-                            if (log.isDebugEnabled()) {
-                                log.debug(String.format("No session mapping entry for sid: %s. Trying the logout" +
-                                        " using sub claim", sid));
-                            }
-                            String sub = claimsSet.getSubject();
-                            boolean canLogoutUsingSub = canLogoutFromSub(sub);
-                            if (log.isDebugEnabled()) {
-                                log.debug("Can terminate the sessions using sub claim: " + canLogoutUsingSub);
-                            }
-                            if (canLogoutUsingSub) {
-                                logoutUsingSub(sub);
-                            }
-                        }
-                    }
-                    //check whether the sub claim is available in the logout token.
-                    if (log.isDebugEnabled()) {
-                        log.debug("No sid presented in the logout token. Using sub claim to terminate the sessions.");
-                    } else if (validateSub(claimsSet)) {
-                        //check whether the sub claim has a valid user in the IS.
-                        String sub = claimsSet.getSubject();
-                        boolean canLogoutUsingSub = canLogoutFromSub(sub);
-                        if (log.isDebugEnabled()) {
-                            log.debug("Can terminate the sessions using sub claim: " + canLogoutUsingSub);
-                        }
-                        if (canLogoutUsingSub) {
-                            logoutUsingSub(sub);
-                        }
-                    }
-                } else {
-                    throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_CLAIM_VALIDATION_FAILURE, "");
-                }
-            } else {
-                throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_EMPTY_OR_NULL, "");
+            String logoutToken = logoutRequest.getParameter(OIDCAuthenticatorConstants.LOGOUT_TOKEN);
+            if (StringUtils.isBlank(logoutToken)) {
+                throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_EMPTY_OR_NULL.getCode(),
+                        ErrorMessages.LOGOUT_TOKEN_EMPTY_OR_NULL.getMessage());
             }
+            if (log.isDebugEnabled()) {
+                log.debug("Logout Token: " + logoutToken);
+            }
+
+            SignedJWT signedJWT = SignedJWT.parse(logoutToken);
+            JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+            // Get the identity provider for the issuer of the logout token.
+            String tenantDomain = logoutRequest.getTenantDomain();
+            IdentityProvider identityProvider =
+                    getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
+            validateLogoutToken(signedJWT, identityProvider);
+            // Check for sid or sub claims in the logout token.
+            if (isSidExists(claimsSet)) {
+                // Check whether the sid has an entry in the federated authentication session details table.
+                return logoutUsingSid((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID));
+            }
+            // Check whether the sub claim is available in the logout token.
+            if (log.isDebugEnabled()) {
+                log.debug("No sid presented in the logout token. Using sub claim to terminate the sessions.");
+            }
+            // Check whether the sub claim has a valid user in the IS.
+            return logoutUsingSub(claimsSet.getSubject(), Integer.parseInt(identityProvider.getId()), tenantDomain);
+
         } catch (ParseException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE.getMessage(), e);
-            }
-            throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, "");
-        } catch (SessionManagementServerException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(String.format(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED.getMessage(), ""));
-            }
-            throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, "");
+            throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
         }
-        return logoutResponseBuilder;
     }
 
     /**
-     * Terminate the session related to the sid value of the logout token
+     * Terminate the session related to the sid value of the logout token.
      *
-     * @param sid
+     * @param sid - sid claim included in the logout token.
+     * @return
      * @throws LogoutServerException
      */
-    private void logoutUsingSid(String sid, FederatedUserSession federatedUserSession) throws LogoutServerException {
+    private LogoutResponse.LogoutResponseBuilder logoutUsingSid(String sid) throws LogoutServerException {
 
         if (log.isDebugEnabled()) {
             log.debug("sid: " + sid);
         }
-        String sessionId = federatedUserSession.getSessionId();
-        if (StringUtils.isNotBlank(sessionId)) {
-            if (log.isDebugEnabled()) {
-                log.debug("Session id: " + sessionId);
-            }
-            ServerSessionManagementService serverSessionManagementService =
-                    OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
-            boolean sessionRemoved
-                    = serverSessionManagementService.removeSession(sessionId);
-            if (sessionRemoved) {
-                log.info("Session terminated for session Id: " + sessionId);
-            } else {
-                if (log.isDebugEnabled()) {
-                    log.debug(String.format(ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED.getMessage(),
-                            sessionId));
+        try {
+            UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
+            FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
+            if (federatedUserSession != null) {
+                String sessionId = federatedUserSession.getSessionId();
+                if (StringUtils.isBlank(sessionId)) {
+                    throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, sid);
                 }
-                throw handleLogoutServerException(
-                        ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED, sessionId);
+                ServerSessionManagementService serverSessionManagementService =
+                        OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
+                boolean sessionRemoved
+                        = serverSessionManagementService.removeSession(sessionId);
+                if (sessionRemoved) {
+                    log.info("Session terminated for session Id: " + sessionId);
+                    return new LogoutResponse.LogoutResponseBuilder(200);
+                } else {
+                    throw handleLogoutServerException(
+                            ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED, sessionId);
+                }
             }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug(String.format(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED.getMessage(), sid));
-            }
-            throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, sid);
+        } catch (SessionManagementServerException e) {
+            throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, e);
         }
+        return new LogoutResponse.LogoutResponseBuilder(500);
     }
 
     /**
@@ -227,11 +180,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @throws LogoutServerException
      * @throws SessionManagementException
      */
-    private void logoutUsingSub(String sub) throws LogoutServerException {
+    private LogoutResponse.LogoutResponseBuilder logoutUsingSub(String sub, int idpId, String tenantDomain)
+            throws LogoutServerException {
 
         try {
-            FederatedUserDAO federatedUserDAO = new FederatedUserDAOImpl();
-            String userId = federatedUserDAO.getUserIdbyUsername(sub);
+            // Retrieve the federated user id from the IDN_AUTH_USER table.
+            String userId = UserSessionStore.getInstance().getFederatedUserId(sub, tenantDomain, idpId);
             if (log.isDebugEnabled()) {
                 log.debug("User Id: " + userId);
             }
@@ -241,158 +195,122 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                                 .getUserSessionManagementService();
                 userSessionManagementService.terminateSessionsByUserId(userId);
                 log.info("Sessions terminated for user Id: " + userId);
+                return new LogoutResponse.LogoutResponseBuilder(200);
             }
         } catch (SessionManagementException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(ErrorMessages.USER_SESSION_TERMINATION_FAILURE.getMessage(), e);
-            }
-            throw handleLogoutServerException(ErrorMessages.USER_SESSION_TERMINATION_FAILURE, sub);
-        }
-    }
+            throw handleLogoutServerException(ErrorMessages.USER_SESSION_TERMINATION_FAILURE, e, sub);
+        } catch (UserSessionException e) {
+            throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
 
-    /**
-     * Check whether it is possible to terminate the sessions using the sub claim.
-     *
-     * @param sub claim in the logout token.
-     * @return boolean
-     * @throws LogoutServerException
-     */
-    private boolean canLogoutFromSub(String sub) throws LogoutServerException {
-
-        boolean canLogout = false;
-        FederatedUserDAO federatedUserDAO = new FederatedUserDAOImpl();
-        String userId = federatedUserDAO.getUserIdbyUsername(sub);
-        if (StringUtils.isNotBlank(userId)) {
-            canLogout = true;
         }
-        return canLogout;
+        return new LogoutResponse.LogoutResponseBuilder(500);
     }
 
     /**
      * Validate all the claim according to the OIDC specification.
      *
      * @param signedJWT
-     * @param tenantDomain
+     * @param identityProvider
      * @return boolean value
      * @throws LogoutClientException
      * @throws LogoutServerException
      */
-    private boolean validateClaims(SignedJWT signedJWT, String tenantDomain)
+    private void validateLogoutToken(SignedJWT signedJWT, IdentityProvider identityProvider)
             throws LogoutClientException, LogoutServerException {
-
-        boolean isValidated = false;
 
         try {
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
-            //validate the signature of the logout token.
-            String idp = claimsSet.getIssuer();
-            IdentityProvider identityProvider = getIdentityProvider(idp, tenantDomain);
-            boolean isSignatureValid = JWTSignatureValidationUtils.validateSignature(signedJWT,
-                    identityProvider);
-            //validate the audience claim.
-            List<String> aud = claimsSet.getAudience();
-            boolean isAudValid = validateAud(aud, identityProvider);
-            //validate the iat claim.
-            Date iat = claimsSet.getIssueTime();
-            boolean isIatValid = validateIat(iat);
-            //validate events claim.
-            JSONObject events = (JSONObject) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
-            boolean isValidEvents = validateEvent(events);
-            //validate nonce.
-            boolean isValidNonce = validateNonce(claimsSet);
-            //validate whether the sid or sub claim is present in the logout token, according the OIDC specification.
-            boolean isSidOrSubValid = false;
-            if (validateSid(claimsSet) || validateSub(claimsSet)) {
-                isSidOrSubValid = true;
+            // Validate the signature of the logout token.
+            if (!JWTSignatureValidationUtils.validateSignature(signedJWT, identityProvider)) {
+                throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED.getMessage());
             }
-            if (isSignatureValid && isAudValid && isIatValid && isValidEvents && isValidNonce && isSidOrSubValid) {
-                isValidated = true;
+            // Validate the audience claim.
+            if (!validateAud(claimsSet.getAudience(), identityProvider)) {
+                throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getMessage());
+            }
+            // Validate the iat claim.
+            validateIat(claimsSet.getIssueTime());
+            // Validate events claim.
+            validateEvent((JSONObject) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS));
+            // Validate nonce.
+            validateNonce(claimsSet);
+            // Validate sub claim.
+            if (!isSubExists(claimsSet)) {
+                throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_SUB_CLAIM_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.LOGOUT_TOKEN_SUB_CLAIM_VALIDATION_FAILED.getMessage());
             }
         } catch (ParseException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE.getMessage(), e);
-            }
-            throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, "");
-        } catch (JOSEException e) {
-            if (log.isDebugEnabled()) {
-                log.debug(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED.getMessage(), e);
-            }
-            throw handleLogoutServerException(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED, "");
-        } catch (IdentityOAuth2Exception e) {
-            if (log.isDebugEnabled()) {
-                log.debug(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED.getMessage(), e);
-            }
-            throw handleLogoutServerException(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED, "");
+            throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
+        } catch (JOSEException | IdentityOAuth2Exception e) {
+            throw handleLogoutServerException(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED, e);
         }
-
-        return isValidated;
     }
 
     /**
-     * Do the aud claim validation according to OIDC back-channel logout specification
+     * Do the aud claim validation according to OIDC back-channel logout specification.
      *
      * @param aud
      * @param idp
-     * @return boolean if validation is successful
+     * @return boolean if validation is successful.
      */
     private boolean validateAud(List<String> aud, IdentityProvider idp) {
 
-        boolean isValid = false;
         String clientId = null;
+        // Get the client id from the authenticator config.
         for (Property property : idp.getDefaultAuthenticatorConfig().getProperties()) {
-            String propertyName = (String) property.getName();
+            String propertyName = property.getName();
             if (propertyName.equals(OIDCAuthenticatorConstants.IdPConfParams.CLIENT_ID)) {
                 clientId = property.getValue();
                 break;
             }
         }
+        // Check whether the client id exist in the aud claim.
         if (StringUtils.isNotBlank(clientId)) {
             for (String audience : aud) {
                 if (audience.equals(clientId)) {
-                    isValid = true;
-                    break;
+                    return true;
                 }
             }
         }
-        return isValid;
+        return false;
     }
 
     /**
      * Do the iat claim validation according to OIDC back-channel logout specification
      * Read the authenticator configs to check whether the iat validation is enabled and if enabled the get the
-     * validity period
+     * validity period.
      *
      * @param iat
-     * @return boolean if validation is successful
+     * @return boolean if validation is successful.
      * @throws LogoutClientException
      */
     private boolean validateIat(Date iat) throws LogoutClientException {
 
-        if (iat != null) {
-            boolean enableIatValidation =
-                    Boolean.parseBoolean(getAuthenticatorConfig().getParameterMap().get(ENABLE_IAT_VALIDATION));
-            if (enableIatValidation) {
-                int iatValidtyPeriod =
-                        Integer.parseInt(getAuthenticatorConfig().getParameterMap().get(IAT_VALIDITY_PERIOD));
-                long issuedAtTimeMillis = iat.getTime();
-                long currentTimeInMillis = System.currentTimeMillis();
-                if (currentTimeInMillis - issuedAtTimeMillis > iatValidtyPeriod * 60 * 1000) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Token is used after iat validity period." +
-                                ", iat validity period(m) : " + iatValidtyPeriod +
-                                ", Current Time : " + currentTimeInMillis +
-                                ". Token Rejected and validation terminated.");
-                    }
-                    throw new LogoutClientException(
-                            ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getCode(),
-                            ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getMessage());
-                }
+        if (iat == null) {
+            throw new LogoutClientException(
+                    ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getCode(),
+                    ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getMessage());
+        }
+        if (Boolean.parseBoolean(getAuthenticatorConfig().getParameterMap().get(ENABLE_IAT_VALIDATION))) {
+            int iatValidityPeriod =
+                    Integer.parseInt(getAuthenticatorConfig().getParameterMap().get(IAT_VALIDITY_PERIOD));
+            long issuedAtTimeMillis = iat.getTime();
+            long currentTimeInMillis = System.currentTimeMillis();
+            if (currentTimeInMillis - issuedAtTimeMillis > (long) iatValidityPeriod * 60 * 1000) {
                 if (log.isDebugEnabled()) {
-                    log.debug("iat validity period of Token was validated successfully.");
+                    log.debug("Token is used after iat validity period." +
+                            ", iat validity period(m) : " + iatValidityPeriod +
+                            ", Current Time : " + currentTimeInMillis +
+                            ". Token Rejected and validation terminated.");
                 }
+                throw new LogoutClientException(
+                        ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getMessage());
             }
             if (log.isDebugEnabled()) {
-                log.debug("iat validity period is not enabled");
+                log.debug("iat validity period of Token was validated successfully.");
             }
         }
         return true;
@@ -402,16 +320,11 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * Do the sid claim validation.
      *
      * @param claimsSet
-     * @return boolean if validation is successful
+     * @return boolean if validation is successful.
      */
-    private boolean validateSid(JWTClaimsSet claimsSet) {
+    private boolean isSidExists(JWTClaimsSet claimsSet) {
 
-        boolean isValid = false;
-        String sid = (String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID);
-        if (StringUtils.isNotBlank(sid)) {
-            isValid = true;
-        }
-        return isValid;
+        return StringUtils.isNotBlank((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID));
     }
 
     /**
@@ -420,51 +333,47 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @param claimsSet
      * @return boolean if validation is successful.
      */
-    private boolean validateSub(JWTClaimsSet claimsSet) {
+    private boolean isSubExists(JWTClaimsSet claimsSet) {
 
-        boolean isValid = false;
-        String sub = claimsSet.getSubject();
-        if (StringUtils.isNotBlank(sub)) {
-            isValid = true;
-        }
-        return isValid;
+        return StringUtils.isNotBlank(claimsSet.getSubject());
     }
 
     /**
-     * Do the event claim validation according to OIDC back-channel logout specification
+     * Do the event claim validation according to OIDC back-channel logout specification.
      *
      * @param event
-     * @return boolean if validation is successful
+     * @return boolean if validation is successful.
+     * @throws LogoutClientException
      */
-    private boolean validateEvent(JSONObject event) {
+    private boolean validateEvent(JSONObject event) throws LogoutClientException {
 
-        String eventClaim = event.getAsString(BACKCHANNEL_LOGOUT_EVENT);
-        if (StringUtils.equals(eventClaim, BACKCHANNEL_LOGOUT_EVENT_CLAIM)) {
-            return true;
+        if (!StringUtils.equals(event.getAsString(BACKCHANNEL_LOGOUT_EVENT), BACKCHANNEL_LOGOUT_EVENT_CLAIM)) {
+            throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_EVENT_CLAIM_VALIDATION_FAILED.getCode(),
+                    ErrorMessages.LOGOUT_TOKEN_EVENT_CLAIM_VALIDATION_FAILED.getMessage());
         }
-        return false;
+        return true;
     }
 
     /**
-     * Do the nonce claim validation according to OIDC back-channel logout specification
+     * Do the nonce claim validation according to OIDC back-channel logout specification.
      *
      * @param claimsSet
-     * @return boolean if validation is successful
+     * @return boolean if validation is successful.
+     * @throws LogoutClientException
      */
-    private boolean validateNonce(JWTClaimsSet claimsSet) {
+    private boolean validateNonce(JWTClaimsSet claimsSet) throws LogoutClientException {
 
-        boolean isValid = false;
-        String nonce = (String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.NONCE);
-        if (StringUtils.isBlank(nonce)) {
-            isValid = true;
+        if (StringUtils.isNotBlank((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.NONCE))) {
+            throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getCode(),
+                    ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getMessage());
         }
-        return isValid;
+        return true;
     }
 
     /**
-     * Get the OIDC authenticator configs from the xml file
+     * Get the OIDC authenticator configs from the xml file.
      *
-     * @return AuthenticatorConfig
+     * @return AuthenticatorConfig.
      */
     protected AuthenticatorConfig getAuthenticatorConfig() {
 
@@ -472,7 +381,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 .getAuthenticatorBean(AUTHENTICATOR_NAME);
         if (authConfig == null) {
             authConfig = new AuthenticatorConfig();
-            authConfig.setParameterMap(new HashMap<String, String>());
+            authConfig.setParameterMap(new HashMap<>());
         }
         return authConfig;
     }
@@ -501,7 +410,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         boolean canHandle = false;
         if (identityRequest != null) {
             Matcher registerMatcher =
-                    OIDC_BCLOGOUT_ENDPOINT_URL_PATTERN.matcher(identityRequest.getRequestURI());
+                    OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN.matcher(identityRequest.getRequestURI());
             if (registerMatcher.matches()) {
                 canHandle = true;
             }
@@ -516,7 +425,6 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * Handle logout server exceptions.
      *
      * @param error Error description.
-     * @param data  relevant data.
      * @return LogoutServerException.
      */
     private LogoutServerException handleLogoutServerException(OIDCErrorConstants.ErrorMessages error, String data) {
@@ -525,23 +433,49 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     }
 
     /**
-     * Handle logout client exceptions.
+     * Handle logout server exceptions.
      *
      * @param error Error description.
      * @param data  relevant data.
-     * @return LogoutClientException.
+     * @param e     Throwable.
+     * @return LogoutServerException.
      */
-    private LogoutClientException handleLogoutClientException(OIDCErrorConstants.ErrorMessages error, String data) {
+    private LogoutServerException handleLogoutServerException(OIDCErrorConstants.ErrorMessages error,
+                                                              Throwable e, String data) {
 
-        return new LogoutClientException(error.getCode(), String.format(error.getMessage(), data));
+        return new LogoutServerException(error.getCode(), String.format(error.getMessage(), data), e);
     }
 
     /**
-     * Get the identity provider from issuer and tenant domain
+     * Handle logout server exceptions.
+     *
+     * @param error Error description.
+     * @param e     Throwable.
+     * @return LogoutServerException.
+     */
+    private LogoutServerException handleLogoutServerException(OIDCErrorConstants.ErrorMessages error, Throwable e) {
+
+        return new LogoutServerException(error.getCode(), error.getMessage(), e);
+    }
+
+    /**
+     * Handle logout client exceptions.
+     *
+     * @param error Error description.
+     * @param e     Throwable.
+     * @return LogoutClientException.
+     */
+    private LogoutClientException handleLogoutClientException(OIDCErrorConstants.ErrorMessages error, Throwable e) {
+
+        return new LogoutClientException(error.getCode(), error.getMessage(), e);
+    }
+
+    /**
+     * Get the identity provider from issuer and tenant domain.
      *
      * @param jwtIssuer
      * @param tenantDomain
-     * @return IdentityProvider
+     * @return IdentityProvider.
      * @throws LogoutServerException
      */
     private IdentityProvider getIdentityProvider(String jwtIssuer, String tenantDomain)
@@ -560,15 +494,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 }
                 identityProvider = IdentityProviderManager.getInstance().getIdPByName(jwtIssuer, tenantDomain);
             }
-            if (identityProvider != null) {
-                // if no IDPs were found for a given name, the IdentityProviderManager returns a dummy IDP with the
-                // name "default". We need to handle this case.
-                if (StringUtils.equalsIgnoreCase(identityProvider.getIdentityProviderName(), DEFAULT_IDP_NAME)) {
-                    //check whether this jwt was issued by the resident identity provider
-                    identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
-                    if (identityProvider == null) {
-                        throw handleLogoutServerException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER, jwtIssuer);
-                    }
+            if ((identityProvider != null) && (StringUtils.equalsIgnoreCase(identityProvider.getIdentityProviderName(),
+                    DEFAULT_IDP_NAME))) {
+                // Check whether this jwt was issued by the resident identity provider.
+                identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
+                if (identityProvider == null) {
+                    throw handleLogoutServerException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER, jwtIssuer);
                 }
             }
         } catch (IdentityProviderManagementException e) {
@@ -581,7 +512,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     }
 
     /**
-     * Get the resident identity provider from issuer and tenant domain
+     * Get the resident identity provider from issuer and tenant domain.
      *
      * @param tenantDomain
      * @param jwtIssuer
