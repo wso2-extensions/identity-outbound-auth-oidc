@@ -52,6 +52,7 @@ import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
@@ -62,6 +63,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
+
+import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
@@ -161,7 +164,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                         = serverSessionManagementService.removeSession(sessionId);
                 if (sessionRemoved) {
                     log.info("Session terminated for session Id: " + sessionId);
-                    return new LogoutResponse.LogoutResponseBuilder(200);
+                    return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK);
                 } else {
                     throw handleLogoutServerException(
                             ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED, sessionId);
@@ -185,7 +188,8 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
         try {
             // Retrieve the federated user id from the IDN_AUTH_USER table.
-            String userId = UserSessionStore.getInstance().getFederatedUserId(sub, tenantDomain, idpId);
+            int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
+            String userId = UserSessionStore.getInstance().getFederatedUserId(sub, tenantId, idpId);
             if (log.isDebugEnabled()) {
                 log.debug("User Id: " + userId);
             }
