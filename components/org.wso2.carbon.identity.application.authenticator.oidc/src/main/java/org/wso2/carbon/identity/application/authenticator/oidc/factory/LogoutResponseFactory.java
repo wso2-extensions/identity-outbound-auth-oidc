@@ -63,13 +63,13 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     @Override
     public void create(HttpIdentityResponse.HttpIdentityResponseBuilder builder, IdentityResponse identityResponse) {
 
-        builder.setStatusCode(HttpServletResponse.SC_OK);
+        builder.setStatusCode(((LogoutResponse) identityResponse).getStatusCode());
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
         builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
-        builder.setBody("Back channel logout success!");
+        builder.setBody(((LogoutResponse) identityResponse).getMessage());
     }
 
     @Override

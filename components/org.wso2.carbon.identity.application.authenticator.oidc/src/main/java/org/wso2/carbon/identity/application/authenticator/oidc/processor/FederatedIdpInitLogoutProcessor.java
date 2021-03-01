@@ -84,6 +84,10 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     private static final String ENABLE_IAT_VALIDATION = "enableIatValidation";
     private static final String IAT_VALIDITY_PERIOD = "iatValidityPeriod";
 
+    private static final String LOGOUT_SUCCESS = "OIDC back-channel logout success.";
+    private static final String LOGOUT_FAILURE_SERVER_ERROR = "OIDC Back-channel logout failed due to an internal " +
+            "server error.";
+
     @Override
     public IdentityResponse.IdentityResponseBuilder process(IdentityRequest identityRequest) throws FrameworkException {
 
@@ -164,7 +168,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                         = serverSessionManagementService.removeSession(sessionId);
                 if (sessionRemoved) {
                     log.info("Session terminated for session Id: " + sessionId);
-                    return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK);
+                    return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK, LOGOUT_SUCCESS);
                 } else {
                     throw handleLogoutServerException(
                             ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED, sessionId);
@@ -173,7 +177,8 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         } catch (SessionManagementServerException e) {
             throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, e);
         }
-        return new LogoutResponse.LogoutResponseBuilder(500);
+        return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                LOGOUT_FAILURE_SERVER_ERROR);
     }
 
     /**
@@ -199,7 +204,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                                 .getUserSessionManagementService();
                 userSessionManagementService.terminateSessionsByUserId(userId);
                 log.info("Sessions terminated for user Id: " + userId);
-                return new LogoutResponse.LogoutResponseBuilder(200);
+                return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK, LOGOUT_SUCCESS);
             }
         } catch (SessionManagementException e) {
             throw handleLogoutServerException(ErrorMessages.USER_SESSION_TERMINATION_FAILURE, e, sub);
@@ -207,7 +212,8 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
 
         }
-        return new LogoutResponse.LogoutResponseBuilder(500);
+        return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                LOGOUT_FAILURE_SERVER_ERROR);
     }
 
     /**

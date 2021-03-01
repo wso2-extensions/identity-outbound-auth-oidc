@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.model;
 
+import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 
 /**
@@ -27,10 +28,35 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
  */
 public class LogoutResponse extends IdentityResponse {
 
+    protected int statusCode;
+    protected String message;
+
     protected LogoutResponse(
             LogoutResponseBuilder builder) {
 
         super(builder);
+        this.statusCode = builder.statusCode;
+        this.message = builder.message;
+    }
+
+    /**
+     * Retrieve status code.
+     *
+     * @return
+     */
+    public int getStatusCode() {
+
+        return this.statusCode;
+    }
+
+    /**
+     * Retrieve message.
+     *
+     * @return
+     */
+    public String getMessage() {
+
+        return message;
     }
 
     /**
@@ -38,16 +64,13 @@ public class LogoutResponse extends IdentityResponse {
      */
     public static class LogoutResponseBuilder extends IdentityResponseBuilder {
 
-        private int statusCode;
+        protected int statusCode;
+        protected String message;
 
-        public LogoutResponseBuilder(int statusCode) {
+        public LogoutResponseBuilder(int statusCode, String message) {
 
             this.statusCode = statusCode;
-        }
-
-        public int getStatusCode() {
-
-            return statusCode;
+            this.message = message;
         }
 
         @Override
