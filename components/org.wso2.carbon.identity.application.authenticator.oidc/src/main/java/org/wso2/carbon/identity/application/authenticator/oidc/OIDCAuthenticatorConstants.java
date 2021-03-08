@@ -111,5 +111,24 @@ public class OIDCAuthenticatorConstants {
         public static final String SID = "sid";
         public static final String NONCE = "nonce";
         public static final String EVENTS = "events";
+        public static final String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
+        public static final String BACKCHANNEL_LOGOUT_EVENT_CLAIM = "{}";
+    }
+
+    public class BackchannelLogout {
+
+        private BackchannelLogout() {
+
+        }
+
+        public static final String DEFAULT_IDP_NAME = "default";
+        public static final String OIDC_IDP_ENTITY_ID = "IdPEntityId";
+
+        public static final String ENABLE_IAT_VALIDATION = "enableIatValidation";
+        public static final String IAT_VALIDITY_PERIOD = "iatValidityPeriod";
+
+        public static final String LOGOUT_SUCCESS = "OIDC back-channel logout success.";
+        public static final String LOGOUT_FAILURE_SERVER_ERROR = "OIDC Back-channel logout failed due to an internal " +
+                "server error.";
     }
 }

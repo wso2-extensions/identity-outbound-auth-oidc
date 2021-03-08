@@ -77,7 +77,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder;
         if (frameworkException instanceof LogoutClientException) {
-            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage(),
+            builder = buildResponse(frameworkException.getMessage(),
                     HttpServletResponse.SC_BAD_REQUEST);
         } else {
             builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
