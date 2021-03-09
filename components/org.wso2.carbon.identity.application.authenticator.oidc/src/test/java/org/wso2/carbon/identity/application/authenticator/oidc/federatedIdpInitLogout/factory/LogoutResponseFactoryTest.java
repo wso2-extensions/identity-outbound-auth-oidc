@@ -84,7 +84,7 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
     public void testHandleClientException() {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
-                logoutResponseFactory.handleException(new LogoutClientException("Server Error"));
+                logoutResponseFactory.handleException(new LogoutClientException(OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage()));
         assertEquals(builder.build().getBody(), OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage());
         assertEquals(builder.build().getStatusCode(), 400);
     }

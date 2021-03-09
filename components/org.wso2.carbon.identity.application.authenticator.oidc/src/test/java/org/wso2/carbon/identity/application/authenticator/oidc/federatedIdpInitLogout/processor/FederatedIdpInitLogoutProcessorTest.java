@@ -34,10 +34,11 @@ import org.powermock.reflect.internal.WhiteboxImpl;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
+import org.wso2.carbon.identity.application.authentication.framework.UserSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityMessageContext;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
+import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
@@ -51,10 +52,13 @@ import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.common.testng.WithH2Database;
 import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.testng.Assert.assertEquals;
@@ -85,7 +89,8 @@ import static org.testng.Assert.assertTrue;
  */
 @PrepareForTest({SignedJWT.class, IdentityProviderManager.class, JWTSignatureValidationUtils.class,
         IdentityDatabaseUtil.class, FrameworkUtils.class, XMLInputFactory.class, DataSource.class,
-        ServerSessionManagementService.class, OpenIDConnectAuthenticatorDataHolder.class})
+        UserSessionManagementService.class, OpenIDConnectAuthenticatorDataHolder.class, IdentityTenantUtil.class,
+        UserSessionStore.class})
 @PowerMockIgnore("jdk.internal.reflect.*")
 @WithH2Database(files = {"dbscripts/h2.sql"})
 public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
@@ -233,23 +238,41 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     }
 
-    @DataProvider(name = "nonceClaimDataHandler")
-    public Object[][] getNonceClaim() {
+    @DataProvider(name = "validNonceClaimDataHandler")
+    public Object[][] getValidNonceClaimData() {
 
         return new String[][]{
-                {null, null, "true"},
-                {"nonce", null, "true"},
-                {"nonce", "noasdade322e", "false"},
+                {null, null},
+                {"nonce", null},
         };
     }
 
-    @Test(dataProvider = "nonceClaimDataHandler")
-    public void testValidateNonce(String nonceName, String nonceValue, String expectedValidateNonce) throws Exception {
+    @Test(dataProvider = "validNonceClaimDataHandler")
+    public void testValidateNonce_Valid(String nonceName, String nonceValue) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim(nonceName, nonceValue).build();
         try {
-            boolean validateNonce = WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
-            assertEquals(validateNonce, Boolean.parseBoolean(expectedValidateNonce));
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
+        } catch (LogoutClientException e) {
+            assertTrue(false);
+        }
+    }
+
+    @DataProvider(name = "invalidNonceClaimDataHandler")
+    public Object[][] getInvalidNonceClaim() {
+
+        return new String[][]{
+                {"nonce", "noasdade322e"},
+        };
+    }
+
+    @Test(dataProvider = "invalidNonceClaimDataHandler")
+    public void testValidateNonce_Invalid(String nonceName, String nonceValue) throws Exception {
+
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim(nonceName, nonceValue).build();
+        try {
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
+            assertTrue(false);
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
                     OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getMessage());
@@ -260,21 +283,41 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public Object[][] getIatClaim() {
 
         Date currentDate = new Date();
-        Date pastTime = new Date(currentDate.getTime() - (40 * 60 * 1000));
 
         return new Object[][]{
-                {currentDate.getTime(), true},
-                {pastTime.getTime(), false},
+                {currentDate.getTime()},
         };
     }
 
     @Test(dataProvider = "iatClaimDataHandler")
-    public void testValidateIat(Long iatValue, boolean expectedValidateIat) throws Exception {
+    public void testValidateIat_Valid(Long iatValue) throws Exception {
 
         try {
-            boolean validateIat = WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
                     new Date(iatValue));
-            assertEquals(validateIat, expectedValidateIat);
+        } catch (LogoutClientException e) {
+            assertTrue(false);
+        }
+    }
+
+    @DataProvider(name = "invalidIatClaimDataHandler")
+    public Object[][] getInvalidIatClaim() {
+
+        Date currentDate = new Date();
+        Date pastTime = new Date(currentDate.getTime() - (40 * 60 * 1000));
+
+        return new Object[][]{
+                {pastTime.getTime()},
+        };
+    }
+
+    @Test(dataProvider = "invalidIatClaimDataHandler")
+    public void testValidateIat_Invalid(Long iatValue) throws Exception {
+
+        try {
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
+                    new Date(iatValue));
+            assertTrue(false);
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
                     OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getMessage());
@@ -299,6 +342,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         federatedAuthenticatorConfig.setProperties(properties);
         identityProvider.setDefaultAuthenticatorConfig(federatedAuthenticatorConfig);
         identityProvider.setIdpProperties(identityProviderProperties);
+        identityProvider.setId("1");
     }
 
     private void initiateH2Base(String databaseName, String scriptPath) throws Exception {
@@ -337,15 +381,18 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         PowerMockito.when(IdentityDatabaseUtil.getDBConnection(b)).thenReturn(connection1);
     }
 
-    private void setupSessionStore() throws Exception {
+    private void setupSessionStore(String USER_ID, String USER_NAME, String SESSION_CONTEXT_KEY,
+                                   String IDP_SESSION_INDEX) throws Exception {
 
         initiateH2Base(DB_NAME, getFilePath("h2.sql"));
 
-        String SESSION_CONTEXT_KEY = "02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4";
-        String IDP_SESSION_INDEX = "15043ffc-877d-4205-af41-9b107f7da38c";
         String IDP_NAME = "Federated-IdP";
         String AUTHENTICATOR_ID = "OpenIDConnectAuthenticator";
         String PROTOCOL_TYPE = "oidc";
+
+        int TENANT_ID = -1234;
+        String DOMAIN_NAME = "FEDERATED";
+        int IDP_ID = 1;
 
         try (Connection connection1 = getConnection(DB_NAME)) {
             prepareConnection(connection1, false);
@@ -356,35 +403,51 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
                     AUTHENTICATOR_ID +
                     "', '" + PROTOCOL_TYPE + "');";
 
+            String sql2 =
+                    "INSERT INTO IDN_AUTH_USER (USER_ID,USER_NAME,TENANT_ID,DOMAIN_NAME,IDP_ID) VALUES ('" + USER_ID +
+                            "','" + USER_NAME + "','" + TENANT_ID + "','" + DOMAIN_NAME + "','" + IDP_ID + "');";
+
             PreparedStatement statement = connection1.prepareStatement(sql);
+            PreparedStatement statement2 = connection1.prepareStatement(sql2);
             statement.execute();
+            statement2.execute();
         }
 
         try (Connection connection1 = getConnection(DB_NAME)) {
             prepareConnection(connection1, false);
             String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
-            PreparedStatement statement2 = connection1.prepareStatement(query);
-            statement2.setString(1, "15043ffc-877d-4205-af41-9b107f7da38c");
-            ResultSet resultSet = statement2.executeQuery();
-            String result = null;
-            if (resultSet.next()) {
-                result = resultSet.getString("SESSION_ID");
+            PreparedStatement statement1 = connection1.prepareStatement(query);
+            statement1.setString(1, IDP_SESSION_INDEX);
+            ResultSet resultSet1 = statement1.executeQuery();
+            String result1 = null;
+            if (resultSet1.next()) {
+                result1 = resultSet1.getString("SESSION_ID");
             }
-            assertEquals(SESSION_CONTEXT_KEY, result, "Failed to handle for valid input");
+            assertEquals(SESSION_CONTEXT_KEY, result1, "Failed add auth session mapping into " +
+                    "IDN_FED_AUTH_SESSION_MAPPING table.");
+
+            String query2 = "SELECT * FROM IDN_AUTH_USER WHERE USER_NAME=?";
+            PreparedStatement statement2 = connection1.prepareStatement(query2);
+            statement2.setString(1, USER_NAME);
+            ResultSet resultSet2 = statement2.executeQuery();
+            String result2 = null;
+            if (resultSet2.next()) {
+                result2 = resultSet2.getString("USER_ID");
+            }
+            assertEquals(USER_ID, result2, "Failed add user info into " +
+                    "IDN_AUTH_USER table.");
         }
 
     }
 
-    private JWTClaimsSet generateLogoutToken() throws IdentityOAuth2Exception {
+    private JWTClaimsSet generateLogoutToken(String sub, boolean sidExists, String sid) throws IdentityOAuth2Exception {
 
-        String sub = "admin";
         String jti = UUID.randomUUID().toString();
         String iss = "https://federatedwso2.com:9444/oauth2/token";
         List<String> audience = Arrays.asList("w_Hwp05dFRwcRs_WFHv9SNwpflAa");
         long logoutTokenValidityInMillis = 2 * 60 * 1000;
         long currentTimeInMillis = Calendar.getInstance().getTimeInMillis();
         Date iat = new Date(currentTimeInMillis);
-        String sid = "15043ffc-877d-4205-af41-9b107f7da38c";
         JSONObject event = new JSONObject().appendField(BACKCHANNEL_LOGOUT_EVENT,
                 new JSONObject());
 
@@ -396,15 +459,81 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         jwtClaimsSetBuilder.claim("events", event);
         jwtClaimsSetBuilder.expirationTime(new Date(currentTimeInMillis + logoutTokenValidityInMillis));
         jwtClaimsSetBuilder.claim("iat", iat);
-        jwtClaimsSetBuilder.claim("sid", sid);
-
+        if (sidExists) {
+            jwtClaimsSetBuilder.claim("sid", sid);
+        }
         return jwtClaimsSetBuilder.build();
     }
 
     @Test
     public void testOidcFederatedLogout() throws Exception {
 
-        JWTClaimsSet jwtClaimsSet = generateLogoutToken();
+        String USER_ID = UUID.randomUUID().toString();
+        String USER_NAME = "adminSid";
+        String SESSION_CONTEXT_KEY = "02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4";
+        String IDP_SESSION_INDEX = "15043ffc-877d-4205-af41-9b107f7da38c";
+
+        JWTClaimsSet jwtClaimsSet = generateLogoutToken(USER_NAME, true, IDP_SESSION_INDEX);
+
+        // Mock the logout token and claims
+        mockStatic(SignedJWT.class);
+        SignedJWT signedJWT = mock(SignedJWT.class);
+        when(SignedJWT.parse(logoutTokenStatic)).thenReturn(signedJWT);
+        when(SignedJWT.parse(logoutTokenStatic).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutTokenStatic);
+        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
+        mockStatic(IdentityProviderManager.class);
+        IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
+        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
+        when(IdentityProviderManager.getInstance().getIdPByMetadataProperty(
+                IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
+                "carbon.super", false)).thenReturn(identityProvider);
+
+
+        // Mock the signature validation
+        mockStatic(JWTSignatureValidationUtils.class);
+        when(JWTSignatureValidationUtils.validateSignature(signedJWT,
+                identityProvider)).thenReturn(true);
+
+        // Setup session store
+        setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
+        DataSource dataSource = mock(DataSource.class);
+        mockStatic(IdentityDatabaseUtil.class);
+        when(IdentityDatabaseUtil.getDataSource()).thenReturn(dataSource);
+        when(IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
+        when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
+
+        // Mock the server session management service
+        UserSessionManagementService userSessionManagementService = mock(UserSessionManagementService.class);
+        mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+        OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
+                mock(OpenIDConnectAuthenticatorDataHolder.class);
+        when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
+        when(OpenIDConnectAuthenticatorDataHolder.getInstance().getUserSessionManagementService())
+                .thenReturn(userSessionManagementService);
+
+        // Mock removeSession method
+        when(userSessionManagementService
+                .terminateSessionBySessionId(USER_ID,
+                        SESSION_CONTEXT_KEY))
+                .thenReturn(true);
+
+        //Mock tenantID
+        mockStatic(IdentityTenantUtil.class);
+        when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
+
+        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
+    }
+
+    @Test
+    public void testOidcFederatedLogoutWithoutSid() throws Exception {
+
+        String USER_ID = UUID.randomUUID().toString();
+        String USER_NAME = "adminNoSid";
+        String SESSION_CONTEXT_KEY = "02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d9854";
+        String IDP_SESSION_INDEX = "15043ffc-877d-4205-af41-9b107f7da39c";
+
+        JWTClaimsSet jwtClaimsSet = generateLogoutToken(USER_NAME, false, IDP_SESSION_INDEX);
 
         // Mock the logout token and claims
         mockStatic(SignedJWT.class);
@@ -426,25 +555,31 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
                 identityProvider)).thenReturn(true);
 
         // Setup session store
-        setupSessionStore();
+        setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
         DataSource dataSource = mock(DataSource.class);
         mockStatic(IdentityDatabaseUtil.class);
         when(IdentityDatabaseUtil.getDataSource()).thenReturn(dataSource);
+        when(IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
         when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
 
         // Mock the server session management service
-        ServerSessionManagementService serverSessionManagementService = mock(ServerSessionManagementService.class);
+        UserSessionManagementService userSessionManagementService = mock(UserSessionManagementService.class);
         mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
         OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
                 mock(OpenIDConnectAuthenticatorDataHolder.class);
         when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
-        when(OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService())
-                .thenReturn(serverSessionManagementService);
+        when(OpenIDConnectAuthenticatorDataHolder.getInstance().getUserSessionManagementService())
+                .thenReturn(userSessionManagementService);
 
         // Mock removeSession method
-        when(serverSessionManagementService
-                .removeSession("02278824dfe9862d265e389365c0a71c365401672491b78c6ee7dd6fc44d8af4"))
+        when(userSessionManagementService
+                .terminateSessionBySessionId(USER_ID,
+                        SESSION_CONTEXT_KEY))
                 .thenReturn(true);
+
+        //Mock tenantID
+        mockStatic(IdentityTenantUtil.class);
+        when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
 
         assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
     }

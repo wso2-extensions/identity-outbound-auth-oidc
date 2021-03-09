@@ -114,12 +114,11 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             IdentityProvider identityProvider =
                     getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
             validateLogoutToken(signedJWT, identityProvider);
-
             sub = claimsSet.getSubject();
             // Retrieve the federated user id from the IDN_AUTH_USER table.
             int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
             String userId = UserSessionStore.getInstance()
-                    .getUserId(sub, tenantId, null, Integer.parseInt(identityProvider.getId()));
+                    .getFederatedUserId(sub, tenantId, Integer.parseInt(identityProvider.getId()));
             if (log.isDebugEnabled()) {
                 log.debug("User Id: " + userId);
             }
@@ -293,7 +292,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @return boolean if validation is successful.
      * @throws LogoutClientException
      */
-    private boolean validateIat(Date iat) throws LogoutClientException {
+    private void validateIat(Date iat) throws LogoutClientException {
 
         if (iat == null) {
             throw new LogoutClientException(
@@ -322,7 +321,6 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 log.debug("iat validity period of Token was validated successfully.");
             }
         }
-        return true;
     }
 
     /**
@@ -372,13 +370,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @return boolean if validation is successful.
      * @throws LogoutClientException
      */
-    private boolean validateNonce(JWTClaimsSet claimsSet) throws LogoutClientException {
+    private void validateNonce(JWTClaimsSet claimsSet) throws LogoutClientException {
 
         if (StringUtils.isNotBlank((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.NONCE))) {
             throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getCode(),
                     ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getMessage());
         }
-        return true;
     }
 
     /**
