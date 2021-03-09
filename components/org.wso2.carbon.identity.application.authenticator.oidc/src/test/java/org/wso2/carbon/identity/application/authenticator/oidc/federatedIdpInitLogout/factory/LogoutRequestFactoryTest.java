@@ -16,9 +16,8 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.factory;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory;
 
-import net.minidev.json.parser.JSONParser;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;

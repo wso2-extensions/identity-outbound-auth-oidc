@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception;
 
 /**
  * Handle client side errors

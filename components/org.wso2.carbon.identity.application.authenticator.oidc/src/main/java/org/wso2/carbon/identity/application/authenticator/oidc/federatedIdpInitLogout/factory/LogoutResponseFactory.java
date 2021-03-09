@@ -16,14 +16,14 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.factory;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory;
 
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.factory;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;

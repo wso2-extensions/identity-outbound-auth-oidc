@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.factory;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory;
 
 import org.mockito.Mock;
 import org.powermock.modules.testng.PowerMockTestCase;
@@ -24,9 +24,9 @@ import org.powermock.modules.testng.PowerMockTestCase;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutException;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 

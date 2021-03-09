@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.processor;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.processor;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -40,8 +40,8 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.model.FederatedUserSession;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutClientException;
-import org.wso2.carbon.identity.application.authenticator.oidc.LogoutServerException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
@@ -355,6 +355,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @throws LogoutClientException
      */
     private void validateEvent(JSONObject event) throws LogoutClientException {
+
 
         if (event == null ||
                 !StringUtils.equals(event.getAsString(OIDCAuthenticatorConstants.Claim.BACKCHANNEL_LOGOUT_EVENT),

@@ -27,9 +27,9 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Htt
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
-import org.wso2.carbon.identity.application.authenticator.oidc.factory.LogoutRequestFactory;
-import org.wso2.carbon.identity.application.authenticator.oidc.factory.LogoutResponseFactory;
-import org.wso2.carbon.identity.application.authenticator.oidc.processor.FederatedIdpInitLogoutProcessor;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory.LogoutRequestFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory.LogoutResponseFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;

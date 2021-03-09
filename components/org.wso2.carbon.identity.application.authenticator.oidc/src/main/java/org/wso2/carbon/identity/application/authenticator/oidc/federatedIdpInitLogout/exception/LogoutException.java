@@ -16,29 +16,31 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc;
+package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.exception;
+
+import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 
 /**
- * This class handle server side errors
+ * Handle logout related errors
  */
-public class LogoutServerException extends LogoutException {
+public class LogoutException extends FrameworkException {
 
-    public LogoutServerException(String message) {
+    public LogoutException(String message) {
 
         super(message);
     }
 
-    public LogoutServerException(String errorCode, String message) {
+    public LogoutException(String errorCode, String message) {
 
         super(errorCode, message);
     }
 
-    public LogoutServerException(String message, Throwable cause) {
+    public LogoutException(String message, Throwable cause) {
 
         super(message, cause);
     }
 
-    public LogoutServerException(String errorCode, String message, Throwable cause) {
+    public LogoutException(String errorCode, String message, Throwable cause) {
 
         super(errorCode, message, cause);
     }
