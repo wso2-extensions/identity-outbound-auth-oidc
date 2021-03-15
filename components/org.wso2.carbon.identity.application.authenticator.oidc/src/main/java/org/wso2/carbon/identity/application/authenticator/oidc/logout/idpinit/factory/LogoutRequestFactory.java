@@ -72,8 +72,6 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
     public void create(IdentityRequest.IdentityRequestBuilder builder, HttpServletRequest request,
                        HttpServletResponse response) throws FrameworkClientException {
 
-        LogoutRequest.LogoutRequestBuilder registerRequestBuilder;
-        registerRequestBuilder = (LogoutRequest.LogoutRequestBuilder) builder;
-        super.create(registerRequestBuilder, request, response);
+        super.create(builder, request, response);
     }
 }
