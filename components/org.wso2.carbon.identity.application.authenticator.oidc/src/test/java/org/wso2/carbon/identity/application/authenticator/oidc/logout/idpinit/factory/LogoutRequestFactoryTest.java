@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package org.wso2.carbon.identity.application.authenticator.oidc.federatedIdpInitLogout.factory;
+package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory;
 
 import org.mockito.Mock;
 import org.mockito.Mockito;
