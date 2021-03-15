@@ -30,7 +30,8 @@ import java.util.regex.Matcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
+        OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
 
 /**
  * Checks whether requests from the Identity servlet are OIDC Logout Requests and
@@ -72,9 +73,7 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
                        HttpServletResponse response) throws FrameworkClientException {
 
         LogoutRequest.LogoutRequestBuilder registerRequestBuilder;
-        if (builder instanceof LogoutRequest.LogoutRequestBuilder) {
-            registerRequestBuilder = (LogoutRequest.LogoutRequestBuilder) builder;
-            super.create(registerRequestBuilder, request, response);
-        }
+        registerRequestBuilder = (LogoutRequest.LogoutRequestBuilder) builder;
+        super.create(registerRequestBuilder, request, response);
     }
 }

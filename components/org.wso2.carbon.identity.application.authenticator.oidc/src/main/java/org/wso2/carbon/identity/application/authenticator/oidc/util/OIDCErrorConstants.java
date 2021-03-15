@@ -78,7 +78,7 @@ public class OIDCErrorConstants {
         RETRIEVING_IDENTITY_PROVIDER_FAILED("OID-65010",
                 "Error while retrieving the identity provider"),
         NO_REGISTERED_IDP_FOR_ISSUER("OID-65011",
-                "No Registered IDP found for the issuer name : %s found in JWT"),
+                "No Registered IDP found for the issuer name: %s found in JWT"),
         GETTING_RESIDENT_IDP_FAILED("OID-65012",
                 "Error while getting Resident Identity Provider of '%s' tenant."),
         USER_SESSION_TERMINATION_FAILURE("OID-65013",

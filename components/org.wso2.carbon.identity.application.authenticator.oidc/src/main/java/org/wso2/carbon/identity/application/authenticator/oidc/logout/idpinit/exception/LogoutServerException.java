@@ -19,7 +19,7 @@
 package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception;
 
 /**
- * This class handle server side errors
+ * Handles server side errors.
  */
 public class LogoutServerException extends LogoutException {
 

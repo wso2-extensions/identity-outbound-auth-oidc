@@ -21,7 +21,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.e
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 
 /**
- * Handle logout related errors
+ * Handle logout related errors.
  */
 public class LogoutException extends FrameworkException {
 
