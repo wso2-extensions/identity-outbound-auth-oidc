@@ -140,6 +140,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         return new String[][]{
                 // When URI is correct.
                 {"http://localhost:9443/identity/oidc/slo", "true"},
+                {"http://localhost:9443/t/federated.com/identity/oidc/slo", "true"},
                 // When URI is incorrect.
                 {"identity/bclogout", "false"},
         };
