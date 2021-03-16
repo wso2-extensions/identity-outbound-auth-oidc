@@ -67,11 +67,4 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
         return logoutRequestBuilder;
 
     }
-
-    @Override
-    public void create(IdentityRequest.IdentityRequestBuilder builder, HttpServletRequest request,
-                       HttpServletResponse response) throws FrameworkClientException {
-
-        super.create(builder, request, response);
-    }
 }

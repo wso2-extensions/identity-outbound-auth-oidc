@@ -175,7 +175,8 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
-        boolean validateAud = WhiteboxImpl.invokeMethod(logoutProcessor, "validateAud", auds, mockIdentityProvider);
+        boolean validateAud = WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
+                mockIdentityProvider);
         assertEquals(validateAud, Boolean.parseBoolean(expectedValidateAud));
 
     }

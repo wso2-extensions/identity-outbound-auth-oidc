@@ -103,22 +103,22 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_EMPTY_OR_NULL.getCode(),
                         ErrorMessages.LOGOUT_TOKEN_EMPTY_OR_NULL.getMessage());
             }
+
             if (log.isDebugEnabled()) {
                 log.debug("Started handling the federated IdP Initiated Logout request. Logout Token: " + logoutToken);
             }
 
             SignedJWT signedJWT = SignedJWT.parse(logoutToken);
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+            //Check for the iss value in claim set
+            isIssExists(claimsSet);
             // Get the identity provider for the issuer of the logout token.
             String tenantDomain = logoutRequest.getTenantDomain();
-            IdentityProvider identityProvider =
-                    getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
+            IdentityProvider identityProvider = getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
             validateLogoutToken(signedJWT, identityProvider);
             sub = claimsSet.getSubject();
             // Retrieve the federated user id from the IDN_AUTH_USER table.
-            int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
-            String userId = UserSessionStore.getInstance()
-                    .getFederatedUserId(sub, tenantId, Integer.parseInt(identityProvider.getId()));
+            String userId = getUserId(tenantDomain, sub, identityProvider);
             if (log.isDebugEnabled()) {
                 log.debug("User Id: " + userId);
             }
@@ -138,9 +138,6 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
         } catch (ParseException e) {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
-        } catch (UserSessionException e) {
-            throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
-
         }
     }
 
@@ -212,6 +209,22 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         }
     }
 
+    private String getUserId(String tenantDomain, String sub, IdentityProvider identityProvider)
+            throws LogoutServerException {
+
+        try {
+            int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
+            String userId = UserSessionStore.getInstance()
+                    .getFederatedUserId(sub, tenantId, Integer.parseInt(identityProvider.getId()));
+            if (StringUtils.isBlank(userId)) {
+                throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, sub);
+            }
+            return userId;
+        } catch (UserSessionException e) {
+            throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
+        }
+    }
+
     /**
      * Validate the JWT token signature and the mandatory claim according to the OIDC specification.
      *
@@ -232,7 +245,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                         ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED.getMessage());
             }
             // Validate the audience claim.
-            if (!validateAud(claimsSet.getAudience(), identityProvider)) {
+            if (!validateAudience(claimsSet.getAudience(), identityProvider)) {
                 throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getCode(),
                         ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getMessage());
             }
@@ -255,13 +268,27 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     }
 
     /**
+     * Check for iss claim in the logout token claims.
+     *
+     * @param claimsSet - claim set in the logout token.
+     * @return boolean.
+     */
+    private void isIssExists(JWTClaimsSet claimsSet) throws LogoutClientException {
+
+        if (StringUtils.isBlank(claimsSet.getIssuer())) {
+            throw new LogoutClientException(ErrorMessages.LOGOUT_TOKEN_ISS_CLAIM_VALIDATION_FAILED.getCode(),
+                    ErrorMessages.LOGOUT_TOKEN_ISS_CLAIM_VALIDATION_FAILED.getMessage());
+        }
+    }
+
+    /**
      * Do the aud claim validation according to OIDC back-channel logout specification.
      *
-     * @param aud
-     * @param idp
+     * @param aud - list containing audience values.
+     * @param idp - identity provider.
      * @return boolean if validation is successful.
      */
-    private boolean validateAud(List<String> aud, IdentityProvider idp) {
+    private boolean validateAudience(List<String> aud, IdentityProvider idp) {
 
         String clientId = null;
         // Get the client id from the authenticator config.

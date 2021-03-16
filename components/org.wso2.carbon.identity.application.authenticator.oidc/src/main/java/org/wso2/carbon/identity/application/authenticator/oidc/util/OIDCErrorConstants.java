@@ -55,7 +55,9 @@ public class OIDCErrorConstants {
                 "Error while validating the nonce claim in the logout token."),
         LOGOUT_TOKEN_SUB_CLAIM_VALIDATION_FAILED("OID-60013",
                 "Error while validating the sub claim in the logout token."),
-        LOGOUT_CLIENT_EXCEPTION("OID-60014", "Back channel logout failed due to client error."),
+        LOGOUT_TOKEN_ISS_CLAIM_VALIDATION_FAILED("OID-60014",
+                "Error while validating the iss claim in the logout token."),
+        LOGOUT_CLIENT_EXCEPTION("OID-60015", "Back channel logout failed due to client error."),
 
         RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED("OID-65001",
                 "Error while retrieving properties. Authenticator Properties cannot be null"),
