@@ -82,6 +82,7 @@ import javax.xml.stream.XMLInputFactory;
 
 import static org.powermock.api.mockito.PowerMockito.when;
 import static org.testng.Assert.assertTrue;
+import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED;
 
 /**
  * Unit test class for FederatedIdpInitLogoutProcessor.
@@ -154,17 +155,16 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         assertEquals(logoutProcessor.canHandle(mockIdentityRequest), Boolean.parseBoolean(expectedCanHandler));
     }
 
-    @DataProvider(name = "audCliamDataHandler")
-    public Object[][] getAudClaim() {
+    @DataProvider(name = "validAudClaimDataHandler")
+    public Object[][] getValidAudClaim() {
 
         return new String[][]{
                 {"TcEsA1NxUbphVFFFEQIcUxnvtlka", "true"},
-                {"DfGdve1NxafadfdfadadUxnvtada", "false"},
         };
     }
 
-    @Test(dataProvider = "audCliamDataHandler")
-    public void testValidateAud(String aud, String expectedValidateAud) throws Exception {
+    @Test(dataProvider = "validAudClaimDataHandler")
+    public void testValidateAud_Valid(String aud, String expectedValidateAud) throws Exception {
 
         properties = new Property[1];
         Property property = new Property();
@@ -175,14 +175,46 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
-        boolean validateAud = WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
-                mockIdentityProvider);
-        assertEquals(validateAud, Boolean.parseBoolean(expectedValidateAud));
+        try {
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
+                    mockIdentityProvider);
+        } catch (LogoutClientException e) {
+            assertTrue(false);
+        }
+    }
 
+    @DataProvider(name = "invalidAudClaimDataHandler")
+    public Object[][] getInvalidAudClaim() {
+
+        return new String[][]{
+                {"DfGdve1NxafadfdfadadUxnvtada", "false"},
+        };
+    }
+
+    @Test(dataProvider = "invalidAudClaimDataHandler")
+    public void testValidateAud_Invalid(String aud, String expectedValidateAud) throws Exception {
+
+        properties = new Property[1];
+        Property property = new Property();
+        property.setName("ClientId");
+        property.setValue("TcEsA1NxUbphVFFFEQIcUxnvtlka");
+        properties[0] = property;
+        List<String> auds = Arrays.asList(aud);
+        federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
+        federatedAuthenticatorConfig.setProperties(properties);
+        when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
+        try {
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
+                    mockIdentityProvider);
+            assertTrue(false);
+        } catch (LogoutClientException e) {
+            assertEquals(e.getMessage(), LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getMessage());
+        }
     }
 
     @DataProvider(name = "sidCliamDataHandler")
     public Object[][] getSidClaim() {
+
         return new String[][]{
                 {"faw4rrga542arwga4awea", "true"},
                 {null, "false"}
@@ -193,7 +225,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public void testValidateSid(String sid, String expectedValidateSId) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("sid", sid).build();
-        boolean validateSId = WhiteboxImpl.invokeMethod(logoutProcessor, "isSidExists", claimsSet);
+        boolean validateSId = WhiteboxImpl.invokeMethod(logoutProcessor, "isSidClaimExists", claimsSet);
         assertEquals(validateSId, Boolean.parseBoolean(expectedValidateSId));
     }
 
@@ -210,7 +242,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public void testValidateSub(String sub, String expectedValidateSId) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("sub", sub).build();
-        boolean validateSub = WhiteboxImpl.invokeMethod(logoutProcessor, "isSubExists", claimsSet);
+        boolean validateSub = WhiteboxImpl.invokeMethod(logoutProcessor, "isSubClaimExists", claimsSet);
         assertEquals(validateSub, Boolean.parseBoolean(expectedValidateSId));
     }
 
@@ -230,7 +262,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         JSONObject jsonObject = new JSONObject();
         jsonObject.appendField(eventName, eventVal);
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateEvent", jsonObject);
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateEventClaim", jsonObject);
             assertTrue(true);
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),

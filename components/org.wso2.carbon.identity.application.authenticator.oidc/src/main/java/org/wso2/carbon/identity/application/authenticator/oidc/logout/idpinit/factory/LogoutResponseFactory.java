@@ -18,12 +18,15 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutException;
+import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
@@ -37,6 +40,8 @@ import javax.ws.rs.core.MediaType;
  * the authentication framework.
  */
 public class LogoutResponseFactory extends HttpIdentityResponseFactory {
+
+    private static final Log log = LogFactory.getLog(LogoutResponseFactory.class);
 
     @Override
     public boolean canHandle(IdentityResponse identityResponse) {
@@ -77,8 +82,14 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder;
         if (frameworkException instanceof LogoutClientException) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage() + ":" +
+                                frameworkException.getMessage(), frameworkException);
+            }
             builder = buildResponse(frameworkException.getMessage(), HttpServletResponse.SC_BAD_REQUEST);
         } else {
+            log.error(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(), frameworkException);
             builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
@@ -96,13 +107,14 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
+        // TODO: create json object.
         builder.setBody(errorMessage);
         builder.setStatusCode(errorCode);
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
-        builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
+        builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
 
         return builder;
     }
