@@ -26,14 +26,15 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Htt
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutClientException;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutException;
-import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
-import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+
+import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION;
+import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION;
 
 /**
  * Builds a HTTP response instance based on the common IdentityRequest format used by
@@ -83,15 +84,13 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
         HttpIdentityResponse.HttpIdentityResponseBuilder builder;
         if (frameworkException instanceof LogoutClientException) {
             if (log.isDebugEnabled()) {
-                log.debug(
-                        OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage() + ":" +
-                                frameworkException.getMessage(), frameworkException);
+                log.debug(LOGOUT_CLIENT_EXCEPTION.getMessage() + ":" + frameworkException.getMessage(),
+                        frameworkException);
             }
             builder = buildResponse(frameworkException.getMessage(), HttpServletResponse.SC_BAD_REQUEST);
         } else {
-            log.error(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(), frameworkException);
-            builder = buildResponse(OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage(),
-                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            log.error(LOGOUT_SERVER_EXCEPTION.getMessage(), frameworkException);
+            builder = buildResponse(LOGOUT_SERVER_EXCEPTION.getMessage(), HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
         return builder;
     }

@@ -44,27 +44,14 @@ public class LogoutRequestFactory extends HttpIdentityRequestFactory {
     @Override
     public boolean canHandle(HttpServletRequest request, HttpServletResponse response) {
 
-        boolean canHandle = false;
         Matcher registerMatcher =
                 OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN.matcher(request.getRequestURI());
         if (registerMatcher.matches()) {
-            canHandle = true;
+            if (log.isDebugEnabled()) {
+                log.debug("OIDC Federated IDP Initiated LogoutRequestFactory can handle this request.");
+            }
+            return true;
         }
-        if (log.isDebugEnabled()) {
-            log.debug("canHandle " + canHandle + " by OIDC LogoutRequestFactory.");
-        }
-        return canHandle;
-    }
-
-    @Override
-    public LogoutRequest.LogoutRequestBuilder create(HttpServletRequest request,
-                                                     HttpServletResponse response)
-            throws FrameworkClientException {
-
-        LogoutRequest.LogoutRequestBuilder logoutRequestBuilder = new LogoutRequest.
-                LogoutRequestBuilder(request, response);
-        create(logoutRequestBuilder, request, response);
-        return logoutRequestBuilder;
-
+        return false;
     }
 }
