@@ -184,7 +184,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
             if (federatedUserSession == null) {
                 if (log.isDebugEnabled()) {
-                    log.debug("No session information found for the sid: %s." + sid);
+                    log.debug("No session information found for the sid: " + sid);
                 }
                 return null;
             }
