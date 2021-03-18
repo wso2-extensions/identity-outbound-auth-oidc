@@ -130,7 +130,6 @@ public class OIDCAuthenticatorConstants {
         public static final String LOGOUT_SUCCESS = "OIDC back-channel logout success.";
         public static final String LOGOUT_FAILURE_SERVER_ERROR = "OIDC Back-channel logout failed due to an internal " +
                 "server error.";
-        public static final String USER_ALREADY_LOGGED_OUT = "User doesn't have a session. User is already logged out.";
 
         public static final long DEFAULT_IAT_VALIDITY_PERIOD = 15000;
     }
