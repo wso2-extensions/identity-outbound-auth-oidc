@@ -25,6 +25,7 @@ import net.minidev.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.UserSessionManagementService;
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
@@ -118,22 +119,25 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             IdentityProvider identityProvider = getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
 
             validateLogoutToken(signedJWT, identityProvider);
-            // Retrieve the federated user id from the IDN_AUTH_USER table.
-            String sub = claimsSet.getSubject();
-            String userId = getUserId(tenantDomain, sub, identityProvider);
-            if (log.isDebugEnabled()) {
-                log.debug("Trying OIDC federated identity provider initiated logout for the user: " + sub);
-            }
-
             // Check for sid or sub claims in the logout token.
             if (isSidClaimExists(claimsSet)) {
                 // Check whether the sid has an entry in the federated authentication session details table.
-                return logoutUsingSid((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID), userId);
+                return logoutUsingSid((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID));
             }
             // Check whether the sub claim is available in the logout token.
             if (log.isDebugEnabled()) {
                 log.debug("No sid presented in the logout token of the federated idp initiated logout request. Using " +
                         "sub claim to terminate the sessions for tenant domain: " + tenantDomain);
+            }
+            // Retrieve the federated user id from the IDN_AUTH_USER table.
+            String sub;
+            String userId = null;
+            if (isSubClaimExists(claimsSet)) {
+                sub = claimsSet.getSubject();
+                userId = getUserId(tenantDomain, sub, identityProvider);
+                if (log.isDebugEnabled()) {
+                    log.debug("Trying OIDC federated identity provider initiated logout for the user: " + sub);
+                }
             }
             // Check whether the sub claim has a valid user in the IS.
             return logoutUsingSub(userId);
@@ -150,34 +154,27 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @return
      * @throws LogoutServerException
      */
-    private LogoutResponse.LogoutResponseBuilder logoutUsingSid(String sid, String userId)
+    private LogoutResponse.LogoutResponseBuilder logoutUsingSid(String sid)
             throws LogoutServerException {
 
         if (log.isDebugEnabled()) {
             log.debug("Trying federated IdP initiated logout using sid: " + sid);
         }
         String sessionId = getSessionIdFromSid(sid);
-        if (sessionId == null) {
-            if (log.isDebugEnabled()) {
-                log.debug("No session information found for the sid: %s.");
-            }
-            return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    OIDCAuthenticatorConstants.BackchannelLogout.LOGOUT_FAILURE_SERVER_ERROR);
+        if (StringUtils.isBlank(sessionId)) {
+            return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK, StringUtils.EMPTY);
         }
-
-        UserSessionManagementService userSessionManagementService = OpenIDConnectAuthenticatorDataHolder.getInstance()
-                .getUserSessionManagementService();
-        try {
-            userSessionManagementService.terminateSessionBySessionId(userId, sessionId);
+        ServerSessionManagementService serverSessionManagementService =
+                OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
+        if (serverSessionManagementService.removeSession(sessionId)) {
             if (log.isDebugEnabled()) {
-                log.debug("Session terminated for session Id: " + sessionId + " and userId: " + userId);
+                log.debug("Session terminated for session Id: " + sessionId);
             }
             return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK,
                     OIDCAuthenticatorConstants.BackchannelLogout.LOGOUT_SUCCESS);
-        } catch (SessionManagementException e) {
-            throw handleLogoutServerException(
-                    ErrorMessages.FEDERATED_SESSION_TERMINATION_FAILED, sessionId);
         }
+        return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                OIDCAuthenticatorConstants.BackchannelLogout.LOGOUT_FAILURE_SERVER_ERROR);
     }
 
     private String getSessionIdFromSid(String sid) throws LogoutServerException {
@@ -187,15 +184,11 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
             if (federatedUserSession == null) {
                 if (log.isDebugEnabled()) {
-                    log.debug("No session information found for the sid: %s.");
+                    log.debug("No session information found for the sid: %s." + sid);
                 }
                 return null;
             }
-            String sessionId = federatedUserSession.getSessionId();
-            if (StringUtils.isBlank(sessionId)) {
-                throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, sid);
-            }
-            return sessionId;
+            return federatedUserSession.getSessionId();
         } catch (SessionManagementServerException e) {
             throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, e, sid);
         }
@@ -229,22 +222,6 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         }
     }
 
-    private String getUserId(String tenantDomain, String sub, IdentityProvider identityProvider)
-            throws LogoutServerException {
-
-        try {
-            int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
-            String userId = UserSessionStore.getInstance()
-                    .getFederatedUserId(sub, tenantId, Integer.parseInt(identityProvider.getId()));
-            if (StringUtils.isBlank(userId)) {
-                throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, sub);
-            }
-            return userId;
-        } catch (UserSessionException e) {
-            throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
-        }
-    }
-
     /**
      * Validate the JWT token signature and the mandatory claim according to the OIDC specification.
      *
@@ -272,6 +249,31 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
         } catch (JOSEException | IdentityOAuth2Exception e) {
             throw handleLogoutServerException(ErrorMessages.LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED, e);
+        }
+    }
+
+    /**
+     * Retrieve userId of the federated user.
+     *
+     * @param tenantDomain     - tenant domain of the logout request.
+     * @param sub              - sub claim in the logout token.
+     * @param identityProvider - identity provider.
+     * @return
+     * @throws LogoutServerException
+     */
+    private String getUserId(String tenantDomain, String sub, IdentityProvider identityProvider)
+            throws LogoutServerException {
+
+        try {
+            int tenantId = tenantDomain == null ? -1 : IdentityTenantUtil.getTenantId(tenantDomain);
+            String userId = UserSessionStore.getInstance()
+                    .getFederatedUserId(sub, tenantId, Integer.parseInt(identityProvider.getId()));
+            if (StringUtils.isBlank(userId)) {
+                throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, sub);
+            }
+            return userId;
+        } catch (UserSessionException e) {
+            throw handleLogoutServerException(ErrorMessages.RETRIEVING_USER_ID_FAILED, e, sub);
         }
     }
 

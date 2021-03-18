@@ -18,6 +18,9 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory;
 
+import net.minidev.json.JSONObject;
+import net.minidev.json.parser.JSONParser;
+import net.minidev.json.parser.ParseException;
 import org.mockito.Mock;
 import org.powermock.modules.testng.PowerMockTestCase;
 
@@ -28,7 +31,9 @@ import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.ex
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.LogoutResponse;
-import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
+
+import javax.servlet.http.HttpServletResponse;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -72,20 +77,25 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testHandleServerException() {
+    public void testHandleServerException() throws ParseException {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 logoutResponseFactory.handleException(new LogoutServerException("Server Error"));
-        assertEquals(builder.build().getBody(), OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
-        assertEquals(builder.build().getStatusCode(), 500);
+        JSONParser parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
+        JSONObject reponseBody = (JSONObject) parser.parse(builder.build().getBody());
+        assertEquals(reponseBody.get("Error Code"), (long) HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertEquals(reponseBody.get("Error Message"), ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
     }
 
     @Test
-    public void testHandleClientException() {
+    public void testHandleClientException() throws ParseException {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
-                logoutResponseFactory.handleException(new LogoutClientException(OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage()));
-        assertEquals(builder.build().getBody(), OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage());
-        assertEquals(builder.build().getStatusCode(), 400);
+                logoutResponseFactory
+                        .handleException(new LogoutClientException(ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage()));
+        JSONParser parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
+        JSONObject reponseBody = (JSONObject) parser.parse(builder.build().getBody());
+        assertEquals(reponseBody.get("Error Code"), (long) HttpServletResponse.SC_BAD_REQUEST);
+        assertEquals(reponseBody.get("Error Message"), ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage());
     }
 }

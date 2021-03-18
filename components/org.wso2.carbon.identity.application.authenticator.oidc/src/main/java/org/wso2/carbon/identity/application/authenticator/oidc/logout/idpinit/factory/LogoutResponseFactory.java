@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory;
 
+import net.minidev.json.JSONObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
@@ -106,15 +107,15 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
-        // TODO: create json object.
-        builder.setBody(errorMessage);
-        builder.setStatusCode(errorCode);
+        JSONObject responseBody = new JSONObject();
+        responseBody.appendField("Error Message", errorMessage);
+        responseBody.appendField("Error Code", errorCode);
+        builder.setBody(responseBody.toJSONString());
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_PRAGMA,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_PRAGMA_NO_CACHE);
         builder.addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
-
         return builder;
     }
 }
