@@ -113,8 +113,7 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
         responseBody.appendField("message", errorMessage);
         responseBody.appendField("code", errorCode);
         responseBody.appendField("description", "Error occurred during processing the logout request.");
-        String traceId = FrameworkUtils.getCorrelation();
-        responseBody.appendField("traceId", traceId);
+        responseBody.appendField("traceId", FrameworkUtils.getCorrelation());
         builder.setBody(responseBody.toJSONString());
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
                 OAuthConstants.HTTP_RESP_HEADER_VAL_CACHE_CONTROL_NO_STORE);
