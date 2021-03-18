@@ -31,8 +31,7 @@ public class LogoutResponse extends IdentityResponse {
     protected int statusCode;
     protected String message;
 
-    protected LogoutResponse(
-            LogoutResponseBuilder builder) {
+    protected LogoutResponse(LogoutResponseBuilder builder) {
 
         super(builder);
         this.statusCode = builder.statusCode;

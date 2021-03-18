@@ -32,8 +32,7 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class LogoutRequest extends IdentityRequest {
 
-    protected LogoutRequest(
-            IdentityRequestBuilder builder) throws FrameworkClientException {
+    protected LogoutRequest(IdentityRequestBuilder builder) throws FrameworkClientException {
 
         super(builder);
     }
@@ -43,8 +42,7 @@ public class LogoutRequest extends IdentityRequest {
      */
     public static class LogoutRequestBuilder extends IdentityRequestBuilder {
 
-        public LogoutRequestBuilder(HttpServletRequest request,
-                                    HttpServletResponse response) {
+        public LogoutRequestBuilder(HttpServletRequest request, HttpServletResponse response) {
 
             super(request, response);
         }
