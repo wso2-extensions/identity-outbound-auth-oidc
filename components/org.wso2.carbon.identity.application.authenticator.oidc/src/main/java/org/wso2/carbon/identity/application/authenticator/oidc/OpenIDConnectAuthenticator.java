@@ -1092,11 +1092,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (values != null && values.length > 0) {
                 value = values[0];
             }
-            try {
-                value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
-            } catch (UnsupportedEncodingException e) {
-                log.error("Error while encoding the query param: " + name + " with value: " + value, e);
-            }
             if (log.isDebugEnabled()) {
                 log.debug("InterpretQueryString name: " + name + ", value: " + value);
             }
