@@ -83,6 +83,7 @@ import javax.xml.stream.XMLInputFactory;
 
 import static org.powermock.api.mockito.PowerMockito.when;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED;
 
 /**
@@ -112,8 +113,8 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
     private static Map<String, BasicDataSource> dataSourceMap = new HashMap<>();
     private static final String DB_NAME = "testOIDCSLO";
-    private static String BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
-    private static String logoutTokenStatic =
+    private static final String BACK_CHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
+    private static final String logoutToken =
             "eyJ4NXQiOiJPV0psWmpJME5qSTROR0ZpTVRBNU9UZ3dPR00xTTJJeE5UWmpNekk0TldJeE5EY3dOMkV5TVRNNE5HWmlaVGxoTXpJMFl6a" +
                     "GpaRFJrWXpoaVl6ZGhPQSIsImtpZCI6Ik9XSmxaakkwTmpJNE5HRmlNVEE1T1Rnd09HTTFNMkl4TlRaak16STROV0l4TkRjd0" +
                     "4yRXlNVE00TkdaaVpUbGhNekkwWXpoalpEUmtZemhpWXpkaE9BX1JTMjU2IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJhZG1p" +
@@ -149,30 +150,22 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     }
 
     @Test(dataProvider = "requestDataHandler")
-    public void testCanHandle(String uri, String expectedCanHandler) {
+    public void testCanHandle(String uri, String expectedCanHandlerValue) {
 
         when(mockIdentityRequest.getRequestURI()).thenReturn(uri);
 
-        assertEquals(logoutProcessor.canHandle(mockIdentityRequest), Boolean.parseBoolean(expectedCanHandler));
+        assertEquals(logoutProcessor.canHandle(mockIdentityRequest), Boolean.parseBoolean(expectedCanHandlerValue));
     }
 
-    @DataProvider(name = "validAudClaimDataHandler")
-    public Object[][] getValidAudClaim() {
-
-        return new String[][]{
-                {"TcEsA1NxUbphVFFFEQIcUxnvtlka", "true"},
-        };
-    }
-
-    @Test(dataProvider = "validAudClaimDataHandler")
-    public void testValidateAud_Valid(String aud, String expectedValidateAud) throws Exception {
+    @Test()
+    public void testValidAudClaim() throws Exception {
 
         properties = new Property[1];
         Property property = new Property();
         property.setName("ClientId");
         property.setValue("TcEsA1NxUbphVFFFEQIcUxnvtlka");
         properties[0] = property;
-        List<String> auds = Arrays.asList(aud);
+        List<String> auds = Arrays.asList("TcEsA1NxUbphVFFFEQIcUxnvtlka");
         federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
@@ -180,34 +173,26 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
             WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
                     mockIdentityProvider);
         } catch (LogoutClientException e) {
-            assertTrue(false);
+            fail();
         }
     }
 
-    @DataProvider(name = "invalidAudClaimDataHandler")
-    public Object[][] getInvalidAudClaim() {
-
-        return new String[][]{
-                {"DfGdve1NxafadfdfadadUxnvtada", "false"},
-        };
-    }
-
-    @Test(dataProvider = "invalidAudClaimDataHandler")
-    public void testValidateAud_Invalid(String aud, String expectedValidateAud) throws Exception {
+    @Test()
+    public void testInvalidateAud() throws Exception {
 
         properties = new Property[1];
         Property property = new Property();
         property.setName("ClientId");
         property.setValue("TcEsA1NxUbphVFFFEQIcUxnvtlka");
         properties[0] = property;
-        List<String> auds = Arrays.asList(aud);
+        List<String> auds = Arrays.asList("DfGdve1NxafadfdfadadUxnvtada");
         federatedAuthenticatorConfig = new FederatedAuthenticatorConfig();
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
         try {
             WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
                     mockIdentityProvider);
-            assertTrue(false);
+            fail();
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(), LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getMessage());
         }
@@ -251,8 +236,8 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public Object[][] getEventClaim() {
 
         return new String[][]{
-                {BACKCHANNEL_LOGOUT_EVENT, "{}"},
-                {BACKCHANNEL_LOGOUT_EVENT, "{safbf}"},
+                {BACK_CHANNEL_LOGOUT_EVENT, "{}"},
+                {BACK_CHANNEL_LOGOUT_EVENT, "{safbf}"},
                 {"", "{}"}
         };
     }
@@ -282,76 +267,48 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     }
 
     @Test(dataProvider = "validNonceClaimDataHandler")
-    public void testValidateNonce_Valid(String nonceName, String nonceValue) throws Exception {
+    public void testValidNonce(String nonceName, String nonceValue) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim(nonceName, nonceValue).build();
         try {
             WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
         } catch (LogoutClientException e) {
-            assertTrue(false);
+            fail();
         }
     }
 
-    @DataProvider(name = "invalidNonceClaimDataHandler")
-    public Object[][] getInvalidNonceClaim() {
+    @Test()
+    public void testInvalidNonce() throws Exception {
 
-        return new String[][]{
-                {"nonce", "noasdade322e"},
-        };
-    }
-
-    @Test(dataProvider = "invalidNonceClaimDataHandler")
-    public void testValidateNonce_Invalid(String nonceName, String nonceValue) throws Exception {
-
-        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim(nonceName, nonceValue).build();
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("nonce", "zdfatedf4t").build();
         try {
             WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
-            assertTrue(false);
+            fail();
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
                     OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED.getMessage());
         }
     }
 
-    @DataProvider(name = "iatClaimDataHandler")
-    public Object[][] getIatClaim() {
-
-        Date currentDate = new Date();
-
-        return new Object[][]{
-                {currentDate.getTime()},
-        };
-    }
-
-    @Test(dataProvider = "iatClaimDataHandler")
-    public void testValidateIat_Valid(Long iatValue) throws Exception {
+    @Test()
+    public void testValidIat() throws Exception {
 
         try {
             WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
-                    new Date(iatValue));
+                    new Date());
         } catch (LogoutClientException e) {
-            assertTrue(false);
+            fail();
         }
     }
 
-    @DataProvider(name = "invalidIatClaimDataHandler")
-    public Object[][] getInvalidIatClaim() {
-
-        Date currentDate = new Date();
-        Date pastTime = new Date(currentDate.getTime() - (40 * 60 * 1000));
-
-        return new Object[][]{
-                {pastTime.getTime()},
-        };
-    }
-
-    @Test(dataProvider = "invalidIatClaimDataHandler")
-    public void testValidateIat_Invalid(Long iatValue) throws Exception {
+    @Test()
+    public void testInvalidIat() throws Exception {
 
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
-                    new Date(iatValue));
-            assertTrue(false);
+            Date currentDate = new Date();
+            Date pastTime = new Date(currentDate.getTime() - (40 * 60 * 1000));
+            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat", pastTime);
+            fail();
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
                     OIDCErrorConstants.ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED.getMessage());
@@ -482,7 +439,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         long logoutTokenValidityInMillis = 2 * 60 * 1000;
         long currentTimeInMillis = Calendar.getInstance().getTimeInMillis();
         Date iat = new Date(currentTimeInMillis);
-        JSONObject event = new JSONObject().appendField(BACKCHANNEL_LOGOUT_EVENT,
+        JSONObject event = new JSONObject().appendField(BACK_CHANNEL_LOGOUT_EVENT,
                 new JSONObject());
 
         JWTClaimsSet.Builder jwtClaimsSetBuilder = new JWTClaimsSet.Builder();
@@ -512,9 +469,9 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         // Mock the logout token and claims
         mockStatic(SignedJWT.class);
         SignedJWT signedJWT = mock(SignedJWT.class);
-        when(SignedJWT.parse(logoutTokenStatic)).thenReturn(signedJWT);
-        when(SignedJWT.parse(logoutTokenStatic).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
-        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutTokenStatic);
+        when(SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
+        when(SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
         when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
         mockStatic(IdentityProviderManager.class);
         IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
@@ -522,7 +479,6 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         when(IdentityProviderManager.getInstance().getIdPByMetadataProperty(
                 IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
                 "carbon.super", false)).thenReturn(identityProvider);
-
 
         // Mock the signature validation
         mockStatic(JWTSignatureValidationUtils.class);
@@ -569,9 +525,9 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         // Mock the logout token and claims.
         mockStatic(SignedJWT.class);
         SignedJWT signedJWT = mock(SignedJWT.class);
-        when(SignedJWT.parse(logoutTokenStatic)).thenReturn(signedJWT);
-        when(SignedJWT.parse(logoutTokenStatic).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
-        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutTokenStatic);
+        when(SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
+        when(SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
         when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
         mockStatic(IdentityProviderManager.class);
         IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
@@ -610,20 +566,5 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
 
         assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
-    }
-
-    @Test
-    public void testGetCallbackPath() {
-
-        IdentityMessageContext context = null;
-        assertNull(logoutProcessor.getCallbackPath(context));
-    }
-
-    @Test
-    public void testGetRelyingPartyId() {
-
-        assertNull(logoutProcessor.getRelyingPartyId());
-        IdentityMessageContext context = null;
-        assertNull(logoutProcessor.getRelyingPartyId());
     }
 }
