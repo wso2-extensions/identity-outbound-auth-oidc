@@ -42,6 +42,7 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authentication.framework.model.FederatedUserSession;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutClientException;
+import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutException;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
@@ -96,7 +97,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      * @throws LogoutServerException Exception occurred from IS.
      */
     protected IdentityResponse.IdentityResponseBuilder handleOIDCFederatedLogoutRequest(
-            IdentityRequest logoutRequest) throws LogoutClientException, LogoutServerException {
+            IdentityRequest logoutRequest) throws LogoutException {
 
         try {
             String logoutToken = logoutRequest.getParameter(OIDCAuthenticatorConstants.LOGOUT_TOKEN);
@@ -118,17 +119,23 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             IdentityProvider identityProvider = getIdentityProvider(claimsSet.getIssuer(), tenantDomain);
 
             validateLogoutToken(signedJWT, identityProvider);
+
             if (isSidClaimExists(claimsSet)) {
                 // Find the the local session corresponding to sid and terminate it.
                 return logoutUsingSid((String) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.SID));
             }
+
             String subClaim = claimsSet.getSubject();
+            if (StringUtils.isBlank(subClaim)) {
+                throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_SUB_CLAIM_NOT_FOUND);
+            }
+
             if (log.isDebugEnabled()) {
                 log.debug("No 'sid' claim present in the logout token of the federated idp initiated logout request" +
                         ". Using sub claim to terminate the sessions for user: " + subClaim +
                         " tenant domain: " + tenantDomain);
             }
-            // Check whether the sub claim has a valid user in the IS.
+
             return logoutUsingSub(tenantDomain, subClaim, identityProvider);
 
         } catch (ParseException e) {
@@ -194,9 +201,6 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             throws LogoutServerException {
 
         try {
-            if (StringUtils.isBlank(sub)) {
-                throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_SUB_CLAIM_NOT_FOUND);
-            }
             // Retrieve the federated user id from the IDN_AUTH_USER table.
             String userId = getUserId(tenantDomain, sub, identityProvider);
             if (log.isDebugEnabled()) {
@@ -216,7 +220,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             }
             return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK,
                     OIDCAuthenticatorConstants.BackchannelLogout.LOGOUT_SUCCESS);
-        } catch (SessionManagementException | LogoutClientException e) {
+        } catch (SessionManagementException e) {
             throw handleLogoutServerException(ErrorMessages.USER_SESSION_TERMINATION_FAILURE, e, sub);
         }
     }

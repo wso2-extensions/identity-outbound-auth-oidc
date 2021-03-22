@@ -21,7 +21,6 @@ package org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.f
 import net.minidev.json.JSONObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.context.CarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
@@ -36,7 +35,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
-import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_CLIENT_EXCEPTION;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages.LOGOUT_SERVER_EXCEPTION;
 
 /**
@@ -90,10 +88,12 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
                 log.debug("Client error when handling the request: " + frameworkException.getMessage(),
                         frameworkException);
             }
-            builder = buildResponse(frameworkException.getMessage(), HttpServletResponse.SC_BAD_REQUEST);
+            builder = buildResponse("Invalid request.", HttpServletResponse.SC_BAD_REQUEST,
+                    frameworkException.getMessage());
         } else {
             log.error(LOGOUT_SERVER_EXCEPTION.getMessage(), frameworkException);
-            builder = buildResponse(LOGOUT_SERVER_EXCEPTION.getMessage(), HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            builder = buildResponse("Internal server error.",
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR, LOGOUT_SERVER_EXCEPTION.getMessage());
         }
         return builder;
     }
@@ -105,14 +105,15 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
      * @param errorCode
      * @return
      */
-    private HttpIdentityResponse.HttpIdentityResponseBuilder buildResponse(String errorMessage, int errorCode) {
+    private HttpIdentityResponse.HttpIdentityResponseBuilder buildResponse(String errorMessage, int errorCode,
+                                                                           String description) {
 
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 new HttpIdentityResponse.HttpIdentityResponseBuilder();
         JSONObject responseBody = new JSONObject();
         responseBody.appendField("message", errorMessage);
         responseBody.appendField("code", errorCode);
-        responseBody.appendField("description", "Error occurred during processing the logout request.");
+        responseBody.appendField("description", description);
         responseBody.appendField("traceId", FrameworkUtils.getCorrelation());
         builder.setBody(responseBody.toJSONString());
         builder.addHeader(OAuthConstants.HTTP_RESP_HEADER_CACHE_CONTROL,
