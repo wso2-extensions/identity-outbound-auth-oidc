@@ -84,7 +84,7 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
         JSONParser parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
         JSONObject reponseBody = (JSONObject) parser.parse(builder.build().getBody());
         assertEquals(reponseBody.get("code"), (long) HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        assertEquals(reponseBody.get("message"), ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
+        assertEquals(reponseBody.get("description"), ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
     }
 
     @Test
@@ -96,6 +96,6 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
         JSONParser parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
         JSONObject reponseBody = (JSONObject) parser.parse(builder.build().getBody());
         assertEquals(reponseBody.get("code"), (long) HttpServletResponse.SC_BAD_REQUEST);
-        assertEquals(reponseBody.get("message"), ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage());
+        assertEquals(reponseBody.get("description"), ErrorMessages.LOGOUT_CLIENT_EXCEPTION.getMessage());
     }
 }
