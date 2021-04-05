@@ -347,9 +347,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             if (currentTimeInMillis - issuedAtTimeMillis > iatValidityPeriodInMillis) {
                 if (log.isDebugEnabled()) {
                     log.debug("Logout token is used after iat validity period." +
-                            ", iat validity period(m) : " + iatValidityPeriod +
+                            " iat validity period(m): " + iatValidityPeriod +
                             ", Current Time : " + currentTimeInMillis +
-                            ". Token Rejected and validation terminated.");
+                            ". This logout token is not valid.");
                 }
                 throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_IAT_VALIDATION_FAILED);
             }
@@ -378,7 +378,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                                 .get(OIDCAuthenticatorConstants.BackchannelLogout.IAT_VALIDITY_PERIOD));
             } catch (NumberFormatException e) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Invalid iatValidityPeriod in config file. Using default iatValidityPeriod value");
+                    log.debug("Invalid iatValidityPeriod is configured. Hence using default iatValidityPeriod value");
                 }
             }
         }
@@ -531,7 +531,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     private LogoutServerException handleLogoutServerException(OIDCErrorConstants.ErrorMessages error, Throwable e) {
 
         if (log.isDebugEnabled()) {
-            log.debug(error.getMessage() + "Error code:" + error.getCode());
+            log.debug(error.getMessage() + " Error code: " + error.getCode());
         }
         return new LogoutServerException(error.getCode(), error.getMessage(), e);
     }
@@ -545,7 +545,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     private LogoutClientException handleLogoutClientException(OIDCErrorConstants.ErrorMessages error) {
 
         if (log.isDebugEnabled()) {
-            log.debug(error.getMessage() + "Error code:" + error.getCode());
+            log.debug(error.getMessage() + " Error code: " + error.getCode());
         }
         return new LogoutClientException(error.getCode(), error.getMessage());
     }
@@ -560,7 +560,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
     private LogoutClientException handleLogoutClientException(OIDCErrorConstants.ErrorMessages error, Throwable e) {
 
         if (log.isDebugEnabled()) {
-            log.debug(error.getMessage() + "Error code:" + error.getCode());
+            log.debug(error.getMessage() + " Error code: " + error.getCode());
         }
         return new LogoutClientException(error.getCode(), error.getMessage(), e);
     }
