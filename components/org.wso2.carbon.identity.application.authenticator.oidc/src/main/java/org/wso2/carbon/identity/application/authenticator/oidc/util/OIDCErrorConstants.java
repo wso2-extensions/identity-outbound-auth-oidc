@@ -38,6 +38,27 @@ public class OIDCErrorConstants {
                 "Authentication process failed"),
         USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP("OID-60005",
                 "Cannot find the userId from the id_token sent by the federated IDP."),
+        // Federated IdP initiated back-channel logout client errors.
+        LOGOUT_TOKEN_EMPTY_OR_NULL("OID-60006",
+                "Logout token is empty or null. Pass a valid logout token"),
+        LOGOUT_TOKEN_PARSING_FAILURE("OID-60007",
+                "Invalid logout token"),
+        LOGOUT_TOKEN_IAT_VALIDATION_FAILED("OID-60008",
+                "Logout token is used after iat validity time"),
+        LOGOUT_TOKEN_SIGNATURE_VALIDATION_FAILED("OID-60009",
+                "Error while validating the logout token signature"),
+        LOGOUT_TOKEN_AUD_CLAIM_VALIDATION_FAILED("OID-60010",
+                "Audience claim validation failed. ClientID: %s of the identity provider was not present as an " +
+                        "audience value in the logout token"),
+        LOGOUT_TOKEN_EVENT_CLAIM_VALIDATION_FAILED("OID-60011",
+                "Error while validating the event claim in the logout token"),
+        LOGOUT_TOKEN_NONCE_CLAIM_VALIDATION_FAILED("OID-60012",
+                "Error while validating the nonce claim in the logout token"),
+        LOGOUT_TOKEN_SUB_CLAIM_NOT_FOUND("OID-60013",
+                "No sub claim or sid claim found in the logout token"),
+        LOGOUT_TOKEN_ISS_CLAIM_VALIDATION_FAILED("OID-60014",
+                "Error while validating the iss claim in the logout token"),
+        LOGOUT_CLIENT_EXCEPTION("OID-60015", "Back channel logout failed due to client error"),
 
         RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED("OID-65001",
                 "Error while retrieving properties. Authenticator Properties cannot be null"),
@@ -51,7 +72,23 @@ public class OIDCErrorConstants {
         REQUESTING_ACCESS_TOKEN_FAILED("OID-65006",
                 "Exception while requesting access token"),
         EXECUTING_CLAIM_TRANSFORMATION_FOR_IDP_FAILED("OID-65007",
-                "Error while executing claim transformation for IDP: %s");
+                "Error while executing claim transformation for IDP: %s"),
+        // Federated IdP initiated back-channel logout server errors.
+        FEDERATED_SESSION_TERMINATION_FAILED("OID-65008",
+                "Unable to terminate session for session Id: %s"),
+        RETRIEVING_SESSION_ID_MAPPING_FAILED("OID-65009",
+                "Error while retrieving session Id mapping for sid: %s"),
+        RETRIEVING_IDENTITY_PROVIDER_FAILED("OID-65010",
+                "Error while retrieving the identity provider"),
+        NO_REGISTERED_IDP_FOR_ISSUER("OID-65011",
+                "No Registered IDP found for the issuer name: %s found in JWT"),
+        GETTING_RESIDENT_IDP_FAILED("OID-65012",
+                "Error while getting Resident Identity Provider of '%s' tenant"),
+        USER_SESSION_TERMINATION_FAILURE("OID-65013",
+                "Error while terminating the sessions for the user: %s"),
+        RETRIEVING_USER_ID_FAILED("OID-65014",
+                "Error while retrieving user Id mapping for sub: %s"),
+        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error");
 
         private final String code;
         private final String message;

@@ -26,4 +26,11 @@
             <class name="org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticatorTest"/>
         </classes>
     </test>
+    <test name="oidc-connect-logout-processor-tests" preserve-order="true" parallel="false">
+        <classes>
+            <class name="org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessorTest"/>
+            <class name="org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactoryTest"/>
+            <class name="org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactoryTest"/>
+        </classes>
+    </test>
 </suite>

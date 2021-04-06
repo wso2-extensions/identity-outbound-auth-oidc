@@ -21,7 +21,15 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.osgi.service.component.ComponentContext;
 import org.wso2.carbon.identity.application.authentication.framework.ApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
+import org.wso2.carbon.identity.application.authentication.framework.UserSessionManagementService;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityRequestFactory;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
+import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
+import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;
@@ -45,6 +53,12 @@ public class OpenIDConnectAuthenticatorServiceComponent {
         try {
             OpenIDConnectAuthenticator openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
             ctxt.getBundleContext().registerService(ApplicationAuthenticator.class.getName(), openIDConnectAuthenticator, null);
+            ctxt.getBundleContext().registerService(HttpIdentityRequestFactory.class.getName(),
+                    new LogoutRequestFactory(), null);
+            ctxt.getBundleContext().registerService(IdentityProcessor.class.getName(),
+                    new FederatedIdpInitLogoutProcessor(), null);
+            ctxt.getBundleContext().registerService(HttpIdentityResponseFactory.class.getName(),
+                    new LogoutResponseFactory(), null);
             if (log.isDebugEnabled()) {
                 log.debug("OpenID Connect Authenticator bundle is activated");
             }
@@ -102,4 +116,55 @@ public class OpenIDConnectAuthenticatorServiceComponent {
                 .setClaimMetadataManagementService(null);
     }
 
+    @Reference(
+            name = "server.session.management.service",
+            service = ServerSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetServerSessionManagementService"
+    )
+    protected void setServerSessionManagementService(ServerSessionManagementService
+                                                             serverSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is set in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance()
+                .setServerSessionManagementService(serverSessionManagementService);
+    }
+
+    protected void unsetServerSessionManagementService(ServerSessionManagementService
+                                                               serverSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is unset in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance().setServerSessionManagementService(null);
+    }
+
+    @Reference(
+            name = "user.session.management.service",
+            service = UserSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetUserSessionManagementService"
+    )
+    protected void setUserSessionManagementService(UserSessionManagementService
+                                                           userSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is set in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance()
+                .setUserSessionManagementService(userSessionManagementService);
+    }
+
+    protected void unsetUserSessionManagementService(UserSessionManagementService
+                                                             userSessionManagementService) {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Server Session Management Service is unset in the OpenID Connect Authenticator");
+        }
+        OpenIDConnectAuthenticatorDataHolder.getInstance().setUserSessionManagementService(null);
+    }
 }
