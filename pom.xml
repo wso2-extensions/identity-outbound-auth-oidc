@@ -78,7 +78,10 @@
                 <enabled>false</enabled>
             </releases>
         </repository>
-
+        <repository>
+          <id>knopflerfish</id>
+          <url>https://resources.knopflerfish.org/repo/maven2/release</url>
+        </repository>
     </repositories>
 
     <pluginRepositories>
