@@ -94,7 +94,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final long serialVersionUID = -4154255583070524018L;
 
     private static final Log log = LogFactory.getLog(OpenIDConnectAuthenticator.class);
-    private static final Log diagnosticLog = LogFactory.getLog("diagnostics");
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
@@ -153,12 +152,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
-            diagnosticLog.info("OpenIDConnectAuthenticator can handle the authentication request.");
             return true;
         }
 
         // TODO : What if IdP failed?
-        diagnosticLog.info("OpenIDConnectAuthenticator cannot handle the authentication request.");
         return false;
     }
 
@@ -311,8 +308,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     log.debug("Empty JSON response from user info endpoint. Unable to fetch user claims." +
                             " Proceeding without user claims");
                 }
-                diagnosticLog.info("Unable to fetch user claims from the user info endpoint." +
-                        " Proceeding with user claims from id_token.");
                 return claims;
             }
 
@@ -340,8 +335,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
         } catch (IOException e) {
             log.error("Communication error occurred while accessing user info endpoint", e);
-            diagnosticLog.error("Communication error occurred while accessing user info endpoint. Error message: " +
-                    e.getMessage());
         }
 
         return claims;
@@ -429,17 +422,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (log.isDebugEnabled()) {
                 log.debug("Error while encoding the additional query parameters", e);
             }
-            diagnosticLog.error("Error while encoding the additional query parameters. Error message: " +
-                    e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
         } catch (IOException e) {
-            diagnosticLog.error("Communication error occurred while accessing federated IDP. Error message: " +
-                    e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.IO_ERROR.getCode(), e.getMessage(), e);
         } catch (OAuthSystemException e) {
-            diagnosticLog.error(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.toString() + ". Error " +
-                    "message: " + e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
         }
@@ -468,7 +455,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         try {
 
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
-            diagnosticLog.info("Initiating token request");
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
             // Create OAuth client that uses custom http client under the hood
@@ -479,7 +465,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
 
             if (StringUtils.isBlank(accessToken)) {
-                diagnosticLog.error("access_token param is empty in token response.");
                 throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
                         ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
             }
@@ -487,7 +472,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
-                diagnosticLog.error("id_token param is empty in OIDC response.");
                 throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
                         String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
                                 getTokenEndpoint(authenticatorProperties),
@@ -552,8 +536,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             context.setSubject(authenticatedUser);
 
         } catch (OAuthProblemException e) {
-            diagnosticLog.error(ErrorMessages.AUTHENTICATION_PROCESS_FAILED.toString() + ", Error message: " +
-                    e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.AUTHENTICATION_PROCESS_FAILED.getCode(),
                     ErrorMessages.AUTHENTICATION_PROCESS_FAILED.getMessage(), context.getSubject(), e);
         }
@@ -586,8 +568,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             } catch (IOException e) {
                 String idpName = context.getExternalIdP().getName();
                 String tenantDomain = context.getTenantDomain();
-                diagnosticLog.error("Error occurred while initiating the logout request to IdP: " + idpName
-                        + " of tenantDomain: " + tenantDomain + ". Error message: " + e.getMessage());
                 throw new LogoutFailedException("Error occurred while initiating the logout request to IdP: " + idpName
                         + " of tenantDomain: " + tenantDomain, e);
             }
@@ -620,8 +600,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             jwtAttributeSet = JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
         } catch (ParseException e) {
             log.error("Error occurred while parsing JWT provided by federated IDP: ", e);
-            diagnosticLog.error("Error occurred while parsing JWT provided by federated IDP. Error message: " +
-                    e.getMessage());
         }
         Map<String, Object> jwtAttributeMap = new HashMap();
         for (Map.Entry<String, Object> entry : jwtAttributeSet) {
@@ -654,12 +632,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     log.debug("For the claim mapping: " + attributeSeparator
                             + " is used as the attributeSeparator in tenant: " + tenantDomain);
                 }
-                diagnosticLog.info("For the claim mappings: " + attributeSeparator
-                        + " is used as the attributeSeparator in tenant: " + tenantDomain);
             }
         } catch (UserStoreException e) {
-            diagnosticLog.error(ErrorMessages.RETRIEVING_MULTI_ATTRIBUTE_SEPARATOR_FAILED.toString() + ". Error" +
-                    " message: " + e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.RETRIEVING_MULTI_ATTRIBUTE_SEPARATOR_FAILED.getCode(),
                     ErrorMessages.RETRIEVING_MULTI_ATTRIBUTE_SEPARATOR_FAILED.getMessage(),
                     AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId), e);
@@ -677,15 +651,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 if (log.isDebugEnabled()) {
                     log.debug("Authenticated user id: " + authenticatedUserId + " was found among id_token claims.");
                 }
-                diagnosticLog.info("Authenticated user id: " + authenticatedUserId + " was found among id_token " +
-                        "claims.");
             } else {
                 if (log.isDebugEnabled()) {
                     log.debug("Subject claim could not be found amongst id_token claims. Defaulting to the 'sub' "
                             + "attribute in id_token as authenticated user id.");
                 }
-                diagnosticLog.info("Subject claim could not be found amongst id_token claims. Defaulting to the " +
-                        "'sub' attribute in id_token as authenticated user id.");
                 // Default to userId sent as the 'sub' claim.
                 authenticatedUserId = getAuthenticateUser(context, idTokenClaims, oAuthResponse);
             }
@@ -694,11 +664,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (log.isDebugEnabled()) {
                 log.debug("Authenticated user id: " + authenticatedUserId + " retrieved from the 'sub' claim.");
             }
-            diagnosticLog.info("Authenticated user id: " + authenticatedUserId + " retrieved from the 'sub' claim.");
         }
 
         if (authenticatedUserId == null) {
-            diagnosticLog.error(ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP.toString());
             throw new AuthenticationFailedException(
                     ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP.getCode(),
                     ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP.getMessage());
@@ -768,8 +736,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     log.debug("Authenticating to token endpoint: " + tokenEndPoint + " with HTTP basic " +
                             "authentication scheme.");
                 }
-                diagnosticLog.info("Authenticating to token endpoint: " + tokenEndPoint + " with HTTP basic " +
-                        "authentication scheme.");
 
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setRedirectURI(callbackUrl).setCode(authzResponse.getCode())
@@ -783,8 +749,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     log.debug("Authenticating to token endpoint: " + tokenEndPoint + " including client credentials "
                             + "in request body.");
                 }
-                diagnosticLog.info("Authenticating to token endpoint: " + tokenEndPoint + " including client" +
-                        " credentials in request body.");
                 accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
                         .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
                         (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
@@ -800,13 +764,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 log.debug(String.format(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getMessage(),
                         tokenEndPoint), e);
             }
-            diagnosticLog.error(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getCode() + " - " +
-                    String.format(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getMessage(),
-                    tokenEndPoint) + ". Error message: " + e.getMessage());
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getCode(), e);
         } catch (URLBuilderException e) {
-            diagnosticLog.error("Error occurred while building URL in tenant qualified mode. Error message: " +
-                    e.getMessage());
             throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
         }
 
@@ -823,8 +782,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (log.isDebugEnabled()) {
                 log.debug(ErrorMessages.REQUESTING_ACCESS_TOKEN_FAILED.getMessage(), e);
             }
-            diagnosticLog.error(ErrorMessages.REQUESTING_ACCESS_TOKEN_FAILED.toString() + ". Error message: " +
-                    e.getMessage());
             throw new AuthenticationFailedException(
                     ErrorMessages.REQUESTING_ACCESS_TOKEN_FAILED.getCode(), e.getMessage(), e);
         }
@@ -1085,7 +1042,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (log.isDebugEnabled()) {
             log.debug("Claim URL: " + url);
         }
-        diagnosticLog.info("Requesting user claims from user info endpoint: " + url);
 
         if (url == null) {
             return StringUtils.EMPTY;
