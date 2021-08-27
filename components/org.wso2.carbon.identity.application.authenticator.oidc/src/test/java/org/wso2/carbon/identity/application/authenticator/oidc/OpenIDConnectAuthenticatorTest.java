@@ -508,7 +508,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test
     public void testGetFriendlyName() throws Exception {
 
-        assertEquals(openIDConnectAuthenticator.getFriendlyName(), "openidconnect",
+        assertEquals(openIDConnectAuthenticator.getFriendlyName(), "OpenID Connect",
                 "Invalid friendly name.");
     }
 
