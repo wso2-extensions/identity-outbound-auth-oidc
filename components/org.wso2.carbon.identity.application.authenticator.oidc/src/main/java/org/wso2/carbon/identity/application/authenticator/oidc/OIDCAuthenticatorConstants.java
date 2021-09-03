@@ -28,7 +28,6 @@ public class OIDCAuthenticatorConstants {
 
     public static final String AUTHENTICATOR_NAME = "OpenIDConnectAuthenticator";
     public static final String LOGIN_TYPE = "OIDC";
-    public static final String AUTHENTICATOR_FRIENDLY_NAME = "OpenID Connect";
 
     public static final String OAUTH_OIDC_SCOPE = "openid";
     public static final String OAUTH2_GRANT_TYPE_CODE = "code";
