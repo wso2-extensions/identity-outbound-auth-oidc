@@ -317,7 +317,7 @@
         <nimbusds.version>7.3.0.wso2v1</nimbusds.version>
         <nimbusds.oauth.version>8.28.3</nimbusds.oauth.version>
         <nimbusds.osgi.version.range>[7.3.0,8.0.0)</nimbusds.osgi.version.range>
-        <h2database.version>1.4.199</h2database.version>
+        <h2database.version>2.1.210</h2database.version>
     </properties>
 
     <modules>
