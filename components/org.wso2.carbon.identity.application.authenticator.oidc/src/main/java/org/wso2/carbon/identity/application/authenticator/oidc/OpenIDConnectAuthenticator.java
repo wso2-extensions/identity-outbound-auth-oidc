@@ -484,6 +484,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
 
+            processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));
+
             AuthenticatedUser authenticatedUser;
             Map<ClaimMapping, String> claims = new HashMap<>();
             Map<String, Object> jsonObject = new HashMap<>();
@@ -541,8 +543,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
     }
 
-    @Override
+    protected void processAuthenticatedUserScopes(AuthenticationContext context, String scopes) {
 
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("Scopes in token response: %s", scopes));
+        }
+    }
+
+    @Override
     protected void initiateLogoutRequest(HttpServletRequest request, HttpServletResponse response,
                                          AuthenticationContext context) throws LogoutFailedException {
 
