@@ -156,14 +156,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private boolean hasErrorParamInRequest(HttpServletRequest request) {
 
-        String error = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR);
-        return StringUtils.isNotBlank(error);
+        return StringUtils.isNotBlank(request.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR));
     }
 
     private boolean hasCodeParamInRequest(HttpServletRequest request) {
 
-        String code = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-        return StringUtils.isNotBlank(code);
+        return StringUtils.isNotBlank(request.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE));
     }
 
     /**
