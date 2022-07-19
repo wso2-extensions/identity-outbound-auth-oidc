@@ -30,7 +30,7 @@ import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.internal.WhiteboxImpl;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.identity.application.authentication.framework.ServerSessionManagementService;
@@ -72,7 +72,7 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -123,7 +123,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
                     "EKgyYA0-FHSbFNRtk3-rN25biW3ivU5AWeo9W3dI6epcNSr4pCCvWBIKI-rk01J8kYyu2ZujecyD0yoz420lbZ2c_dMKFpCDH" +
                     "DdYjueK4tYE66jpAzvJEyPs37snH-6ok2YaoYjKudyfCdXni7Bg";
 
-    @BeforeTest
+    @BeforeMethod
     public void init() throws Exception {
 
         logoutProcessor = new FederatedIdpInitLogoutProcessor();
