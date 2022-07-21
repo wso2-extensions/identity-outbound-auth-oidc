@@ -20,7 +20,7 @@
         <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
         <artifactId>identity-application-auth-oidc</artifactId>
         <relativePath>../../pom.xml</relativePath>
-        <version>5.7.4</version>
+        <version>5.7.5-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
