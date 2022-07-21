@@ -27,7 +27,7 @@
     <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>identity-application-auth-oidc</artifactId>
-    <version>5.7.4-SNAPSHOT</version>
+    <version>5.7.4</version>
     <packaging>pom</packaging>
     <name>WSO2 Carbon - OpenID Connect Application Authenticator Feature Aggregator Module</name>
     <description>
@@ -40,7 +40,7 @@
         <developerConnection>scm:git:https://github.com/wso2-extensions/identity-outbound-auth-oidc.git
         </developerConnection>
         <connection>scm:git:https://github.com/wso2-extensions/identity-outbound-auth-oidc.git</connection>
-        <tag>HEAD</tag>
+        <tag>v5.7.4</tag>
     </scm>
 
 
