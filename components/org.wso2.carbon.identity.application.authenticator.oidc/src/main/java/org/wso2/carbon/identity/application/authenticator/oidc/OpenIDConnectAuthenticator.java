@@ -482,12 +482,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         context.setStateInfo(stateInfoOIDC);
 
         AuthenticatedUser authenticatedUser;
-        Map<ClaimMapping, String> claims = new HashMap<>();
-        Map<String, Object> jsonObject = new HashMap<>();
+        Map<ClaimMapping, String> claimsMap = new HashMap<>();
+        Map<String, Object> jsonObjectMap = new HashMap<>();
 
         if (StringUtils.isNotBlank(idToken)) {
-            jsonObject = getIdTokenClaims(context, idToken);
-            if (jsonObject.isEmpty()) {
+            jsonObjectMap = getIdTokenClaims(context, idToken);
+            if (jsonObjectMap.isEmpty()) {
                 String errorMessage = ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getMessage();
                 if (log.isDebugEnabled()) {
                     log.debug(errorMessage);
@@ -497,7 +497,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             String idpName = context.getExternalIdP().getIdPName();
-            String sidClaim = (String) jsonObject.get(OIDCAuthenticatorConstants.Claim.SID);
+            String sidClaim = (String) jsonObjectMap.get(OIDCAuthenticatorConstants.Claim.SID);
             if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
                 // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
@@ -505,15 +505,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             if (log.isDebugEnabled() && IdentityUtil
                     .isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
-                log.debug("Retrieved the User Information:" + jsonObject);
+                log.debug("Retrieved the User Information:" + jsonObjectMap);
             }
 
-            String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jsonObject);
+            String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jsonObjectMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
 
-            jsonObject.entrySet().stream()
+            jsonObjectMap.entrySet().stream()
                     .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
-                    .forEach(entry -> buildClaimMappings(claims, entry, attributeSeparator));
+                    .forEach(entry -> buildClaimMappings(claimsMap, entry, attributeSeparator));
 
             authenticatedUser = AuthenticatedUser
                     .createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
@@ -522,29 +522,32 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 log.debug("The IdToken is null");
             }
             authenticatedUser = AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(
-                    getAuthenticateUser(context, jsonObject, oAuthResponse));
+                    getAuthenticateUser(context, jsonObjectMap, oAuthResponse));
         }
-        claims.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
-        authenticatedUser.setUserAttributes(claims);
+        claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
+        authenticatedUser.setUserAttributes(claimsMap);
         context.setSubject(authenticatedUser);
     }
 
     /**
      * Retrieves or maps the ID token according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
      *
      * @param context       AuthenticationContext.
-     * @param request       HttpServletRequest.
-     * @param oAuthResponse OAuthClientResponse.
-     * @return The ID token.
+     * @param request       HttpServletRequest
+     * @param oAuthResponse OAuthClientResponse
+     * @return The valid JWT token for the authentication request
+     * @throws AuthenticationFailedException when ID token is not valid. i.e Google Authenticator.
      */
     protected String mapIdToken(AuthenticationContext context, HttpServletRequest request,
-                                OAuthClientResponse oAuthResponse) {
+                                OAuthClientResponse oAuthResponse) throws AuthenticationFailedException {
 
         return oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
     }
 
     /**
      * Retrieves or maps the access token according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
      *
      * @param request       HttpServletRequest.
      * @param context       AuthenticationContext.
@@ -557,9 +560,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
 
         if (StringUtils.isBlank(accessToken)) {
-            if (log.isDebugEnabled()) {
-                log.debug("No access token found");
-            }
+            log.error("No access token found");
             throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
                     ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
         }
@@ -568,6 +569,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     /**
      * Generates OAuth client and returns the oAuthResponse according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
      *
      * @param request HttpServletRequest.
      * @param context AuthenticationContext.
