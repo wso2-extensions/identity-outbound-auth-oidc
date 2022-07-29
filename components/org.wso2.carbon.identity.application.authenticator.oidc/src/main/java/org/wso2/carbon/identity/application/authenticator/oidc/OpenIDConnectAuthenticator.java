@@ -483,11 +483,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         AuthenticatedUser authenticatedUser;
         Map<ClaimMapping, String> claimsMap = new HashMap<>();
-        Map<String, Object> jsonObjectMap = new HashMap<>();
+        Map<String, Object> jwtAttributeMap = new HashMap<>();
 
         if (StringUtils.isNotBlank(idToken)) {
-            jsonObjectMap = getIdTokenClaims(context, idToken);
-            if (jsonObjectMap.isEmpty()) {
+            jwtAttributeMap = getIdTokenClaims(context, idToken);
+            if (jwtAttributeMap.isEmpty()) {
                 String errorMessage = ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getMessage();
                 if (log.isDebugEnabled()) {
                     log.debug(errorMessage);
@@ -497,7 +497,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
 
             String idpName = context.getExternalIdP().getIdPName();
-            String sidClaim = (String) jsonObjectMap.get(OIDCAuthenticatorConstants.Claim.SID);
+            String sidClaim = (String) jwtAttributeMap.get(OIDCAuthenticatorConstants.Claim.SID);
             if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
                 // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
@@ -505,13 +505,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             if (log.isDebugEnabled() && IdentityUtil
                     .isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
-                log.debug("Retrieved the User Information:" + jsonObjectMap);
+                log.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
-            String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jsonObjectMap);
+            String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
 
-            jsonObjectMap.entrySet().stream()
+            jwtAttributeMap.entrySet().stream()
                     .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
                     .forEach(entry -> buildClaimMappings(claimsMap, entry, attributeSeparator));
 
@@ -522,7 +522,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 log.debug("The IdToken is null");
             }
             authenticatedUser = AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(
-                    getAuthenticateUser(context, jsonObjectMap, oAuthResponse));
+                    getAuthenticateUser(context, jwtAttributeMap, oAuthResponse));
         }
         claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
         authenticatedUser.setUserAttributes(claimsMap);
@@ -560,7 +560,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
 
         if (StringUtils.isBlank(accessToken)) {
-            log.error("No access token found");
             throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
                     ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
         }
