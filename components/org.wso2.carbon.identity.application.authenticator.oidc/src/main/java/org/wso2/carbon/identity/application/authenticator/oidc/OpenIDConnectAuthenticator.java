@@ -461,9 +461,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void processAuthenticationResponse(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
-        /*
-         * oAuthResponse can be null in some authentication flows. i.e Google One Tap.
-         */
+        //oAuthResponse can be null in some authentication flows. i.e Google One Tap.
         OAuthClientResponse oAuthResponse = generateOauthResponse(request, context);
         // TODO : return access token and id token to framework
         mapAccessToken(request, context, oAuthResponse);
