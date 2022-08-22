@@ -159,7 +159,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return false;
     }
 
-    private boolean isInitialRequest(AuthenticationContext context, HttpServletRequest request) {
+    /**
+     * There are several types of requests such as authorization request, token request as well as different stages
+     * like logout, error etc.
+     * This method identifies if the request is an initial request or not, so that will help to initialize the request.
+     *
+     * @param context AuthenticationContext.
+     * @param request HttpServletRequest.
+     * @return Whether this is an initial request or not.
+     */
+    protected boolean isInitialRequest(AuthenticationContext context, HttpServletRequest request) {
 
         return !context.isLogoutRequest() && !hasCodeParamInRequest(request) && !hasErrorParamInRequest(request);
     }
@@ -452,95 +461,138 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void processAuthenticationResponse(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
-        try {
+        // oAuthResponse can be null in some authentication flows. i.e Google One Tap.
+        OAuthClientResponse oAuthResponse = generateOauthResponse(request, context);
+        // TODO : return access token and id token to framework
+        mapAccessToken(request, context, oAuthResponse);
+        String idToken = mapIdToken(context, request, oAuthResponse);
 
+        Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
+        if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
+            throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
+                    String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
+                            getTokenEndpoint(authenticatorProperties),
+                            authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID)));
+        }
+
+        OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
+        stateInfoOIDC.setIdTokenHint(idToken);
+        context.setStateInfo(stateInfoOIDC);
+
+        AuthenticatedUser authenticatedUser;
+        Map<ClaimMapping, String> claimsMap = new HashMap<>();
+        Map<String, Object> jwtAttributeMap = new HashMap<>();
+
+        if (StringUtils.isNotBlank(idToken)) {
+            jwtAttributeMap = getIdTokenClaims(context, idToken);
+            if (jwtAttributeMap.isEmpty()) {
+                String errorMessage = ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getMessage();
+                if (log.isDebugEnabled()) {
+                    log.debug(errorMessage);
+                }
+                throw new AuthenticationFailedException(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getCode(),
+                        errorMessage);
+            }
+
+            String idpName = context.getExternalIdP().getIdPName();
+            String sidClaim = (String) jwtAttributeMap.get(OIDCAuthenticatorConstants.Claim.SID);
+            if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
+                // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
+                context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
+            }
+
+            if (log.isDebugEnabled() && IdentityUtil
+                    .isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
+                log.debug("Retrieved the User Information:" + jwtAttributeMap);
+            }
+
+            String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
+            String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
+
+            jwtAttributeMap.entrySet().stream()
+                    .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
+                    .forEach(entry -> buildClaimMappings(claimsMap, entry, attributeSeparator));
+
+            authenticatedUser = AuthenticatedUser
+                    .createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug("The IdToken is null");
+            }
+            authenticatedUser = AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(
+                    getAuthenticateUser(context, jwtAttributeMap, oAuthResponse));
+        }
+        claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
+        authenticatedUser.setUserAttributes(claimsMap);
+        context.setSubject(authenticatedUser);
+    }
+
+    /**
+     * Retrieves or maps the ID token according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
+     *
+     * @param context       AuthenticationContext.
+     * @param request       HttpServletRequest
+     * @param oAuthResponse OAuthClientResponse
+     * @return The valid JWT token for the authentication request
+     * @throws AuthenticationFailedException when ID token is not valid. i.e Google Authenticator.
+     */
+    protected String mapIdToken(AuthenticationContext context, HttpServletRequest request,
+                                OAuthClientResponse oAuthResponse) throws AuthenticationFailedException {
+
+        return oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
+    }
+
+    /**
+     * Retrieves or maps the access token according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
+     *
+     * @param request       HttpServletRequest.
+     * @param context       AuthenticationContext.
+     * @param oAuthResponse OAuthClientResponse.
+     * @throws AuthenticationFailedException Throws error when access token is not found.
+     */
+    protected void mapAccessToken(HttpServletRequest request, AuthenticationContext context,
+                                  OAuthClientResponse oAuthResponse) throws AuthenticationFailedException {
+
+        String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
+
+        if (StringUtils.isBlank(accessToken)) {
+            throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
+                    ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
+        }
+        context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
+    }
+
+    /**
+     * Generates OAuth client and returns the oAuthResponse according to the flow supported by the authenticator.
+     * Overridden in Google Authenticator for Google one tap.
+     *
+     * @param request HttpServletRequest.
+     * @param context AuthenticationContext.
+     * @return OAuthClientResponse.
+     * @throws AuthenticationFailedException throws error when OAuthAuthzResponse validation fails for either error
+     *                                       response or the parameters.
+     */
+    protected OAuthClientResponse generateOauthResponse(HttpServletRequest request, AuthenticationContext context)
+            throws AuthenticationFailedException {
+
+        OAuthClientResponse oAuthResponse;
+        try {
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
-            // Create OAuth client that uses custom http client under the hood
+            // Create OAuth client that uses custom http client under the hood.
             OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
-            OAuthClientResponse oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
-
-            // TODO : return access token and id token to framework
-            String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
-
-            if (StringUtils.isBlank(accessToken)) {
-                throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
-                        ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
+            oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
+            if (oAuthResponse != null) {
+                processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));
             }
-
-            String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
-            Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
-            if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
-                throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
-                        String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
-                                getTokenEndpoint(authenticatorProperties),
-                                authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID)));
-            }
-
-            OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
-            stateInfoOIDC.setIdTokenHint(idToken);
-            context.setStateInfo(stateInfoOIDC);
-
-            context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
-
-            processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));
-
-            AuthenticatedUser authenticatedUser;
-            Map<ClaimMapping, String> claims = new HashMap<>();
-            Map<String, Object> jsonObject = new HashMap<>();
-
-            if (StringUtils.isNotBlank(idToken)) {
-                jsonObject = getIdTokenClaims(context, idToken);
-                if (jsonObject == null) {
-                    String errorMessage = ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getMessage();
-                    if (log.isDebugEnabled()) {
-                        log.debug(errorMessage);
-                    }
-                    throw new AuthenticationFailedException(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getCode(),
-                            errorMessage);
-                }
-
-                String idpName = context.getExternalIdP().getIdPName();
-                String sidClaim = (String) jsonObject.get(OIDCAuthenticatorConstants.Claim.SID);
-                if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
-                    // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for
-                    // single logout.
-                    context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
-                }
-
-                if (log.isDebugEnabled() && IdentityUtil
-                        .isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
-                    log.debug("Retrieved the User Information:" + jsonObject);
-                }
-
-                String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jsonObject);
-                String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
-
-                jsonObject.entrySet().stream()
-                        .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
-                        .forEach(entry -> buildClaimMappings(claims, entry, attributeSeparator));
-                
-                authenticatedUser = AuthenticatedUser
-                        .createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
-            } else {
-
-                if (log.isDebugEnabled()) {
-                    log.debug("The IdToken is null");
-                }
-                authenticatedUser = AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(
-                        getAuthenticateUser(context, jsonObject, oAuthResponse));
-            }
-
-            claims.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
-            authenticatedUser.setUserAttributes(claims);
-
-            context.setSubject(authenticatedUser);
-
         } catch (OAuthProblemException e) {
             throw new AuthenticationFailedException(ErrorMessages.AUTHENTICATION_PROCESS_FAILED.getCode(),
                     ErrorMessages.AUTHENTICATION_PROCESS_FAILED.getMessage(), context.getSubject(), e);
         }
+        return oAuthResponse;
     }
 
     protected void processAuthenticatedUserScopes(AuthenticationContext context, String scopes) {
