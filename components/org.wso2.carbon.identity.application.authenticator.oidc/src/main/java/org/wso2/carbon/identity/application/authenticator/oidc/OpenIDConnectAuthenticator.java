@@ -246,6 +246,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     /**
      * @return
      */
+    protected String getOIDCScopes(Map<String, String> authenticatorProperties) {
+
+        return authenticatorProperties.get("oidcScopes");
+    }
+
+    /**
+     * @return
+     */
     protected boolean requiredIDToken(Map<String, String> authenticatorProperties) {
 
         return true;
@@ -354,9 +362,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 OAuthClientRequest authzRequest;
 
+                String oidcScopes = getOIDCScopes(authenticatorProperties);
+
                 String queryString = getQueryString(authenticatorProperties);
+                if (StringUtils.isNotBlank(oidcScopes)) {
+                    queryString += "&scope=" + oidcScopes;
+                }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
+
 
                 if (StringUtils.isNotBlank(queryString)) {
                     String[] params = queryString.split("&");
@@ -911,13 +925,22 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         userIdLocation.setDisplayOrder(7);
         configProperties.add(userIdLocation);
 
+        Property scopes = new Property();
+        scopes.setName("oidcScopes");
+        scopes.setDisplayName("Scopes");
+        scopes.setRequired(false);
+        scopes.setDescription("OIDC Scopes. e.g: profile email");
+        scopes.setType("string");
+        scopes.setDisplayOrder(8);
+        configProperties.add(scopes);
+
         Property additionalParams = new Property();
         additionalParams.setName("commonAuthQueryParams");
         additionalParams.setDisplayName("Additional Query Parameters");
         additionalParams.setRequired(false);
         additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");
         additionalParams.setType("string");
-        additionalParams.setDisplayOrder(8);
+        additionalParams.setDisplayOrder(9);
         configProperties.add(additionalParams);
 
         Property enableBasicAuth = new Property();
@@ -927,7 +950,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setDescription(
                 "Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
-        enableBasicAuth.setDisplayOrder(9);
+        enableBasicAuth.setDisplayOrder(10);
         configProperties.add(enableBasicAuth);
 
         return configProperties;
