@@ -235,13 +235,20 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     /**
      * @return
      */
-    protected String getScope(Map<String, String> authenticatorProperties) {
+    protected String getScope(String scope, Map<String, String> authenticatorProperties) {
 
-        String scope = authenticatorProperties.get(OIDCAuthenticatorConstants.SCOPES);
         if (StringUtils.isBlank(scope)) {
             scope = OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE;
         }
         return scope;
+    }
+
+    /**
+     * @return
+     */
+    protected String getOIDCScopes(Map<String, String> authenticatorProperties) {
+
+        return authenticatorProperties.get("oidcScopes");
     }
 
     /**
@@ -355,14 +362,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 OAuthClientRequest authzRequest;
 
-                String scope = getScope(authenticatorProperties);
+                String oidcScopes = getOIDCScopes(authenticatorProperties);
 
                 String queryString = getQueryString(authenticatorProperties);
-                if (StringUtils.isNotBlank(scope)) {
-                    queryString += "&scope=" + scope;
+                if (StringUtils.isNotBlank(oidcScopes)) {
+                    queryString += "&scope=" + oidcScopes;
                 }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
+
 
                 if (StringUtils.isNotBlank(queryString)) {
                     String[] params = queryString.split("&");
@@ -375,6 +383,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     context.setProperty(OIDCAuthenticatorConstants.OIDC_QUERY_PARAM_MAP_PROPERTY_KEY, paramValueMap);
                 }
                 queryString = getEvaluatedQueryString(paramValueMap);
+
+                String scope = paramValueMap.get(OAuthConstants.OAuth20Params.SCOPE);
+                scope = getScope(scope, authenticatorProperties);
 
                 if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=") && queryString
                         .toLowerCase().contains("redirect_uri=")) {
@@ -915,10 +926,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(userIdLocation);
 
         Property scopes = new Property();
-        scopes.setName(OIDCAuthenticatorConstants.SCOPES);
+        scopes.setName("oidcScopes");
         scopes.setDisplayName("Scopes");
         scopes.setRequired(false);
-        scopes.setDescription("OIDC Scopes.");
+        scopes.setDescription("OIDC Scopes. e.g: profile email");
         scopes.setType("string");
         scopes.setDisplayOrder(8);
         configProperties.add(scopes);
