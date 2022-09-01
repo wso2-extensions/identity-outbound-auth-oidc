@@ -35,7 +35,6 @@ public class OIDCAuthenticatorConstants {
     public static final String OAUTH2_PARAM_STATE = "state";
     public static final String OAUTH2_ERROR = "error";
     public static final String REDIRECT_URI = "redirect_uri";
-    public static final String SCOPES = "scopes";
 
     public static final String ACCESS_TOKEN = "access_token";
     public static final String ID_TOKEN = "id_token";
@@ -45,6 +44,7 @@ public class OIDCAuthenticatorConstants {
     public static final String OAUTH2_AUTHZ_URL = "OAuth2AuthzEPUrl";
     public static final String OAUTH2_TOKEN_URL = "OAuth2TokenEPUrl";
     public static final String IS_BASIC_AUTH_ENABLED = "IsBasicAuthEnabled";
+    public static final String SCOPES = "Scopes";
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
 
