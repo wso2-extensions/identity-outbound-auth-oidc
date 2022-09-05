@@ -918,7 +918,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         scopes.setName(OIDCAuthenticatorConstants.SCOPES);
         scopes.setDisplayName("Scopes");
         scopes.setRequired(false);
-        scopes.setDescription("OIDC Scopes.");
+        scopes.setDescription("List of scopes. Must be space-separated and at least include 'openid'");
+        scopes.setDefaultValue(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE);
         scopes.setType("string");
         scopes.setDisplayOrder(8);
         configProperties.add(scopes);
