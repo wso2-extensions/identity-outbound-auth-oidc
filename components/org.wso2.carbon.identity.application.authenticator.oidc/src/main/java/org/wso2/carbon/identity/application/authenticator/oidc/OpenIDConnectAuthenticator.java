@@ -244,7 +244,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * @return
+     * Get Scopes.
+     *
+     * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
+     * @return Scopes.
      */
     protected String getScope(Map<String, String> authenticatorProperties) {
 
@@ -362,11 +365,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 OAuthClientRequest authzRequest;
 
-                String oidcScopes = getScope(authenticatorProperties);
+                String scopes = getScope(authenticatorProperties);
 
                 String queryString = getQueryString(authenticatorProperties);
-                if (StringUtils.isNotBlank(oidcScopes)) {
-                    queryString += "&scope=" + oidcScopes;
+                if (StringUtils.isNotBlank(scopes)) {
+                    queryString += "&scope=" + scopes;
                 }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
