@@ -468,7 +468,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String idToken = mapIdToken(context, request, oAuthResponse);
 
         Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
-        if (StringUtils.isBlank(idToken) && requiredIDToken(authenticatorProperties)) {
+        if (requiredIDToken(authenticatorProperties) && StringUtils.isBlank(idToken)) {
             throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
                     String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
                             getTokenEndpoint(authenticatorProperties),
