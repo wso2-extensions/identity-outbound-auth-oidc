@@ -251,7 +251,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
     protected String getScope(Map<String, String> authenticatorProperties) {
 
-        return authenticatorProperties.get(OIDCAuthenticatorConstants.SCOPES);
+        return authenticatorProperties.get(IdentityApplicationConstants.Authenticator.OIDC.SCOPES);
     }
 
     /**
@@ -928,7 +928,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(userIdLocation);
 
         Property scopes = new Property();
-        scopes.setName(OIDCAuthenticatorConstants.SCOPES);
+        scopes.setName(IdentityApplicationConstants.Authenticator.OIDC.SCOPES);
         scopes.setDisplayName("Scopes");
         scopes.setRequired(false);
         scopes.setDescription("A list of scopes");
@@ -938,7 +938,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(scopes);
 
         Property additionalParams = new Property();
-        additionalParams.setName("commonAuthQueryParams");
+        additionalParams.setName(IdentityApplicationConstants.Authenticator.QUERY_PARAMS);
         additionalParams.setDisplayName("Additional Query Parameters");
         additionalParams.setRequired(false);
         additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");

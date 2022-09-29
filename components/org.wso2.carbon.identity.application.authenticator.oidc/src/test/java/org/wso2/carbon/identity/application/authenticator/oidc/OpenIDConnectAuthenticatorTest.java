@@ -173,8 +173,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
         authenticatorProperties = new HashMap<>();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
-        authenticatorProperties.put("commonAuthQueryParams", "scope=openid&state=OIDC&loginType=basic");
-        authenticatorProperties.put("Scopes", "openid email profile");
+        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.QUERY_PARAMS, "scope=openid&state=OIDC&loginType=basic");
+        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.SCOPES, "openid email profile");
         authenticatorProperties.put("UserInfoUrl", "https://localhost:9443/oauth2/userinfo");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, "u5FIfG5xzLvBGiamoAYzzcqpBqga");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, "_kLtobqi08GytnypVW_Mmy1niAIa");
