@@ -938,7 +938,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(scopes);
 
         Property additionalParams = new Property();
-        additionalParams.setName(IdentityApplicationConstants.Authenticator.QUERY_PARAMS);
+        additionalParams.setName(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS);
         additionalParams.setDisplayName("Additional Query Parameters");
         additionalParams.setRequired(false);
         additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");
