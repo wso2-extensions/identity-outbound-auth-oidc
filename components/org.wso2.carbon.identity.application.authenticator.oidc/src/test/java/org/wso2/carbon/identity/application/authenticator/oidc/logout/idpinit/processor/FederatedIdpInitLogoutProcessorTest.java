@@ -89,7 +89,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCE
         IdentityDatabaseUtil.class, FrameworkUtils.class, XMLInputFactory.class, DataSource.class,
         UserSessionManagementService.class, OpenIDConnectAuthenticatorDataHolder.class, IdentityTenantUtil.class,
         UserSessionStore.class, ServerSessionManagementService.class})
-@PowerMockIgnore("jdk.internal.reflect.*")
+@PowerMockIgnore({"jdk.internal.reflect.*", "com.sun.org.apache.xerces.*", "javax.xml.*", "org.w3c.*", "com.sun.org.apache.xalan.*"})
 @WithCarbonHome
 public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
