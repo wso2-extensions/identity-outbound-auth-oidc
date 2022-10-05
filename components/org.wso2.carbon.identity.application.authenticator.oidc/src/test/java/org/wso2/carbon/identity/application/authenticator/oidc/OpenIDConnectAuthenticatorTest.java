@@ -1,17 +1,17 @@
-/*
- * Copyright (c) 2017, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+/**
+ * Copyright (c) 2017, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
- * WSO2 Inc. licenses this file to you under the Apache License,
+ * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
+ * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -173,7 +173,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
         authenticatorProperties = new HashMap<>();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
-        authenticatorProperties.put("commonAuthQueryParams", "scope=openid&state=OIDC&loginType=basic");
+        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS, "scope=openid&state=OIDC&loginType=basic");
+        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.SCOPES, "openid email profile");
         authenticatorProperties.put("UserInfoUrl", "https://localhost:9443/oauth2/userinfo");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, "u5FIfG5xzLvBGiamoAYzzcqpBqga");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, "_kLtobqi08GytnypVW_Mmy1niAIa");
@@ -258,6 +259,13 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         assertEquals(openIDConnectAuthenticator.getScope("openid", authenticatorProperties),
                 "openid", "Unable to get the scope.");
+    }
+
+    @Test
+    public void testGetScopePrimary() throws IOException {
+
+        assertEquals(openIDConnectAuthenticator.getScope(authenticatorProperties),
+                "openid email profile", "Unable to get the scope.");
     }
 
     @Test

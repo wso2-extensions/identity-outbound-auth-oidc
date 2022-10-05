@@ -1,17 +1,17 @@
-/*
- * Copyright (c) 2013, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+/**
+ * Copyright (c) 2013, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
- * WSO2 Inc. licenses this file to you under the Apache License,
+ * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
+ * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -253,6 +253,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
+     * Get Scopes.
+     *
+     * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
+     * @return Scopes.
+     */
+    protected String getScope(Map<String, String> authenticatorProperties) {
+
+        return authenticatorProperties.get(IdentityApplicationConstants.Authenticator.OIDC.SCOPES);
+    }
+
+    /**
      * @return
      */
     protected boolean requiredIDToken(Map<String, String> authenticatorProperties) {
@@ -363,7 +374,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 OAuthClientRequest authzRequest;
 
+                String scopes = getScope(authenticatorProperties);
+
                 String queryString = getQueryString(authenticatorProperties);
+                if (StringUtils.isNotBlank(scopes)) {
+                    queryString += "&scope=" + scopes;
+                }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
 
@@ -963,13 +979,23 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         userIdLocation.setDisplayOrder(7);
         configProperties.add(userIdLocation);
 
+        Property scopes = new Property();
+        scopes.setName(IdentityApplicationConstants.Authenticator.OIDC.SCOPES);
+        scopes.setDisplayName("Scopes");
+        scopes.setRequired(false);
+        scopes.setDescription("A list of scopes");
+        scopes.setDefaultValue(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE);
+        scopes.setType("string");
+        scopes.setDisplayOrder(8);
+        configProperties.add(scopes);
+
         Property additionalParams = new Property();
-        additionalParams.setName("commonAuthQueryParams");
+        additionalParams.setName(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS);
         additionalParams.setDisplayName("Additional Query Parameters");
         additionalParams.setRequired(false);
         additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");
         additionalParams.setType("string");
-        additionalParams.setDisplayOrder(8);
+        additionalParams.setDisplayOrder(9);
         configProperties.add(additionalParams);
 
         Property enableBasicAuth = new Property();
@@ -979,7 +1005,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setDescription(
                 "Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
-        enableBasicAuth.setDisplayOrder(9);
+        enableBasicAuth.setDisplayOrder(10);
         configProperties.add(enableBasicAuth);
 
         return configProperties;
