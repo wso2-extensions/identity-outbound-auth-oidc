@@ -27,7 +27,7 @@
     <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>identity-application-auth-oidc</artifactId>
-    <version>5.8.1</version>
+    <version>6.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>WSO2 Carbon - OpenID Connect Application Authenticator Feature Aggregator Module</name>
     <description>
@@ -40,7 +40,7 @@
         <developerConnection>scm:git:https://github.com/wso2-extensions/identity-outbound-auth-oidc.git
         </developerConnection>
         <connection>scm:git:https://github.com/wso2-extensions/identity-outbound-auth-oidc.git</connection>
-        <tag>v5.8.1</tag>
+        <tag>v6.0.0-SNAPSHOT</tag>
     </scm>
 
 
@@ -273,7 +273,7 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>5.19.52</carbon.identity.framework.version>
+        <carbon.identity.framework.version>6.0.0</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.7</json-smart.version>
         <json.wso2.version>3.0.0.wso2v1</json.wso2.version>
@@ -285,19 +285,19 @@
         <jacoco.version>0.7.9</jacoco.version>
         <maven.surefire.plugin.version>2.18.1</maven.surefire.plugin.version>
         <mokito.version>1.6.6</mokito.version>
-        <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
-        <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
+        <carbon.identity.oauth.common.version>7.0.0</carbon.identity.oauth.common.version>
+        <carbon.identity.oauth.version>7.0.0</carbon.identity.oauth.version>
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
         <commons-codec.version>1.14.0.wso2v1</commons-codec.version>
 
-        <carbon.identity.inbound.oauth.package.import.version.range>[6.0.0, 7.0.0)
+        <carbon.identity.inbound.oauth.package.import.version.range>[7.0.0, 8.0.0)
         </carbon.identity.inbound.oauth.package.import.version.range>
-        <identity.framework.package.import.version.range>[5.14.0, 6.0.0)
+        <identity.framework.package.import.version.range>[6.0.0, 7.0.0)
         </identity.framework.package.import.version.range>
         <carbon.kernel.package.import.version.range>[4.5.0, 5.0.0)</carbon.kernel.package.import.version.range>
-        <carbon.identity.oauth.common.package.import.version.range>[6.2.0, 7.0.0)
+        <carbon.identity.oauth.common.package.import.version.range>[7.0.0, 8.0.0)
         </carbon.identity.oauth.common.package.import.version.range>
         <carbon.kernel.package.import.version.range>[4.4.0, 5.0.0)</carbon.kernel.package.import.version.range>
         <net.minidev.json.imp.pkg.version.range>[2.3.0, 3.0.0)</net.minidev.json.imp.pkg.version.range>
