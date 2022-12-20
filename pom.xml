@@ -298,7 +298,7 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>5.25.5</carbon.identity.framework.version>
+        <carbon.identity.framework.version>5.25.71</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.7</json-smart.version>
         <json.wso2.version>3.0.0.wso2v1</json.wso2.version>
@@ -312,7 +312,7 @@
         <mockito.version>3.10.0</mockito.version>
         <powermock.version>2.0.2</powermock.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
-        <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
+        <carbon.identity.oauth.version>6.11.9</carbon.identity.oauth.version>
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
