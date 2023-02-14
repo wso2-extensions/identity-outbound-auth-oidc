@@ -61,10 +61,6 @@
             <artifactId>org.wso2.carbon.identity.oauth.common</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.wso2.carbon</groupId>
-            <artifactId>org.wso2.carbon.ui</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.wso2.orbit.org.apache.oltu.oauth2</groupId>
             <artifactId>oltu</artifactId>
         </dependency>
@@ -173,7 +169,6 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.claim.metadata.*;
                             version="${identity.framework.package.import.version.range}",
-                            org.wso2.carbon.ui; version="${carbon.kernel.package.import.version.range}",
                             com.nimbusds.jose.*; version="${nimbusds.osgi.version.range}",
                             com.nimbusds.jwt; version="${nimbusds.osgi.version.range}",
                             org.wso2.carbon.identity.oauth2.*;
