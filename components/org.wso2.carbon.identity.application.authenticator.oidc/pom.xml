@@ -175,6 +175,7 @@
                             version="${carbon.identity.inbound.oauth.package.import.version.range}",
                             org.wso2.carbon.idp.mgt; version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.application.common.util;
+                            version="${identity.framework.package.import.version.range}"
                         </Import-Package>
                         <Export-Package>
                             !org.wso2.carbon.identity.application.authenticator.oidc.internal,
