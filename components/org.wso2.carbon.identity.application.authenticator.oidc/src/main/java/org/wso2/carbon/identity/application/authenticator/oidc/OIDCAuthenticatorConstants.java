@@ -85,6 +85,9 @@ public class OIDCAuthenticatorConstants {
     public static final String AMPERSAND_SIGN = "&";
     public static final String EQUAL_SIGN = "=";
 
+    public static final String OAUTH_FEDERATED_PKCE_CODE_VERIFIER = "OAUTH_PKCE_CODE_VERIFIER";
+    public static final String ENABLE_FEDERATED_PKCE = "IsPKCEEnabled";
+
     /**
      * This class holds the constants related to authenticator configuration parameters.
      */
