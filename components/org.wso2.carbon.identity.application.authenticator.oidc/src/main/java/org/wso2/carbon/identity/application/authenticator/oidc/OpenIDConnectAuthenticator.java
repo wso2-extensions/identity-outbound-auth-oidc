@@ -72,6 +72,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -351,6 +354,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
                 String state = getStateParameter(context, authenticatorProperties);
+                boolean isPKCEEnabled = Boolean.parseBoolean(
+                        authenticatorProperties.get(OIDCAuthenticatorConstants.ENABLE_FEDERATED_PKCE));
 
                 OAuthClientRequest authzRequest;
 
@@ -400,6 +405,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 if (StringUtils.isNotBlank(domain)) {
                     loginPage = loginPage + "&fidp=" + domain;
+                }
+
+                // If PKCE is enabled, add code_challenge and code_challenge_method to the request.
+                if (isPKCEEnabled) {
+                    String codeVerifier = generateCodeVerifier();
+                    context.setProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER, codeVerifier);
+                    try {
+                        String codeChallenge = generateCodeChallenge(codeVerifier);
+                        loginPage += "&code_challenge=" + codeChallenge + "&code_challenge_method=S256";
+                    } catch (NoSuchAlgorithmException e) {
+                        log.error("Error while generating the code challenge", e);
+                    }
                 }
 
                 if (StringUtils.isNotBlank(queryString)) {
@@ -727,6 +744,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
         String clientSecret = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_SECRET);
         String tokenEndPoint = getTokenEndpoint(authenticatorProperties);
+        boolean isPKCEEnabled = Boolean.parseBoolean(
+                authenticatorProperties.get(OIDCAuthenticatorConstants.ENABLE_FEDERATED_PKCE));
+        Object codeVerifier = context.getProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER);
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
@@ -739,28 +759,51 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         OAuthClientRequest accessTokenRequest;
         try {
             if (isHTTPBasicAuth) {
-
                 if (log.isDebugEnabled()) {
                     log.debug("Authenticating to token endpoint: " + tokenEndPoint + " with HTTP basic " +
                             "authentication scheme.");
                 }
 
-                accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
-                        .AUTHORIZATION_CODE).setRedirectURI(callbackUrl).setCode(authzResponse.getCode())
-                        .buildBodyMessage();
+                OAuthClientRequest.TokenRequestBuilder tokenRequestBuilder = OAuthClientRequest
+                        .tokenLocation(tokenEndPoint)
+                        .setGrantType(GrantType.AUTHORIZATION_CODE)
+                        .setRedirectURI(callbackUrl)
+                        .setCode(authzResponse.getCode());
+
+                if (isPKCEEnabled) {
+                    if (codeVerifier != null) {
+                        tokenRequestBuilder.setParameter("code_verifier", codeVerifier.toString());
+                    } else {
+                        log.warn("PKCE is enabled, but the code verifier is not found.");
+                    }
+                }
+
+                accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
                 String base64EncodedCredential = new String(Base64.encodeBase64((clientId + ":" +
                         clientSecret).getBytes()));
                 accessTokenRequest.addHeader(OAuth.HeaderType.AUTHORIZATION, "Basic " + base64EncodedCredential);
             } else {
-
                 if (log.isDebugEnabled()) {
                     log.debug("Authenticating to token endpoint: " + tokenEndPoint + " including client credentials "
                             + "in request body.");
                 }
-                accessTokenRequest = OAuthClientRequest.tokenLocation(tokenEndPoint).setGrantType(GrantType
-                        .AUTHORIZATION_CODE).setClientId(clientId).setClientSecret(clientSecret).setRedirectURI
-                        (callbackUrl).setCode(authzResponse.getCode()).buildBodyMessage();
+                OAuthClientRequest.TokenRequestBuilder tokenRequestBuilder = OAuthClientRequest
+                        .tokenLocation(tokenEndPoint)
+                        .setGrantType(GrantType.AUTHORIZATION_CODE)
+                        .setClientId(clientId)
+                        .setClientSecret(clientSecret)
+                        .setRedirectURI(callbackUrl)
+                        .setCode(authzResponse.getCode());
+                if (isPKCEEnabled) {
+                    if (codeVerifier != null) {
+                        tokenRequestBuilder.setParameter("code_verifier", codeVerifier.toString());
+                    } else {
+                        log.warn("PKCE is enabled, but the code verifier is not found.");
+                    }
+                }
+                accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
             }
+            context.removeProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER);
             // set 'Origin' header to access token request.
             if (accessTokenRequest != null) {
                 // fetch the 'Hostname' configured in carbon.xml
@@ -776,7 +819,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } catch (URLBuilderException e) {
             throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
         }
-
         return accessTokenRequest;
     }
 
@@ -929,6 +971,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setType("boolean");
         enableBasicAuth.setDisplayOrder(9);
         configProperties.add(enableBasicAuth);
+
+        Property enablePKCE = new Property();
+        enablePKCE.setName("isPKCEEnabled");
+        enablePKCE.setDisplayName("Enable PKCE");
+        enablePKCE.setRequired(false);
+        enablePKCE.setDescription("Specifies that PKCE should be used for client authentication");
+        enablePKCE.setType("boolean");
+        enablePKCE.setDisplayOrder(10);
+        configProperties.add(enablePKCE);
 
         return configProperties;
     }
@@ -1181,5 +1232,34 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
+    }
+
+    /**
+     * Generate code verifier for PKCE
+     *
+     * @return code verifier
+     */
+    private String generateCodeVerifier() {
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] codeVerifier = new byte[32];
+        secureRandom.nextBytes(codeVerifier);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifier);
+    }
+
+    /**
+     * Generate code challenge for PKCE
+     *
+     * @param codeVerifier code verifier
+     * @return code challenge
+     * @throws UnsupportedEncodingException
+     * @throws NoSuchAlgorithmException
+     */
+    private String generateCodeChallenge(String codeVerifier)
+            throws UnsupportedEncodingException, NoSuchAlgorithmException {
+        byte[] bytes = codeVerifier.getBytes("US-ASCII");
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        messageDigest.update(bytes, 0, bytes.length);
+        byte[] digest = messageDigest.digest();
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
     }
 }
