@@ -38,6 +38,8 @@ public class OIDCErrorConstants {
                 "Authentication process failed"),
         USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP("OID-60005",
                 "Cannot find the userId from the id_token sent by the federated IDP."),
+        NONCE_MISMATCH("OID-60016", "The nonce claim of the ID token is not equal to the nonce value " +
+                "sent in the authentication request"),
         // Federated IdP initiated back-channel logout client errors.
         LOGOUT_TOKEN_EMPTY_OR_NULL("OID-60006",
                 "Logout token is empty or null. Pass a valid logout token"),

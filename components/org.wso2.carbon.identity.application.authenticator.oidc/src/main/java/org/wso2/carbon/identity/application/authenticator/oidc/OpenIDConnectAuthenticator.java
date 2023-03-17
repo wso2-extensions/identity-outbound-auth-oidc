@@ -80,12 +80,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
@@ -371,6 +373,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
                 String state = getStateParameter(context, authenticatorProperties);
+                context.setProperty(NONCE, UUID.randomUUID().toString());
 
                 OAuthClientRequest authzRequest;
 
@@ -402,22 +405,26 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
+                            .setParameter(NONCE, (String) context.getProperty(NONCE))
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
+                            .setParameter(NONCE, (String) context.getProperty(NONCE))
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state).buildQueryMessage();
+                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state)
+                            .setParameter(NONCE, (String) context.getProperty(NONCE)).buildQueryMessage();
 
                 } else {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setScope(scope)
-                            .setState(state).buildQueryMessage();
+                            .setState(state)
+                            .setParameter(NONCE, (String) context.getProperty(NONCE)).buildQueryMessage();
                 }
 
                 String loginPage = authzRequest.getLocationUri();
@@ -522,6 +529,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
+            String nonce = (String) jwtAttributeMap.get(NONCE);
+            if (nonce != null && !nonce.equals(context.getProperty(NONCE))) {
+                throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
+                        ErrorMessages.NONCE_MISMATCH.getMessage());
+            }
             String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
 
