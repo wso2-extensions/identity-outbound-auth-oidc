@@ -80,10 +80,10 @@
                                 <importFeatureDef>org.wso2.carbon.core:compatible:${carbon.kernel.version}
                                 </importFeatureDef>
                                 <importFeatureDef>
-                                    org.wso2.carbon.identity.application.mgt.server:compatible:${carbon.identity.framework.version}
+                                    org.wso2.carbon.identity.application.mgt.server:greaterOrEqual:${carbon.identity.framework.version}
                                 </importFeatureDef>
                                 <importFeatureDef>
-                                    org.wso2.carbon.identity.application.authentication.framework.server:compatible:${carbon.identity.framework.version}
+                                    org.wso2.carbon.identity.application.authentication.framework.server:greaterOrEqual:${carbon.identity.framework.version}
                                 </importFeatureDef>
                             </importFeatures>
                         </configuration>
