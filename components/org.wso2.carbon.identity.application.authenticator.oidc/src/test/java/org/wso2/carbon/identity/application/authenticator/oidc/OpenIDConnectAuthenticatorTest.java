@@ -443,6 +443,20 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 mockServletResponse, mockAuthenticationContext);
     }
 
+    @Test(expectedExceptions = AuthenticationFailedException.class)
+    public void testFailProcessAuthenticationWhenNonceMisMatch() throws Exception {
+
+        setupTest();
+        mockStatic(IdentityUtil.class);
+        when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(any())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
+        openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
+                mockServletResponse, mockAuthenticationContext);
+    }
+
     @Test
     public void testPassProcessAuthenticationWithParamValue() throws Exception {
 
