@@ -1204,7 +1204,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             queryString.append(param.getKey()).append("=")
                     .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
                     .append("&");
-
         }
         return queryString.substring(0, queryString.length() - 1);
     }
