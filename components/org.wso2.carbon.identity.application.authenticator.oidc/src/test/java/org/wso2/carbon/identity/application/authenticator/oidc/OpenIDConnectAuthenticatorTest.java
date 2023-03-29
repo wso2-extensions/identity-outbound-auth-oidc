@@ -30,6 +30,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.mockito.Matchers;
 import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.Whitebox;
@@ -51,6 +52,7 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationConst
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
+import org.wso2.carbon.identity.core.URLBuilderException;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.user.api.RealmConfiguration;
@@ -89,6 +91,7 @@ import static org.testng.Assert.assertTrue;
 @PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
         OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
         OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class})
+@PowerMockIgnore("jdk.internal.reflect.*")
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -409,6 +412,31 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         assertEquals(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ID_TOKEN), idToken,
                 "Invalid Id token in the authentication context.");
+    }
+
+    /**
+     * Test whether the token request contains the code verifier when PKCE is enabled.
+     *
+     * @throws URLBuilderException
+     * @throws AuthenticationFailedException
+     */
+    @Test()
+    public void testGetAccessTokenRequestWithPKCE() throws URLBuilderException, AuthenticationFailedException {
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        mockAuthenticationContext.getAuthenticatorProperties()
+                .put(OIDCAuthenticatorConstants.ENABLE_FEDERATED_PKCE, "true");
+        when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER))
+                .thenReturn("sample_code_verifier");
+        OAuthAuthzResponse oAuthAuthzResponse = mock(OAuthAuthzResponse.class);
+        when(oAuthAuthzResponse.getCode()).thenReturn("abc");
+        mockStatic(ServiceURLBuilder.class);
+        ServiceURLBuilder serviceURLBuilder = mock(ServiceURLBuilder.class);
+        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.build()).thenReturn(serviceURL);
+        when(serviceURL.getAbsolutePublicURL()).thenReturn("http://localhost:9443");
+        OAuthClientRequest request = openIDConnectAuthenticator
+                .getAccessTokenRequest(mockAuthenticationContext, oAuthAuthzResponse);
+        assertTrue(request.getBody().contains("code_verifier=sample_code_verifier"));
     }
 
     @Test(expectedExceptions = AuthenticationFailedException.class)
