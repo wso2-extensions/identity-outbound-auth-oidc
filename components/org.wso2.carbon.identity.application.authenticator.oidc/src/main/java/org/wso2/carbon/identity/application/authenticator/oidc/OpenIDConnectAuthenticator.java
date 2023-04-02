@@ -141,6 +141,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private static final Log LOG = LogFactory.getLog(OpenIDConnectAuthenticator.class);
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+    private static final String PKCE_CODE_CHALLENGE_METHOD = "S256";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static final String IS_API_BASED = "IS_API_BASED";
@@ -152,6 +153,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
     private static final String AUTHENTICATOR_MESSAGE = "authenticatorMessage";
+
+    private static final String IS_PKCE_ENABLED_NAME = "isPKCEEnabled";
+    private static final String IS_PKCE_ENABLED_DISPLAY_NAME = "Enable PKCE";
+    private static final String IS_PKCE_ENABLED_DESCRIPTION = "Specifies that PKCE should be used for client authentication";
+    private static final String TYPE_BOOLEAN = "boolean";
 
     @Override
     public AuthenticatorFlowStatus process(HttpServletRequest request, HttpServletResponse response,
@@ -518,7 +524,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String nonce = UUID.randomUUID().toString();
                 context.setProperty(OIDC_FEDERATION_NONCE, nonce);
                 boolean isPKCEEnabled = Boolean.parseBoolean(
-                        authenticatorProperties.get(OIDCAuthenticatorConstants.ENABLE_FEDERATED_PKCE));
+                        authenticatorProperties.get(OIDCAuthenticatorConstants.IS_PKCE_ENABLED));
 
                 OAuthClientRequest authzRequest;
 
@@ -593,13 +599,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 // If PKCE is enabled, add code_challenge and code_challenge_method to the request.
                 if (isPKCEEnabled) {
                     String codeVerifier = generateCodeVerifier();
-                    context.setProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER, codeVerifier);
-                    try {
-                        String codeChallenge = generateCodeChallenge(codeVerifier);
-                        loginPage += "&code_challenge=" + codeChallenge + "&code_challenge_method=S256";
-                    } catch (NoSuchAlgorithmException e) {
-                        LOG.error("Error while generating the code challenge", e);
-                    }
+                    context.setProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER, codeVerifier);
+                    String codeChallenge = generateCodeChallenge(codeVerifier);
+                    loginPage += "&code_challenge=" + codeChallenge + "&code_challenge_method="
+                            + PKCE_CODE_CHALLENGE_METHOD;
                 }
 
                 if (StringUtils.isNotBlank(queryString)) {
@@ -1485,8 +1488,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String clientSecret = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_SECRET);
         String tokenEndPoint = getTokenEndpoint(authenticatorProperties);
         boolean isPKCEEnabled = Boolean.parseBoolean(
-                authenticatorProperties.get(OIDCAuthenticatorConstants.ENABLE_FEDERATED_PKCE));
-        Object codeVerifier = context.getProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER);
+                authenticatorProperties.get(OIDCAuthenticatorConstants.IS_PKCE_ENABLED));
+        String codeVerifier = (String) context.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER);
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
@@ -1516,11 +1519,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .setCode(authzResponse.getCode());
 
                 if (isPKCEEnabled) {
-                    if (codeVerifier != null) {
-                        tokenRequestBuilder.setParameter("code_verifier", codeVerifier.toString());
-                    } else {
-                        LOG.warn("PKCE is enabled, but the code verifier is not found.");
+                    if (StringUtils.isEmpty(codeVerifier)) {
+                        throw new AuthenticationFailedException("PKCE is enabled, but the code verifier is not found.");
                     }
+                    tokenRequestBuilder.setParameter("code_verifier", codeVerifier);
                 }
 
                 accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
@@ -1541,15 +1543,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .setRedirectURI(callbackUrl)
                         .setCode(authzResponse.getCode());
                 if (isPKCEEnabled) {
-                    if (codeVerifier != null) {
-                        tokenRequestBuilder.setParameter("code_verifier", codeVerifier.toString());
-                    } else {
-                        LOG.warn("PKCE is enabled, but the code verifier is not found.");
+                    if (StringUtils.isEmpty(codeVerifier)) {
+                        throw new AuthenticationFailedException("PKCE is enabled, but the code verifier is not found.");
                     }
+                    tokenRequestBuilder.setParameter("code_verifier", codeVerifier);
                 }
                 accessTokenRequest = tokenRequestBuilder.buildBodyMessage();
             }
-            context.removeProperty(OIDCAuthenticatorConstants.OAUTH_FEDERATED_PKCE_CODE_VERIFIER);
+            context.removeProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER);
             // set 'Origin' header to access token request.
             if (accessTokenRequest != null) {
                 // fetch the 'Hostname' configured in carbon.xml
@@ -1737,11 +1738,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(enableBasicAuth);
 
         Property enablePKCE = new Property();
-        enablePKCE.setName("isPKCEEnabled");
-        enablePKCE.setDisplayName("Enable PKCE");
+        enablePKCE.setName(IS_PKCE_ENABLED_NAME);
+        enablePKCE.setDisplayName(IS_PKCE_ENABLED_DISPLAY_NAME);
         enablePKCE.setRequired(false);
-        enablePKCE.setDescription("Specifies that PKCE should be used for client authentication");
-        enablePKCE.setType("boolean");
+        enablePKCE.setDescription(IS_PKCE_ENABLED_DESCRIPTION);
+        enablePKCE.setType(TYPE_BOOLEAN);
         enablePKCE.setDisplayOrder(10);
         configProperties.add(enablePKCE);
 
@@ -2218,15 +2219,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      *
      * @param codeVerifier code verifier
      * @return code challenge
-     * @throws UnsupportedEncodingException
-     * @throws NoSuchAlgorithmException
+     * @throws AuthenticationFailedException
      */
-    private String generateCodeChallenge(String codeVerifier)
-            throws UnsupportedEncodingException, NoSuchAlgorithmException {
-        byte[] bytes = codeVerifier.getBytes("US-ASCII");
-        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-        messageDigest.update(bytes, 0, bytes.length);
-        byte[] digest = messageDigest.digest();
-        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+    private String generateCodeChallenge(String codeVerifier) throws AuthenticationFailedException {
+        try {
+            byte[] bytes = codeVerifier.getBytes("US-ASCII");
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            messageDigest.update(bytes, 0, bytes.length);
+            byte[] digest = messageDigest.digest();
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+            throw new AuthenticationFailedException("Error while generating code challenge", e);
+        }
     }
 }
