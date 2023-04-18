@@ -424,7 +424,6 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
             assertEquals(USER_ID, result2, "Failed add user info into " +
                     "IDN_AUTH_USER table.");
         }
-
     }
 
     private JWTClaimsSet generateLogoutToken(String sub, boolean sidExists, String sid) throws IdentityOAuth2Exception {
@@ -462,7 +461,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
         JWTClaimsSet jwtClaimsSet = generateLogoutToken(USER_NAME, true, IDP_SESSION_INDEX);
 
-        // Mock the logout token and claims
+        // Mock the logout token and claims.
         mockStatic(SignedJWT.class);
         SignedJWT signedJWT = mock(SignedJWT.class);
         when(SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
@@ -476,12 +475,12 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
                 IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
                 "carbon.super", false)).thenReturn(identityProvider);
 
-        // Mock the signature validation
+        // Mock the signature validation.
         mockStatic(JWTSignatureValidationUtils.class);
         when(JWTSignatureValidationUtils.validateSignature(signedJWT,
                 identityProvider)).thenReturn(true);
 
-        // Setup session store
+        // Setup session store.
         setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
         DataSource dataSource = mock(DataSource.class);
         mockStatic(IdentityDatabaseUtil.class);

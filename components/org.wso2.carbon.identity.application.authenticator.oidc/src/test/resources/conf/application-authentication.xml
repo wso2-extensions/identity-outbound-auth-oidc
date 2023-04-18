@@ -224,6 +224,4 @@
         <AuthenticationEndpointRedirectParam name="loggedInUser"/>
     </AuthenticationEndpointRedirectParams>
 
-
-
 </ApplicationAuthentication>

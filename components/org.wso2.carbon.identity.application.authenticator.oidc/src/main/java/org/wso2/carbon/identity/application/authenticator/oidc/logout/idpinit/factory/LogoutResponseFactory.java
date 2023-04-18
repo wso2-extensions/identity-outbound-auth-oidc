@@ -49,7 +49,6 @@ public class LogoutResponseFactory extends HttpIdentityResponseFactory {
     public boolean canHandle(IdentityResponse identityResponse) {
 
         return (identityResponse instanceof LogoutResponse);
-
     }
 
     @Override
