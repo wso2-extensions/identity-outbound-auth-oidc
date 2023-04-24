@@ -1191,8 +1191,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     /**
      * Evaluate the query string for additional query params with actual key and value.
      *
-     * @param paramMap addition query param and value
-     * @return evaluated query string
+     * @param paramMap addition query param and value.
+     * @return evaluated query string.
      */
     private String getEvaluatedQueryString(Map<String, String> paramMap) throws UnsupportedEncodingException {
 
@@ -1204,7 +1204,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             queryString.append(param.getKey()).append("=")
                     .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
                     .append("&");
-
         }
         return queryString.substring(0, queryString.length() - 1);
     }
@@ -1213,9 +1212,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * To capture the additional authenticator params from the adaptive script and interpret the query string with
      * additional params.
      *
-     * @param context     Authentication context
-     * @param queryString the query string with additional param
-     * @return interpreted query string
+     * @param context     Authentication context.
+     * @param queryString the query string with additional param.
+     * @return interpreted query string.
      */
     private String getQueryStringWithAuthenticatorParam(AuthenticationContext context, String queryString) {
 

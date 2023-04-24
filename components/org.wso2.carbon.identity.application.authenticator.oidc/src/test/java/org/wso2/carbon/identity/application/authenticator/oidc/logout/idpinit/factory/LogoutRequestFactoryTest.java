@@ -44,7 +44,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 /**
- * Unit test class for  LogoutRequestFactory
+ * Unit test class for LogoutRequestFactory.
  */
 @PrepareForTest({PrivilegedCarbonContext.class})
 @PowerMockIgnore("jdk.internal.reflect.*")
@@ -100,5 +100,4 @@ public class LogoutRequestFactoryTest extends PowerMockTestCase {
         when(mockRequest.getAttributeNames()).thenReturn(Collections.<String>emptyEnumeration());
         assertNotNull(logoutRequestFactory.create(mockRequest, mockResponse).build());
     }
-
 }
