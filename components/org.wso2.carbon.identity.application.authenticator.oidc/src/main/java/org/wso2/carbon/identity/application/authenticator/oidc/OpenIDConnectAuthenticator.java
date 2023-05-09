@@ -531,7 +531,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             String nonce = (String) jwtAttributeMap.get(NONCE);
             if (nonce == null) {
-                LOG.warn("OIDC provider does not support nonce claim in id_token.");
+                LOG.debug("OIDC provider does not support nonce claim in id_token.");
             }
             if (nonce != null && !nonce.equals(context.getProperty(NONCE))) {
                 throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
