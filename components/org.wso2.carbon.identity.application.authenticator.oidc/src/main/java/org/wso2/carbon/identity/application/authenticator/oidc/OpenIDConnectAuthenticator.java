@@ -373,7 +373,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
                 String state = getStateParameter(context, authenticatorProperties);
-                context.setProperty(NONCE, UUID.randomUUID().toString());
+                String nonce = UUID.randomUUID().toString();
+                context.setProperty(NONCE, nonce);
 
                 OAuthClientRequest authzRequest;
 
@@ -405,26 +406,26 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
-                            .setParameter(NONCE, (String) context.getProperty(NONCE))
+                            .setParameter(NONCE, nonce)
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
-                            .setParameter(NONCE, (String) context.getProperty(NONCE))
+                            .setParameter(NONCE, nonce)
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
                             .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state)
-                            .setParameter(NONCE, (String) context.getProperty(NONCE)).buildQueryMessage();
+                            .setParameter(NONCE, nonce).buildQueryMessage();
 
                 } else {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setScope(scope)
                             .setState(state)
-                            .setParameter(NONCE, (String) context.getProperty(NONCE)).buildQueryMessage();
+                            .setParameter(NONCE, nonce).buildQueryMessage();
                 }
 
                 String loginPage = authzRequest.getLocationUri();
