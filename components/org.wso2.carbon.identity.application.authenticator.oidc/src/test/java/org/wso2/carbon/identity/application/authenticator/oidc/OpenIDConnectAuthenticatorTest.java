@@ -403,6 +403,28 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
                 .thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
+        openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
+                mockServletResponse, mockAuthenticationContext);
+
+        assertEquals(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN),
+                accessToken, "Invalid access token in the authentication context.");
+
+        assertEquals(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ID_TOKEN), idToken,
+                "Invalid Id token in the authentication context.");
+    }
+
+    @Test
+    public void testPassProcessAuthenticationResponseWithNonce() throws Exception {
+
+        setupTest();
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
+                (claimMetadataManagementService);
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
+                .thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
@@ -438,7 +460,6 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
-        when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
@@ -475,7 +496,6 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
                 .thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
-        when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
     }

@@ -531,7 +531,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
-            if (context.getProperty(OIDC_FEDERATION_NONCE) != null) {
+            if (StringUtils.isNotBlank((String) context.getProperty(OIDC_FEDERATION_NONCE))) {
                 String nonce = (String) jwtAttributeMap.get(NONCE);
                 if (nonce == null) {
                     LOG.debug("OIDC provider does not support nonce claim in id_token.");
