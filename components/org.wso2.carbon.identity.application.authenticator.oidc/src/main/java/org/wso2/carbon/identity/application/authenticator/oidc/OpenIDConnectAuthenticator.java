@@ -530,13 +530,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
-            String nonce = (String) jwtAttributeMap.get(NONCE);
-            if (nonce == null) {
-                LOG.debug("OIDC provider does not support nonce claim in id_token.");
-            }
-            if (nonce != null && context.getProperty(NONCE) != null && !nonce.equals(context.getProperty(NONCE))) {
-                throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
-                        ErrorMessages.NONCE_MISMATCH.getMessage());
+            if (context.getProperty(NONCE) != null) {
+                String nonce = (String) jwtAttributeMap.get(NONCE);
+                if (nonce == null) {
+                    LOG.debug("OIDC provider does not support nonce claim in id_token.");
+                }
+                if (nonce != null && !nonce.equals(context.getProperty(NONCE))) {
+                    throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
+                            ErrorMessages.NONCE_MISMATCH.getMessage());
+                }
             }
             String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);

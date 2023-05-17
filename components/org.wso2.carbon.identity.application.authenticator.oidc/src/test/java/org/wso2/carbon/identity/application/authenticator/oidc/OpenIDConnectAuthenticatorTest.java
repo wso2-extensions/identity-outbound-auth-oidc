@@ -165,6 +165,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
             "xMVYgRyfslRDveGYplxVVNQ1LU3lrZhgaTfcMEsC6rdbd1HjdzG71EPS4674HCSAUelOisNKGa2NgORpldDQsj376QD0G9Mhc8WtW" +
             "oguftrCCGjBy1kKT4VqFLOqlA-8wUhOj_rZT9SUIBQRDPu0RZobvsskqYo40GEZrUoa";
     private static String nonce = "0ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
+    private static String invalidNonce = "7ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
     private static OAuthClientResponse token;
     private Map<String, String> paramValueMap;
     private int TENANT_ID = 1234;
@@ -452,6 +453,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(any())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockAuthenticationContext.getProperty(NONCE)).thenReturn(invalidNonce);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
