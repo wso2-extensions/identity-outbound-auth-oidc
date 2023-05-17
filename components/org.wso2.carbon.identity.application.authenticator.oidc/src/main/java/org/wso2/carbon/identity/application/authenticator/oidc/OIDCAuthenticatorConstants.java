@@ -58,6 +58,7 @@ public class OIDCAuthenticatorConstants {
     public static final String LOGOUT_TOKEN = "logout_token";
     public static final Pattern OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN = Pattern.compile("(.*)/identity/oidc" +
             "/slo(.*)");
+    public static final String OIDC_FEDERATION_NONCE = "oidc_federation_nonce";
 
     public class AuthenticatorConfParams {
 
