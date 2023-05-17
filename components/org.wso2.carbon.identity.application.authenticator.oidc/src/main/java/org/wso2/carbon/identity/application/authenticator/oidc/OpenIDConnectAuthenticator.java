@@ -88,6 +88,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
@@ -374,7 +375,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String callbackurl = getCallbackUrl(authenticatorProperties);
                 String state = getStateParameter(context, authenticatorProperties);
                 String nonce = UUID.randomUUID().toString();
-                context.setProperty(NONCE, nonce);
+                context.setProperty(OIDC_FEDERATION_NONCE, nonce);
 
                 OAuthClientRequest authzRequest;
 
@@ -530,12 +531,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
-            if (context.getProperty(NONCE) != null) {
+            if (context.getProperty(OIDC_FEDERATION_NONCE) != null) {
                 String nonce = (String) jwtAttributeMap.get(NONCE);
                 if (nonce == null) {
                     LOG.debug("OIDC provider does not support nonce claim in id_token.");
                 }
-                if (nonce != null && !nonce.equals(context.getProperty(NONCE))) {
+                if (nonce != null && !nonce.equals(context.getProperty(OIDC_FEDERATION_NONCE))) {
                     throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
                             ErrorMessages.NONCE_MISMATCH.getMessage());
                 }
