@@ -534,7 +534,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (nonce == null) {
                 LOG.debug("OIDC provider does not support nonce claim in id_token.");
             }
-            if (nonce != null && !nonce.equals(context.getProperty(NONCE))) {
+            if (nonce != null && context.getProperty(NONCE) != null && !nonce.equals(context.getProperty(NONCE))) {
                 throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
                         ErrorMessages.NONCE_MISMATCH.getMessage());
             }
