@@ -245,7 +245,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * @return
+     * Get scopes from query param string or return default `openid` if none defined.
+     *
+     * @param scope String
+     * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
+     * @return Scopes.
      */
     protected String getScope(String scope, Map<String, String> authenticatorProperties) {
 
@@ -256,7 +260,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * Get Scopes.
+     * Get scopes defined in Scopes field.
      *
      * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
      * @return Scopes.
