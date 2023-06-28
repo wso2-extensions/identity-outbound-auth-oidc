@@ -128,7 +128,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 return AuthenticatorFlowStatus.INCOMPLETE;
             }
         }
-
+        /*
+        During the logout flow, the string 'OIDC' is appended to the logout request. This is done to identify the
+        logout request as an OIDC logout request. However, in scenarios where multiple IS instances are chained as
+        federated idps, the logout request and the logout response needs to be distinctly identified and handled
+        accordingly. To identify this some additional checks needs to be performed which is handled in the following
+        method.
+         */
         if (context.isLogoutRequest()) {
             return processLogout(request, response, context);
         }
@@ -1293,13 +1299,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     && context.getExternalIdP().getIdentityProvider() != null) {
                 processLogoutResponse(request, response, context);
                 return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
-            } else {
-                context.setCurrentAuthenticator(getName());
-                initiateLogoutRequest(request, response, context);
-                return AuthenticatorFlowStatus.INCOMPLETE;
             }
+            context.setCurrentAuthenticator(getName());
+            initiateLogoutRequest(request, response, context);
+            return AuthenticatorFlowStatus.INCOMPLETE;
         } catch (UnsupportedOperationException e) {
-            LOG.debug("Ignoring UnsupportedOperationException.", e);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Logout is disabled during social logout or logout url not defined in " +
+                        "idp configuration. Skipping logout and ignoring UnsupportedOperationException.", e);
+            }
             return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
         }
     }
