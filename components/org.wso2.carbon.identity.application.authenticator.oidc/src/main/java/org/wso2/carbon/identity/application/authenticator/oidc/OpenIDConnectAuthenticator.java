@@ -128,6 +128,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 return AuthenticatorFlowStatus.INCOMPLETE;
             }
         }
+
+        if (context.isLogoutRequest()) {
+            return processLogout(request, response, context);
+        }
         return super.process(request, response, context);
     }
 
@@ -1277,5 +1281,26 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
+    }
+
+    private AuthenticatorFlowStatus processLogout(HttpServletRequest request, HttpServletResponse response,
+                                                  AuthenticationContext context) throws LogoutFailedException {
+        try {
+            // check if a logout response
+            if (canHandle(request)
+                    && StringUtils.isEmpty(request.getParameter(FrameworkConstants.RequestParams.TYPE))
+                    && context.getExternalIdP() != null
+                    && context.getExternalIdP().getIdentityProvider() != null) {
+                processLogoutResponse(request, response, context);
+                return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+            } else {
+                context.setCurrentAuthenticator(getName());
+                initiateLogoutRequest(request, response, context);
+                return AuthenticatorFlowStatus.INCOMPLETE;
+            }
+        } catch (UnsupportedOperationException e) {
+            LOG.debug("Ignoring UnsupportedOperationException.", e);
+            return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+        }
     }
 }
