@@ -135,4 +135,21 @@ public class OIDCAuthenticatorConstants {
 
         public static final long DEFAULT_IAT_VALIDITY_PERIOD = 15000;
     }
+
+    /**
+     * Constants related to log management.
+     */
+    public static class LogConstants {
+
+        public static final String OUTBOUND_AUTH_OIDC_SERVICE = "outbound-auth-oidc";
+
+        /**
+         * Define action IDs for diagnostic logs.
+         */
+        public static class ActionIDs {
+
+            public static final String PROCESS_AUTHENTICATION_RESPONSE = "process-outbound-auth-oidc-response";
+            public static final String VALIDATE_OUTBOUND_AUTH_REQUEST = "validate-outbound-auth-oidc-request";
+        }
+    }
 }

@@ -48,6 +48,7 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
@@ -89,7 +90,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
  */
 @PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
         OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
-        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class})
+        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class, LoggerUtils.class})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -218,6 +219,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test(dataProvider = "requestDataHandler")
     public void testCanHandle(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws IOException {
 
+        mockStatic(LoggerUtils.class);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)).thenReturn(grantType);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE)).thenReturn(state);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.LOGIN_TYPE)).thenReturn(loginType);
@@ -386,6 +389,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public void testInitiateAuthenticationRequestNullProperties() throws OAuthSystemException,
             OAuthProblemException, AuthenticationFailedException, UserStoreException {
 
+        mockStatic(LoggerUtils.class);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         mockAuthenticationRequestContext(mockAuthenticationContext);
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(null);
         openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
@@ -454,6 +459,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         authenticatorProperties.put("callbackUrl", " ");
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
+        mockStatic(LoggerUtils.class);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
@@ -484,6 +491,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public void testPassProcessAuthenticationWithParamValue() throws Exception {
 
         setupTest();
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
         Map<String, String> paramMap = new HashMap<>();
         paramMap.put("redirect_uri", "http:/localhost:9443/oauth2/redirect");
@@ -677,6 +685,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(serviceURLBuilder.addPath(anyString())).thenReturn(serviceURLBuilder);
         when(serviceURLBuilder.addParameter(anyString(), anyString())).thenReturn(serviceURLBuilder);
         when(serviceURLBuilder.build()).thenReturn(serviceURL);
+
+        mockStatic(LoggerUtils.class);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
     }
 
     private void setParametersForOAuthClientResponse(OAuthClientResponse mockOAuthClientResponse,

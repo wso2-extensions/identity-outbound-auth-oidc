@@ -76,6 +76,11 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.central.log.mgt</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
                 <artifactId>org.wso2.carbon.identity.testutil</artifactId>
                 <version>${carbon.identity.framework.version}</version>
                 <scope>test</scope>
@@ -196,6 +201,12 @@
                 </exclusions>
             </dependency>
             <dependency>
+                <groupId>org.wso2.carbon.identity.organization.management.core</groupId>
+                <artifactId>org.wso2.carbon.identity.organization.management.service</artifactId>
+                <version>${identity.organization.management.core.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>${h2database.version}</version>
@@ -293,11 +304,11 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>5.25.90</carbon.identity.framework.version>
+        <carbon.identity.framework.version>5.25.260</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.7</json-smart.version>
         <json.wso2.version>3.0.0.wso2v2</json.wso2.version>
-        <carbon.kernel.version>4.9.0</carbon.kernel.version>
+        <carbon.kernel.version>4.9.10</carbon.kernel.version>
         <maven.buildnumber.plugin.version>1.4</maven.buildnumber.plugin.version>
         <carbon.p2.plugin.version>1.5.3</carbon.p2.plugin.version>
         <org.slf4j.verison>1.6.1</org.slf4j.verison>
@@ -308,6 +319,8 @@
         <powermock.version>2.0.2</powermock.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
         <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
+
+        <identity.organization.management.core.version>1.0.50</identity.organization.management.core.version>
 
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
