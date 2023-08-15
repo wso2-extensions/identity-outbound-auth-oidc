@@ -400,6 +400,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                         .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                         .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                        .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
                         .inputParams(getApplicationDetails(context));
                 LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
             }
@@ -413,6 +414,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                             .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                             .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
                             .inputParam("authenticator properties", authenticatorProperties.keySet())
+                            .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
                             .inputParams(getApplicationDetails(context));
                 }
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
@@ -545,6 +547,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                     .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                     .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
                     .inputParams(getApplicationDetails(context));
             LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
         }
@@ -576,6 +579,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
             diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
                     .inputParams(getApplicationDetails(context))
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
         }
         if (StringUtils.isNotBlank(idToken)) {

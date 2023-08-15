@@ -47,6 +47,7 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
@@ -665,6 +666,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockOAuthzResponse.getCode()).thenReturn("200");
         when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN)).thenReturn(accessToken);
         when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ID_TOKEN)).thenReturn(idToken);
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(getDummyExternalIdPConfig());
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
         when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
@@ -703,5 +705,13 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         paramValueMap = new HashMap<>();
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramValueMap);
         when(mockAuthenticationContext.getContextIdentifier()).thenReturn("");
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(getDummyExternalIdPConfig());
+    }
+
+    private ExternalIdPConfig getDummyExternalIdPConfig() {
+
+        IdentityProvider identityProvider = new IdentityProvider();
+        identityProvider.setIdentityProviderName("DummyIDPName");
+        return new ExternalIdPConfig(identityProvider);
     }
 }
