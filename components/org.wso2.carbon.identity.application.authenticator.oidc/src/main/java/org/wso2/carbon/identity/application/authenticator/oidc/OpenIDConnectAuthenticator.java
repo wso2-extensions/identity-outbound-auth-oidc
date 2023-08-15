@@ -42,7 +42,6 @@ import org.wso2.carbon.identity.application.authentication.framework.FederatedAp
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
-import org.wso2.carbon.identity.application.authentication.framework.exception.UserIdNotFoundException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
@@ -77,17 +76,24 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
-import java.util.*;
-import java.util.function.Consumer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.VALIDATE_OUTBOUND_AUTH_REQUEST;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
@@ -389,8 +395,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         try {
             if (LoggerUtils.isDiagnosticLogsEnabled()) {
                 DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                        getComponentId(), VALIDATE_OUTBOUND_AUTH_REQUEST);
-                diagnosticLogBuilder.resultMessage("Validate outbound oidc authentication request")
+                        getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
+                diagnosticLogBuilder.resultMessage("Initiate outbound OIDC authentication request.")
                         .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                         .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                         .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
@@ -402,7 +408,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
                 if (LoggerUtils.isDiagnosticLogsEnabled()) {
                     diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(getComponentId(),
-                            VALIDATE_OUTBOUND_AUTH_REQUEST);
+                            INITIATE_OUTBOUND_AUTH_REQUEST);
                     diagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                             .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                             .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
@@ -423,8 +429,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String queryString = getQueryString(authenticatorProperties);
                 if (StringUtils.isNotBlank(scopes)) {
                     if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-                        diagnosticLogBuilder.inputParam("scopes", scopes)
-                                .inputParam("additional query params", queryString);
+                        diagnosticLogBuilder.inputParam("scopes", scopes);
                     }
                     queryString += "&scope=" + scopes;
                 }
@@ -536,7 +541,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (LoggerUtils.isDiagnosticLogsEnabled()) {
             DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
                     getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
-            diagnosticLogBuilder.resultMessage("Processing outbound oidc authentication response.")
+            diagnosticLogBuilder.resultMessage("Processing outbound OIDC authentication response.")
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                     .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                     .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
@@ -589,6 +594,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String idpName = context.getExternalIdP().getIdPName();
             String sidClaim = (String) jwtAttributeMap.get(OIDCAuthenticatorConstants.Claim.SID);
             if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
+                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                    diagnosticLogBuilder.inputParam("federated idp name", idpName);
+                }
                 // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
             }
@@ -628,16 +636,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         authenticatedUser.setUserAttributes(claimsMap);
         context.setSubject(authenticatedUser);
         if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-            diagnosticLogBuilder.resultMessage("Successfully completed the outbound oidc authentication response.")
+            diagnosticLogBuilder.resultMessage("Successfully completed the outbound OIDC authentication response.")
                     .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
-            Set<Map.Entry<ClaimMapping, String>> userAttributes = authenticatedUser.getUserAttributes().entrySet();
-            List<String> userAttributeList = new ArrayList<>();
-            userAttributes.forEach(claimMappingStringEntry -> {
-                String localClaim = claimMappingStringEntry.getKey().getLocalClaim().getClaimUri();
-                String remoteClaim = claimMappingStringEntry.getKey().getRemoteClaim().getClaimUri();
-                userAttributeList.add(localClaim + " : " + remoteClaim);
-            });
-            diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)", userAttributeList);
+            diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
+                    getUserAttributeClaimMappingList(authenticatedUser));
             LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
         }
     }
@@ -1399,5 +1401,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 applicationDetailsMap.put(LogConstants.InputKeys.APPLICATION_NAME,
                         applicationName));
         return applicationDetailsMap;
+    }
+
+    private static List<String> getUserAttributeClaimMappingList(AuthenticatedUser authenticatedUser) {
+
+        return authenticatedUser.getUserAttributes().keySet().stream()
+                .map(claimMapping -> {
+                    String localClaim = claimMapping.getLocalClaim().getClaimUri();
+                    String remoteClaim = claimMapping.getRemoteClaim().getClaimUri();
+                    return localClaim + " : " + remoteClaim;
+                })
+                .collect(Collectors.toList());
     }
 }

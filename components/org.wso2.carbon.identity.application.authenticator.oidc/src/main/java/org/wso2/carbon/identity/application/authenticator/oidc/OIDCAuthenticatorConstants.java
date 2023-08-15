@@ -149,7 +149,7 @@ public class OIDCAuthenticatorConstants {
         public static class ActionIDs {
 
             public static final String PROCESS_AUTHENTICATION_RESPONSE = "process-outbound-auth-oidc-response";
-            public static final String VALIDATE_OUTBOUND_AUTH_REQUEST = "validate-outbound-auth-oidc-request";
+            public static final String INITIATE_OUTBOUND_AUTH_REQUEST = "initiate-outbound-auth-oidc-request";
         }
     }
 }
