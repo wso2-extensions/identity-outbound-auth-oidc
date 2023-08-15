@@ -167,7 +167,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         boolean canHandle = OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request));
         if (canHandle && LoggerUtils.isDiagnosticLogsEnabled()) {
             DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                    OUTBOUND_AUTH_OIDC_SERVICE, FrameworkConstants.LogConstants.ActionIDs.HANDLE_AUTH_STEP);
+                    getComponentId(), FrameworkConstants.LogConstants.ActionIDs.HANDLE_AUTH_STEP);
             diagnosticLogBuilder.resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.INTERNAL_SYSTEM)
                     .resultMessage("Outbound OIDC authenticator handling the authentication.");
@@ -389,7 +389,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         try {
             if (LoggerUtils.isDiagnosticLogsEnabled()) {
                 DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                        OUTBOUND_AUTH_OIDC_SERVICE, VALIDATE_OUTBOUND_AUTH_REQUEST);
+                        getComponentId(), VALIDATE_OUTBOUND_AUTH_REQUEST);
                 diagnosticLogBuilder.resultMessage("Validate outbound oidc authentication request")
                         .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                         .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
@@ -401,7 +401,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (authenticatorProperties != null) {
                 DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
                 if (LoggerUtils.isDiagnosticLogsEnabled()) {
-                    diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(OUTBOUND_AUTH_OIDC_SERVICE,
+                    diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(getComponentId(),
                             VALIDATE_OUTBOUND_AUTH_REQUEST);
                     diagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                             .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
@@ -535,7 +535,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         if (LoggerUtils.isDiagnosticLogsEnabled()) {
             DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                    OUTBOUND_AUTH_OIDC_SERVICE, PROCESS_AUTHENTICATION_RESPONSE);
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
             diagnosticLogBuilder.resultMessage("Processing outbound oidc authentication response.")
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                     .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
@@ -568,7 +568,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
         if (LoggerUtils.isDiagnosticLogsEnabled()) {
             diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                    OUTBOUND_AUTH_OIDC_SERVICE, PROCESS_AUTHENTICATION_RESPONSE);
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
             diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
                     .inputParams(getApplicationDetails(context))
                     .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
@@ -1257,6 +1257,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.debug("response: " + builder.toString());
         }
         return builder.toString();
+    }
+
+    /**
+     * Return the component ID of the Authenticator. This will be used for logging purposes.
+     * @return Component ID String.
+     */
+    protected String getComponentId() {
+
+        return OUTBOUND_AUTH_OIDC_SERVICE;
     }
 
     private String interpretQueryString(AuthenticationContext context, String queryString,
