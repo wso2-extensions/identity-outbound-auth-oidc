@@ -12,6 +12,7 @@ on:
 
 env:
   MAVEN_OPTS: -Xmx4g -Xms1g
+  JAVA_TOOL_OPTIONS: "-Djdk.util.zip.disableZip64ExtraFieldValidation=true -Djdk.nio.zipfs.allowDotZipEntry=true"
 
 jobs:
   build:
@@ -39,5 +40,5 @@ jobs:
             ${{ runner.os }}-maven-
             ${{ runner.os }}-
       - name: Build with Maven
-        run: mvn clean install -U -B
 
+        run: mvn clean install -U -B
