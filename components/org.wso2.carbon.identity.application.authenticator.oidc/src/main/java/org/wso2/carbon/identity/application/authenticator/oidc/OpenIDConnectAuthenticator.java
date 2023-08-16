@@ -52,6 +52,8 @@ import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.base.IdentityConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LogConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.claim.metadata.mgt.model.ExternalClaim;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
@@ -63,6 +65,7 @@ import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 import org.wso2.carbon.user.api.UserRealm;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
+import org.wso2.carbon.utils.DiagnosticLog;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -83,11 +86,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
@@ -163,13 +170,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (LOG.isTraceEnabled()) {
             LOG.trace("Inside OpenIDConnectAuthenticator.canHandle()");
         }
-
-        if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
-            return true;
+        boolean canHandle = OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request));
+        if (canHandle && LoggerUtils.isDiagnosticLogsEnabled()) {
+            DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), FrameworkConstants.LogConstants.ActionIDs.HANDLE_AUTH_STEP);
+            diagnosticLogBuilder.resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.INTERNAL_SYSTEM)
+                    .resultMessage("Outbound OIDC authenticator handling the authentication.");
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
         }
-
+        return canHandle;
         // TODO : What if IdP failed?
-        return false;
     }
 
     /**
@@ -382,8 +393,30 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
+            if (LoggerUtils.isDiagnosticLogsEnabled()) {
+                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                        getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
+                diagnosticLogBuilder.resultMessage("Initiate outbound OIDC authentication request.")
+                        .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                        .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                        .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                        .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                        .inputParams(getApplicationDetails(context));
+                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+            }
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (authenticatorProperties != null) {
+                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
+                if (LoggerUtils.isDiagnosticLogsEnabled()) {
+                    diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(getComponentId(),
+                            INITIATE_OUTBOUND_AUTH_REQUEST);
+                    diagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                            .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                            .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                            .inputParam("authenticator properties", authenticatorProperties.keySet())
+                            .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                            .inputParams(getApplicationDetails(context));
+                }
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
@@ -397,6 +430,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String queryString = getQueryString(authenticatorProperties);
                 if (StringUtils.isNotBlank(scopes)) {
+                    if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                        diagnosticLogBuilder.inputParam("scopes", scopes);
+                    }
                     queryString += "&scope=" + scopes;
                 }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
@@ -458,6 +494,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     }
                 }
                 response.sendRedirect(loginPage);
+                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                    diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
+                    LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+                }
             } else {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getMessage());
@@ -500,6 +540,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void processAuthenticationResponse(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
+            diagnosticLogBuilder.resultMessage("Processing outbound OIDC authentication response.")
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                    .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                    .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                    .inputParams(getApplicationDetails(context));
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        }
         // oAuthResponse can be null in some authentication flows. i.e Google One Tap.
         OAuthClientResponse oAuthResponse = requestAccessToken(request, context);
         // TODO : return access token and id token to framework
@@ -522,6 +573,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         Map<ClaimMapping, String> claimsMap = new HashMap<>();
         Map<String, Object> jwtAttributeMap = new HashMap<>();
 
+        DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
+            diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParams(getApplicationDetails(context))
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
+        }
         if (StringUtils.isNotBlank(idToken)) {
             jwtAttributeMap = getIdTokenClaims(context, idToken);
             if (jwtAttributeMap.isEmpty()) {
@@ -532,10 +592,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 throw new AuthenticationFailedException(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getCode(),
                         errorMessage);
             }
-
+            if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                diagnosticLogBuilder.inputParam("id token claims", jwtAttributeMap.keySet());
+            }
             String idpName = context.getExternalIdP().getIdPName();
             String sidClaim = (String) jwtAttributeMap.get(OIDCAuthenticatorConstants.Claim.SID);
             if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
+                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                    diagnosticLogBuilder.inputParam("federated idp name", idpName);
+                }
                 // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
             }
@@ -574,6 +639,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
         authenticatedUser.setUserAttributes(claimsMap);
         context.setSubject(authenticatedUser);
+        if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+            diagnosticLogBuilder.resultMessage("Outbound OIDC authentication response processed successfully.")
+                    .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
+            diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
+                    getUserAttributeClaimMappingList(authenticatedUser));
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        }
     }
 
     /**
@@ -1193,6 +1265,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return builder.toString();
     }
 
+    /**
+     * Return the component ID of the Authenticator. This will be used for logging purposes.
+     * @return Component ID String.
+     */
+    protected String getComponentId() {
+
+        return OUTBOUND_AUTH_OIDC_SERVICE;
+    }
+
     private String interpretQueryString(AuthenticationContext context, String queryString,
                                         Map<String, String[]> parameters) {
 
@@ -1308,5 +1389,32 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
             return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
         }
+    }
+
+    /**
+     * Get application details from the authentication context.
+     * @param context Authentication context.
+     * @return Map of application details.
+     */
+    private Map<String, String> getApplicationDetails(AuthenticationContext context) {
+
+        Map<String, String> applicationDetailsMap = new HashMap<>();
+        FrameworkUtils.getApplicationResourceId(context).ifPresent(applicationId ->
+                applicationDetailsMap.put(LogConstants.InputKeys.APPLICATION_ID, applicationId));
+        FrameworkUtils.getApplicationName(context).ifPresent(applicationName ->
+                applicationDetailsMap.put(LogConstants.InputKeys.APPLICATION_NAME,
+                        applicationName));
+        return applicationDetailsMap;
+    }
+
+    private static List<String> getUserAttributeClaimMappingList(AuthenticatedUser authenticatedUser) {
+
+        return authenticatedUser.getUserAttributes().keySet().stream()
+                .map(claimMapping -> {
+                    String localClaim = claimMapping.getLocalClaim().getClaimUri();
+                    String remoteClaim = claimMapping.getRemoteClaim().getClaimUri();
+                    return localClaim + " : " + remoteClaim;
+                })
+                .collect(Collectors.toList());
     }
 }
