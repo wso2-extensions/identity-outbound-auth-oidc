@@ -640,7 +640,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         authenticatedUser.setUserAttributes(claimsMap);
         context.setSubject(authenticatedUser);
         if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-            diagnosticLogBuilder.resultMessage("Successfully completed the outbound OIDC authentication response.")
+            diagnosticLogBuilder.resultMessage("Outbound OIDC authentication response processed successfully.")
                     .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
             diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
                     getUserAttributeClaimMappingList(authenticatedUser));
