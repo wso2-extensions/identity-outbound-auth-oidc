@@ -557,32 +557,33 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         mapAccessToken(request, context, oAuthResponse);
         String idToken = mapIdToken(context, request, oAuthResponse);
 
+        DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
+
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            diagnosticLogBuilder =
+                    new DiagnosticLog.DiagnosticLogBuilder(getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
+            diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParams(getApplicationDetails(context))
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
+        }
+
         Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
         if (requiredIDToken(authenticatorProperties) && StringUtils.isBlank(idToken)) {
             throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
                     String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
                             getTokenEndpoint(authenticatorProperties),
                             authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID)));
-        }
+        } else if (StringUtils.isNotBlank(idToken)) {
 
-        OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
-        stateInfoOIDC.setIdTokenHint(idToken);
-        context.setStateInfo(stateInfoOIDC);
+            OIDCStateInfo stateInfoOIDC = new OIDCStateInfo();
+            stateInfoOIDC.setIdTokenHint(idToken);
+            context.setStateInfo(stateInfoOIDC);
 
-        AuthenticatedUser authenticatedUser;
-        Map<ClaimMapping, String> claimsMap = new HashMap<>();
-        Map<String, Object> jwtAttributeMap = new HashMap<>();
+            AuthenticatedUser authenticatedUser;
+            Map<ClaimMapping, String> claimsMap = new HashMap<>();
+            Map<String, Object> jwtAttributeMap = new HashMap<>();
 
-        DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
-        if (LoggerUtils.isDiagnosticLogsEnabled()) {
-            diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
-                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
-            diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
-                    .inputParams(getApplicationDetails(context))
-                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
-                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
-        }
-        if (StringUtils.isNotBlank(idToken)) {
             jwtAttributeMap = getIdTokenClaims(context, idToken);
             if (jwtAttributeMap.isEmpty()) {
                 String errorMessage = ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getMessage();
@@ -605,8 +606,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
             }
 
-            if (LOG.isDebugEnabled() && IdentityUtil
-                    .isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
+            if (LOG.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_ID_TOKEN)) {
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
@@ -627,24 +627,24 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
                     .forEach(entry -> buildClaimMappings(claimsMap, entry, attributeSeparator));
 
-            authenticatedUser = AuthenticatedUser
-                    .createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
-        } else {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("The IdToken is null");
+            authenticatedUser =
+                    AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(authenticatedUserId);
+            claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
+            authenticatedUser.setUserAttributes(claimsMap);
+            context.setSubject(authenticatedUser);
+
+            if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                diagnosticLogBuilder.resultMessage("Outbound OIDC authentication response processed successfully.")
+                        .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
+                diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
+                        getUserAttributeClaimMappingList(authenticatedUser));
+                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
             }
-            authenticatedUser = AuthenticatedUser.createFederateAuthenticatedUserFromSubjectIdentifier(
-                    getAuthenticateUser(context, jwtAttributeMap, oAuthResponse));
-        }
-        claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
-        authenticatedUser.setUserAttributes(claimsMap);
-        context.setSubject(authenticatedUser);
-        if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-            diagnosticLogBuilder.resultMessage("Outbound OIDC authentication response processed successfully.")
-                    .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
-            diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
-                    getUserAttributeClaimMappingList(authenticatedUser));
-            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        } else {
+            throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
+                    String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
+                            getTokenEndpoint(authenticatorProperties),
+                            authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID)));
         }
     }
 
@@ -1140,12 +1140,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String spTenantDomain = context.getTenantDomain();
 
         try {
-            String userIdClaimUriInOIDCDialect = null;
-            if (useLocalClaimDialect) {
+            String remoteClaimUri = null;
+            if (useLocalClaimDialect) { //Whether IDP returns claims according to the standard OIDC dialect.
                 if (StringUtils.isNotBlank(userIdClaimUri)) {
                     // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
                     // from idTokenClaims.
-                    userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
+                    remoteClaimUri = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
                 } else {
                     if (LOG.isDebugEnabled()) {
                         String idpName = context.getExternalIdP().getIdPName();
@@ -1156,6 +1156,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             } else {
                 ClaimMapping[] claimMappings = context.getExternalIdP().getClaimMappings();
                 // Try to find the userIdClaimUri within the claimMappings.
+                /**
+                 * Custom claim mapping. <"sub","https://wso2.org/claims/externalid"> -> <remoteClaimUri,localClaimUri>
+                 * If not to use the local claim dialect, the remote claim uri is validated against the claim mappings,
+                 * whether there is a mapping for the remote claim uri.
+                 * getUserIdClaimUriInOIDCDialect() is considering the OIDC claim mappings only. That does not contain
+                 * the IDP level claim mapping.
+                 */
                 if (!ArrayUtils.isEmpty(claimMappings)) {
                     for (ClaimMapping claimMapping : claimMappings) {
                         if (LOG.isDebugEnabled()) {
@@ -1164,19 +1171,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         }
                         if (StringUtils.equals(claimMapping.getRemoteClaim().getClaimUri(), userIdClaimUri)) {
                             // Get the subject claim in OIDC dialect.
-                            String userIdClaimUriInLocalDialect = claimMapping.getLocalClaim().getClaimUri();
-                            userIdClaimUriInOIDCDialect =
-                                    getUserIdClaimUriInOIDCDialect(userIdClaimUriInLocalDialect, spTenantDomain);
+                            remoteClaimUri = userIdClaimUri;
                             break;
                         }
                     }
                 }
             }
             if (LOG.isDebugEnabled()) {
-                LOG.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " +
-                        userIdClaimUriInOIDCDialect);
+                LOG.debug("using userIdClaimUriInOIDCDialect to get subject from idTokenClaims: " + remoteClaimUri);
             }
-            Object subject = idTokenClaims.get(userIdClaimUriInOIDCDialect);
+            Object subject = idTokenClaims.get(remoteClaimUri);
             if (subject instanceof String) {
                 return (String) subject;
             } else if (subject != null) {
