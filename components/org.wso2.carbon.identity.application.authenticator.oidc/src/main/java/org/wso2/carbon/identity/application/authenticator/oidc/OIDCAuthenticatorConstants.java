@@ -22,6 +22,12 @@ import java.util.regex.Pattern;
 
 public class OIDCAuthenticatorConstants {
 
+    public static final String STATE_PARAM = "state.param";
+    public static final String ACCESS_TOKEN_PARAM = "accessToken";
+    public static final String CODE_PARAM = "code.param";
+    public static final String ID_TOKEN_PARAM = "idToken";
+    public static final String REQUIRE_NATIVE_CONFIG = "requireNativeConfig";
+
     private OIDCAuthenticatorConstants() {
 
     }

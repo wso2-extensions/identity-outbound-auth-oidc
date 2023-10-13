@@ -90,7 +90,13 @@ public class OIDCErrorConstants {
                 "Error while terminating the sessions for the user: %s"),
         RETRIEVING_USER_ID_FAILED("OID-65014",
                 "Error while retrieving user Id mapping for sub: %s"),
-        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error");
+        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error"),
+        JWT_TOKEN_ISS_CLAIM_VALIDATION_FAILED(
+                "OID-65016", "Error while validating the iss claim in the jwt token"),
+        JWT_TOKEN_SIGNATURE_VALIDATION_FAILED("OID-65016",
+                                                         "Error while validating the JWT token signature"),
+        JWT_TOKEN_AUD_CLAIM_VALIDATION_FAILED("OID-65017",
+                                                         "Audience claim validation failed.");
 
         private final String code;
         private final String message;

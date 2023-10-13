@@ -43,6 +43,9 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorParamMetadata;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
@@ -68,6 +71,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
+import javax.naming.Context;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -99,6 +106,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
     private HttpServletResponse mockServletResponse;
+    private AuthenticationRequest mockAuthenticationRequest = new AuthenticationRequest();
 
     @Mock
     private OAuthClientResponse mockOAuthClientResponse;
@@ -706,6 +714,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramValueMap);
         when(mockAuthenticationContext.getContextIdentifier()).thenReturn("");
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(getDummyExternalIdPConfig());
+        when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
     }
 
     private ExternalIdPConfig getDummyExternalIdPConfig() {
@@ -713,5 +722,26 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         IdentityProvider identityProvider = new IdentityProvider();
         identityProvider.setIdentityProviderName("DummyIDPName");
         return new ExternalIdPConfig(identityProvider);
+    }
+
+    @Test
+    public void testIsAPIBasedAuthenticationSupported() {
+
+        boolean isAPIBasedAuthenticationSupported = openIDConnectAuthenticator.isAPIBasedAuthenticationSupported();
+        Assert.assertTrue(isAPIBasedAuthenticationSupported);
+    }
+
+    @Test
+    public void testGetAuthInitiationData() {
+
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
+        when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
+        Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
+                (mockAuthenticationContext);
+
+        Assert.assertTrue(authenticatorData.isPresent());
+        AuthenticatorData authenticatorDataObj = authenticatorData.get();
+        Assert.assertEquals(authenticatorDataObj.getName(), "OpenIDConnectAuthenticator");
     }
 }
