@@ -42,6 +42,7 @@ import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorFlowStatus;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
@@ -1601,12 +1602,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     private boolean isTrustedTokenIssuer(AuthenticationContext context) {
 
-        IdentityProviderProperty[] identityProviderProperties =
-                context.getExternalIdP().getIdentityProvider().getIdpProperties();
-
-        for (IdentityProviderProperty identityProviderProperty: identityProviderProperties) {
-            if (identityProviderProperty.getName().equals(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER)) {
-                return Boolean.parseBoolean(identityProviderProperty.getValue());
+        ExternalIdPConfig externalIdPConfig = context.getExternalIdP();
+        if (externalIdPConfig != null) {
+            IdentityProvider externalIdentityProvider = externalIdPConfig.getIdentityProvider();
+            if (externalIdentityProvider != null) {
+                IdentityProviderProperty[] identityProviderProperties = externalIdentityProvider.getIdpProperties();
+                for (IdentityProviderProperty identityProviderProperty: identityProviderProperties) {
+                    if (identityProviderProperty.getName().equals(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER)) {
+                        return Boolean.parseBoolean(identityProviderProperty.getValue());
+                    }
+                }
             }
         }
         return false;
