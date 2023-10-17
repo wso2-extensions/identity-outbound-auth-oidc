@@ -1,17 +1,17 @@
-/**
- * Copyright (c) 2013, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+/*
+ * Copyright (c) 2013, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
+ * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -57,6 +57,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCTokenVal
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
@@ -72,9 +73,9 @@ import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
-import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
+import org.wso2.carbon.idp.mgt.util.IdPManagementConstants;
 import org.wso2.carbon.user.api.UserRealm;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
@@ -89,7 +90,15 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -98,13 +107,16 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REQUIRE_NATIVE_CONFIG;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
+/**
+ * OIDC Authenticator class.
+ */
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
 
@@ -253,7 +265,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * Returns the token endpoint of OIDC federated authenticator
+     * Returns the token endpoint of OIDC federated authenticator.
      *
      * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
      *                                configuration.
@@ -708,13 +720,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throws AuthenticationFailedException {
 
         OAuthClientResponse oAuthResponse;
-        if (isNativeFederationSupported(request) && isNativeFederationCall(request)) {
+        if (isTrustedTokenIssuer(context) && isNativeFederationCall(request)) {
             String idToken = request.getParameter("idToken");
             String accessToken = request.getParameter("accessToken");
             try {
                 validateJWTToken(context, idToken);
             } catch (ParseException | IdentityOAuth2Exception | JOSEException e) {
-                throw new AuthenticationFailedException( "JWT Token validation Failed. "  );
+                throw new AuthenticationFailedException("JWT Token validation Failed.");
             }
             NativeFederatedOAuthClientResponse nativeFederatedOAuthClientResponse
                     = new NativeFederatedOAuthClientResponse();
@@ -760,7 +772,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @param jwtIssuer   JWT issuer.
      * @param tenantDomain Tenant domain.
      * @return IdentityProvider.
-     * @throws LogoutServerException If there is an issue while getting the identity provider.
+     * @throws AuthenticationFailedException If there is an issue while getting the identity provider.
      */
     private IdentityProvider getIdentityProvider(String jwtIssuer, String tenantDomain)
             throws AuthenticationFailedException {
@@ -1080,7 +1092,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.debug("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
         }
 
-        if (isNativeFederationCall(request) && isNativeFederationSupported(request)) {
+        if (isNativeFederationCall(request)) {
             return request.getParameter("sessionDataKey");
         }
 
@@ -1217,7 +1229,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setDisplayName("Enable HTTP basic auth for client authentication");
         enableBasicAuth.setRequired(false);
         enableBasicAuth.setDescription(
-                "Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
+                "Specifies that HTTP basic authentication should be used for client authentication, " +
+                        "else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
         enableBasicAuth.setDisplayOrder(10);
         configProperties.add(enableBasicAuth);
@@ -1252,8 +1265,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String userIdClaimUriInOIDCDialect = null;
             if (useLocalClaimDialect) {
                 if (StringUtils.isNotBlank(userIdClaimUri)) {
-                    // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
-                    // from idTokenClaims.
+                    // User ID is defined in local claim dialect at the IDP.
+                    // Find the corresponding OIDC claim and retrieve from idTokenClaims.
                     userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
                 } else {
                     if (LOG.isDebugEnabled()) {
@@ -1566,14 +1579,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         authenticatorData.setIdp(idpName);
 
         if (requireNativeConfig) {
-
-            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
-            additionalData.put("required_params",requiredParameterList.toString());
-        } else {
             requiredParameterList.add(OIDCAuthenticatorConstants.ACCESS_TOKEN);
             requiredParameterList.add(OIDCAuthenticatorConstants.ID_TOKEN);
-            additionalData.put("required_params",requiredParameterList.toString());
+            additionalData.put("required_params", requiredParameterList.toString());
+        } else {
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
+            additionalData.put("required_params", requiredParameterList.toString());
         }
         additionalData.put("redirect_url",
                 (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + "_additional_data"));
@@ -1587,9 +1599,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return null;
     }
 
-    private boolean isNativeFederationSupported(HttpServletRequest request) {
+    private boolean isTrustedTokenIssuer(AuthenticationContext context) {
 
-        return Boolean.parseBoolean(request.getParameter(REQUIRE_NATIVE_CONFIG));
+        IdentityProviderProperty[] identityProviderProperties =
+                context.getExternalIdP().getIdentityProvider().getIdpProperties();
+
+        for (IdentityProviderProperty identityProviderProperty: identityProviderProperties) {
+            if (identityProviderProperty.getName().equals(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER)) {
+                return Boolean.parseBoolean(identityProviderProperty.getValue());
+            }
+        }
+        return false;
     }
 
     private boolean isNativeFederationCall(HttpServletRequest request) {
