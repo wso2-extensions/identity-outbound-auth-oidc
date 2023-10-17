@@ -100,6 +100,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -107,6 +108,13 @@ import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REQUIRED_PARAMS;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.PROMPT_TYPE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECTION_PROMPT;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
@@ -514,7 +522,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         loginPage = loginPage + queryString;
                     }
                 }
+
                 context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + "_additional_data", loginPage);
+                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX, loginPage);
+                
                 response.sendRedirect(loginPage);
                 if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
                     diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
@@ -668,6 +679,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     getUserAttributeClaimMappingList(authenticatedUser));
             LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
         }
+    }
+
+    /**
+     * Get the i18n key defined to represent the authenticator name.
+     *
+     * @return the 118n key.
+     */
+    @Override
+    public String getI18nKey() {
+
+        return AUTHENTICATOR_OIDC;
     }
 
     /**
@@ -1237,6 +1259,50 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(enableBasicAuth);
 
         return configProperties;
+    }
+
+    /**
+     * This method is responsible for validating whether the authenticator is supported for API Based Authentication.
+     *
+     * @return true if the authenticator is supported for API Based Authentication.
+     */
+    @Override
+    public boolean isAPIBasedAuthenticationSupported() {
+
+        return true;
+    }
+
+    /**
+     * This method is responsible for obtaining authenticator-specific data needed to
+     * initialize the authentication process within the provided authentication context.
+     *
+     * @param context The authentication context containing information about the current authentication attempt.
+     * @return An {@code Optional} containing an {@code AuthenticatorData} object representing the initiation data.
+     *         If the initiation data is available, it is encapsulated within the {@code Optional}; otherwise,
+     *         an empty {@code Optional} is returned.
+     */
+    @Override
+    public Optional<AuthenticatorData> getAuthInitiationData(AuthenticationContext context) {
+
+        AuthenticatorData authenticatorData = new AuthenticatorData();
+        authenticatorData.setName(getName());
+        authenticatorData.setDisplayName(getFriendlyName());
+        authenticatorData.setI18nKey(getI18nKey());
+        String idpName = context.getExternalIdP().getIdPName();
+        authenticatorData.setIdp(idpName);
+
+        List<String> requiredParameterList = new ArrayList<>();
+        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
+
+        Map<String, String> additionalData = new HashMap<>();
+        additionalData.put(REQUIRED_PARAMS, requiredParameterList.toString());
+        additionalData.put(REDIRECT_URL,
+                (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX));
+        additionalData.put(PROMPT_TYPE, REDIRECTION_PROMPT);
+        authenticatorData.setAdditionalData(additionalData);
+
+        return Optional.of(authenticatorData);
     }
 
     /**

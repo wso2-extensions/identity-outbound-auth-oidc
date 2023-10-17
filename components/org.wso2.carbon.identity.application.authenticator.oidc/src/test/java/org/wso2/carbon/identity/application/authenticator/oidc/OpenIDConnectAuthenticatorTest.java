@@ -71,6 +71,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
@@ -90,6 +92,11 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECTION_PROMPT;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
+        AUTHENTICATOR_FRIENDLY_NAME;
 
 /***
  * Unit test class for OpenIDConnectAuthenticatorTest class.
@@ -180,6 +187,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     private static OAuthClientResponse token;
     private Map<String, String> paramValueMap;
     private int TENANT_ID = 1234;
+    private AuthenticationRequest mockAuthenticationRequest = new AuthenticationRequest();
 
     @BeforeTest
     public void init() {
@@ -761,6 +769,44 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getContextIdentifier()).thenReturn("");
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(getDummyExternalIdPConfig());
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
+    }
+
+    @Test
+    public void testIsAPIBasedAuthenticationSupported() {
+
+        boolean isAPIBasedAuthenticationSupported = openIDConnectAuthenticator.isAPIBasedAuthenticationSupported();
+        Assert.assertTrue(isAPIBasedAuthenticationSupported);
+    }
+
+    @Test
+    public void testGetAuthInitiationData() {
+
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
+        when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
+        Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
+                (mockAuthenticationContext);
+
+        List<String> requiredParameterList = new ArrayList<>();
+        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
+
+        Map<String, String> additionalData = new HashMap<>();
+        additionalData.put(OIDCAuthenticatorConstants.REQUIRED_PARAMS, requiredParameterList.toString());
+        additionalData.put(OIDCAuthenticatorConstants.PROMPT_TYPE, REDIRECTION_PROMPT);
+
+        Assert.assertTrue(authenticatorData.isPresent());
+        AuthenticatorData authenticatorDataObj = authenticatorData.get();
+
+        Assert.assertEquals(authenticatorDataObj.getName(), AUTHENTICATOR_NAME);
+        Assert.assertEquals(authenticatorDataObj.getI18nKey(), AUTHENTICATOR_OIDC);
+        Assert.assertEquals(authenticatorDataObj.getDisplayName(), AUTHENTICATOR_FRIENDLY_NAME);
+
+        // Iterate through the map and assert values
+        for (Map.Entry<String, String> entry : additionalData.entrySet()) {
+            String key = entry.getKey();
+            Assert.assertTrue(authenticatorDataObj.getAdditionalData().containsKey(key));
+        }
     }
 
     private ExternalIdPConfig getDummyExternalIdPConfig() {
