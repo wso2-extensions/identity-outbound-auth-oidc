@@ -1,17 +1,17 @@
-/**
- * Copyright (c) 2017, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+/*
+ * Copyright (c) 2017, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
+ * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -45,12 +45,12 @@ import org.wso2.carbon.identity.application.authentication.framework.exception.A
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
-import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorParamMetadata;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
@@ -58,6 +58,7 @@ import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
+import org.wso2.carbon.idp.mgt.util.IdPManagementConstants;
 import org.wso2.carbon.user.api.RealmConfiguration;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserRealm;
@@ -72,9 +73,6 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ArrayList;
-import java.util.List;
-import javax.naming.Context;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -149,6 +147,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
     private ExternalIdPConfig externalIdPConfig;
+
+    @Mock
+    private IdentityProvider identityProvider;
 
     @Mock
     private OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder;
@@ -410,7 +411,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public void testPassProcessAuthenticationResponse() throws Exception {
 
         setupTest();
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
@@ -432,7 +442,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public void testPassProcessAuthenticationResponseWithNonce() throws Exception {
 
         setupTest();
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
@@ -473,7 +492,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
@@ -487,7 +515,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         setupTest();
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(any())).thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(invalidNonce);
@@ -508,7 +545,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
                 .thenReturn(mockOAuthJSONAccessTokenResponse);
