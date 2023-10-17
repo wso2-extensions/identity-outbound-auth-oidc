@@ -111,7 +111,6 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
     private HttpServletResponse mockServletResponse;
-    private AuthenticationRequest mockAuthenticationRequest = new AuthenticationRequest();
 
     @Mock
     private OAuthClientResponse mockOAuthClientResponse;
@@ -814,26 +813,5 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         IdentityProvider identityProvider = new IdentityProvider();
         identityProvider.setIdentityProviderName("DummyIDPName");
         return new ExternalIdPConfig(identityProvider);
-    }
-
-    @Test
-    public void testIsAPIBasedAuthenticationSupported() {
-
-        boolean isAPIBasedAuthenticationSupported = openIDConnectAuthenticator.isAPIBasedAuthenticationSupported();
-        Assert.assertTrue(isAPIBasedAuthenticationSupported);
-    }
-
-    @Test
-    public void testGetAuthInitiationData() {
-
-        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
-        when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
-        when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
-        Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
-                (mockAuthenticationContext);
-
-        Assert.assertTrue(authenticatorData.isPresent());
-        AuthenticatorData authenticatorDataObj = authenticatorData.get();
-        Assert.assertEquals(authenticatorDataObj.getName(), "OpenIDConnectAuthenticator");
     }
 }
