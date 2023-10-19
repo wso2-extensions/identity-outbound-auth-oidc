@@ -21,7 +21,10 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 
-public class NativeFederatedOAuthClientResponse extends OAuthClientResponse {
+/**
+ * This class holds the Native SDK based Federated OAuth Client response.
+ */
+public class NativeSDKBasedFederatedOAuthClientResponse extends OAuthClientResponse {
 
     public void setAccessToken(String accessToken) {
 

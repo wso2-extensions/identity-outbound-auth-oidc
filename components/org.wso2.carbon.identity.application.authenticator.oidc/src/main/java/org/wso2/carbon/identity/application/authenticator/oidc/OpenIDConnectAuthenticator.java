@@ -107,8 +107,10 @@ import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ID_TOKEN_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
@@ -121,7 +123,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
 /**
- * OIDC Authenticator class.
+ * This class holds the OIDC authenticator.
  */
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
@@ -220,7 +222,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected boolean isInitialRequest(AuthenticationContext context, HttpServletRequest request) {
 
         return !context.isLogoutRequest() && !hasCodeParamInRequest(request) && !hasErrorParamInRequest(request) &&
-                !isNativeFederationCall(request);
+                !isNativeSDKBasedFederationCall(request);
     }
 
     private boolean hasErrorParamInRequest(HttpServletRequest request) {
@@ -737,7 +739,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throws AuthenticationFailedException {
 
         OAuthClientResponse oAuthResponse;
-        if (isTrustedTokenIssuer(context) && isNativeFederationCall(request)) {
+        if (isTrustedTokenIssuer(context) && isNativeSDKBasedFederationCall(request)) {
             String idToken = request.getParameter("idToken");
             String accessToken = request.getParameter("accessToken");
             try {
@@ -745,12 +747,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             } catch (ParseException | IdentityOAuth2Exception | JOSEException e) {
                 throw new AuthenticationFailedException("JWT Token validation Failed.");
             }
-            NativeFederatedOAuthClientResponse nativeFederatedOAuthClientResponse
-                    = new NativeFederatedOAuthClientResponse();
-            nativeFederatedOAuthClientResponse.setAccessToken(accessToken);
-            nativeFederatedOAuthClientResponse.setIdToken(idToken);
+            NativeSDKBasedFederatedOAuthClientResponse nativeSDKBasedFederatedOAuthClientResponse
+                    = new NativeSDKBasedFederatedOAuthClientResponse();
+            nativeSDKBasedFederatedOAuthClientResponse.setAccessToken(accessToken);
+            nativeSDKBasedFederatedOAuthClientResponse.setIdToken(idToken);
 
-            return nativeFederatedOAuthClientResponse;
+            return nativeSDKBasedFederatedOAuthClientResponse;
         }
         try {
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
@@ -1109,8 +1111,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.debug("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
         }
 
-        if (isNativeFederationCall(request)) {
-            return request.getParameter("sessionDataKey");
+        if (isNativeSDKBasedFederationCall(request)) {
+            return request.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM);
         }
 
         String state = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
@@ -1624,8 +1626,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return false;
     }
 
-    private boolean isNativeFederationCall(HttpServletRequest request) {
+    private boolean isNativeSDKBasedFederationCall(HttpServletRequest request) {
 
-        return request.getParameter("accessToken") != null && request.getParameter("idToken") != null;
+        return request.getParameter(ACCESS_TOKEN_PARAM) != null && request.getParameter(ID_TOKEN_PARAM) != null;
     }
 }

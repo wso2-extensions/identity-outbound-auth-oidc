@@ -99,11 +99,12 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
         AUTHENTICATOR_FRIENDLY_NAME;
 
 /***
- * Unit test class for OpenIDConnectAuthenticatorTest class.
+ * Unit test class for OpenIDConnectAuthenticator class.
  */
 @PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
         OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
-        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class, LoggerUtils.class})
+        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class,
+        LoggerUtils.class})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -181,6 +182,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
             "oZxDH7JbIkPpKBe0cnYQWBxfHuGTUWhvnu629ek6v2YLkaHlb_Lm04xLD9FNxuZUNQFw83pQtDVpoX5r1V-F0DdUc7gA1RKN3" +
             "xMVYgRyfslRDveGYplxVVNQ1LU3lrZhgaTfcMEsC6rdbd1HjdzG71EPS4674HCSAUelOisNKGa2NgORpldDQsj376QD0G9Mhc8WtW" +
             "oguftrCCGjBy1kKT4VqFLOqlA-8wUhOj_rZT9SUIBQRDPu0RZobvsskqYo40GEZrUoa";
+    private static String sessionDataKey = "7b1c8131-c6bd-4682-892e-1a948a9e57e8";
     private static String nonce = "0ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
     private static String invalidNonce = "7ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
     private static OAuthClientResponse token;
@@ -194,13 +196,16 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         openIDConnectAuthenticator = new OpenIDConnectAuthenticator();
         authenticatorProperties = new HashMap<>();
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
-        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS, "scope=openid&state=OIDC&loginType=basic");
+        authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS,
+                "scope=openid&state=OIDC&loginType=basic");
         authenticatorProperties.put(IdentityApplicationConstants.Authenticator.OIDC.SCOPES, "openid email profile");
         authenticatorProperties.put("UserInfoUrl", "https://localhost:9443/oauth2/userinfo");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, "u5FIfG5xzLvBGiamoAYzzcqpBqga");
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, "_kLtobqi08GytnypVW_Mmy1niAIa");
-        authenticatorProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, "https://localhost:9443/oauth2/token");
-        authenticatorProperties.put(OIDCAuthenticatorConstants.OAUTH2_AUTHZ_URL, "https://localhost:9443/oauth2/authorize");
+        authenticatorProperties.put(
+                OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, "https://localhost:9443/oauth2/token");
+        authenticatorProperties.put(
+                OIDCAuthenticatorConstants.OAUTH2_AUTHZ_URL, "https://localhost:9443/oauth2/authorize");
         authenticatorProperties.put(IdentityApplicationConstants.Authenticator.SAML2SSO.IS_USER_ID_IN_CLAIMS, "true");
         authenticatorParamProperties = new HashMap<>();
         authenticatorParamProperties.put("username", "testUser");
@@ -234,7 +239,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test(dataProvider = "requestDataHandler")
-    public void testCanHandle(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws IOException {
+    public void testCanHandle(String grantType, String state, String loginType, String error, String expectedCanHandler,
+                              String expectedContext, String msgCanHandler, String msgContext) throws IOException {
 
         mockStatic(LoggerUtils.class);
         when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
@@ -243,7 +249,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.LOGIN_TYPE)).thenReturn(loginType);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_ERROR)).thenReturn(error);
 
-        assertEquals(openIDConnectAuthenticator.canHandle(mockServletRequest), Boolean.parseBoolean(expectedCanHandler), msgCanHandler);
+        assertEquals(openIDConnectAuthenticator.canHandle(mockServletRequest),
+                Boolean.parseBoolean(expectedCanHandler), msgCanHandler);
         assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), expectedContext, msgContext);
 
     }
@@ -345,8 +352,10 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public Object[][] getCommonAuthParams() {
 
         return new String[][]{
-                // If condition : queryString != null && queryString.contains("scope=")&& queryString.contains("redirect_uri=").
-                {"scope=openid&state=OIDC&loginType=basic&redirect_uri=https://localhost:9443/redirect", "https://localhost:9443/redirect", "The redirect URI is invalid"},
+                // If condition :
+                // queryString != null && queryString.contains("scope=") && queryString.contains("redirect_uri=").
+                {"scope=openid&state=OIDC&loginType=basic&redirect_uri=https://localhost:9443/redirect",
+                        "https://localhost:9443/redirect", "The redirect URI is invalid"},
                 // If condition : queryString != null && queryString.contains("scope=").
                 {"state=OIDC&loginType=basic&redirect_uri=https://localhost:9443/redirect",
                         "https://localhost:9443/redirect", "The redirect URI is invalid"},
@@ -493,7 +502,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         setupTest();
         authenticatorProperties.put("callbackUrl", " ");
         mockStatic(IdentityUtil.class);
-        when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
+        when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true))
+                .thenReturn("http:/localhost:9443/oauth2/callback");
         mockStatic(LoggerUtils.class);
         when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
@@ -521,7 +531,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         setupTest();
         mockStatic(IdentityUtil.class);
-        when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true)).thenReturn("http:/localhost:9443/oauth2/callback");
+        when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true))
+                .thenReturn("http:/localhost:9443/oauth2/callback");
 
         IdentityProviderProperty property = new IdentityProviderProperty();
         property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
@@ -613,7 +624,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test(dataProvider = "requestDataHandler")
-    public void testGetContextIdentifier(String grantType, String state, String loginType, String error, String expectedCanHandler, String expectedContext, String msgCanHandler, String msgContext) throws Exception {
+    public void testGetContextIdentifier(String grantType, String state, String loginType, String error,
+                                         String expectedCanHandler, String expectedContext, String msgCanHandler,
+                                         String msgContext) throws Exception {
 
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)).thenReturn(grantType);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE)).thenReturn(state);
@@ -622,6 +635,17 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), expectedContext, msgContext);
 
+    }
+
+    @Test
+    public void testGetContextIdentifierForNativeSDKBasedFederation() throws Exception {
+
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM)).thenReturn(accessToken);
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ID_TOKEN_PARAM)).thenReturn(idToken);
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM))
+                .thenReturn(sessionDataKey);
+
+        assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), sessionDataKey);
     }
 
     @Test
@@ -741,7 +765,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockRealmConfiguration.getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR))
                 .thenReturn(",");
         mockStatic(IdentityUtil.class);
-        when(IdentityUtil.getServerURL("", false, false)).thenReturn("https://localhost:9443");
+        when(IdentityUtil.getServerURL("", false, false))
+                .thenReturn("https://localhost:9443");
 
         mockStatic(ServiceURLBuilder.class);
         when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);

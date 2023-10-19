@@ -37,6 +37,9 @@ import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
 import java.util.List;
 
+/**
+ * This class holds utilities related to OIDC token validation.
+ */
 public class OIDCTokenValidationUtil {
 
     private static final Log log = LogFactory.getLog(OIDCTokenValidationUtil.class);
@@ -66,7 +69,7 @@ public class OIDCTokenValidationUtil {
         boolean audienceFound = false;
         String tokenEndPointAlias = getTokenEndpointAlias(idp, tenantDomain);
         for (String audience : audienceList) {
-            if (StringUtils.equals(getTokenEndpointAlias(idp, tenantDomain), audience)) {
+            if (StringUtils.equals(tokenEndPointAlias, audience)) {
                 if (log.isDebugEnabled()) {
                     log.debug(tokenEndPointAlias + " of IDP was found in the list of audiences.");
                 }
@@ -75,12 +78,13 @@ public class OIDCTokenValidationUtil {
             }
         }
         if (!audienceFound) {
-            throw new AuthenticationFailedException ("None of the audience values matched the tokenEndpoint Alias " + tokenEndPointAlias);
+            throw new AuthenticationFailedException ("None of the audience values matched the tokenEndpoint Alias "
+                    + tokenEndPointAlias);
         }
     }
 
     /**
-     * Get token endpoint alias
+     * Get token endpoint alias.
      *
      * @param identityProvider Identity provider
      * @return token endpoint alias
@@ -151,7 +155,7 @@ public class OIDCTokenValidationUtil {
      */
     public static void validateIssuerClaim(JWTClaimsSet claimsSet) throws AuthenticationFailedException {
 
-        if (StringUtils.isBlank(claimsSet.getIssuer())) {
+        if (StringUtils.isBlank(getIssuer(claimsSet))) {
             throw new AuthenticationFailedException(OIDCErrorConstants.ErrorMessages.
                     JWT_TOKEN_ISS_CLAIM_VALIDATION_FAILED.getCode(),
                     OIDCErrorConstants.ErrorMessages.JWT_TOKEN_ISS_CLAIM_VALIDATION_FAILED.getMessage());
