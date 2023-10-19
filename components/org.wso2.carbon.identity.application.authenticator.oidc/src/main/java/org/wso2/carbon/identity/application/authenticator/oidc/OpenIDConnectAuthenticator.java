@@ -51,7 +51,6 @@ import org.wso2.carbon.identity.application.authentication.framework.model.Authe
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
-import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutServerException;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCTokenValidationUtil;
@@ -740,8 +739,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         OAuthClientResponse oAuthResponse;
         if (isTrustedTokenIssuer(context) && isNativeSDKBasedFederationCall(request)) {
-            String idToken = request.getParameter("idToken");
-            String accessToken = request.getParameter("accessToken");
+            String idToken = request.getParameter(ID_TOKEN_PARAM);
+            String accessToken = request.getParameter(ACCESS_TOKEN_PARAM);
             try {
                 validateJWTToken(context, idToken);
             } catch (ParseException | IdentityOAuth2Exception | JOSEException e) {
@@ -826,7 +825,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @param tenantDomain Tenant domain.
      * @param jwtIssuer   Issuer of the jwt.
      * @return IdentityProvider.
-     * @throws LogoutServerException If there is an issue while getting the resident identity provider.
+     * @throws AuthenticationFailedException If there is an issue while getting the resident identity provider.
      */
     private IdentityProvider getResidentIDPForIssuer(String tenantDomain, String jwtIssuer)
             throws AuthenticationFailedException {

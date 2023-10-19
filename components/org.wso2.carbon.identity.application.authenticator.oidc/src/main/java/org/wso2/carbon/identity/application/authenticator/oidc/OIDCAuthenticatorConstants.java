@@ -29,7 +29,6 @@ public class OIDCAuthenticatorConstants {
     public static final String ACCESS_TOKEN_PARAM = "accessToken";
     public static final String CODE_PARAM = "code.param";
     public static final String ID_TOKEN_PARAM = "idToken";
-    public static final String REQUIRE_NATIVE_CONFIG = "requireNativeConfig";
     public static final String SESSION_DATA_KEY_PARAM = "sessionDataKey";
 
     private OIDCAuthenticatorConstants() {
@@ -77,7 +76,7 @@ public class OIDCAuthenticatorConstants {
     public static final String REDIRECTION_PROMPT = "REDIRECTION_PROMPT";
 
     /**
-     * Authenticator Conf class.
+     * This class holds the constants related to authenticator configuration parameters.
      */
     public class AuthenticatorConfParams {
 
@@ -89,7 +88,7 @@ public class OIDCAuthenticatorConstants {
     }
 
     /**
-     * IdP Conf class.
+     * This class holds the constants related to IdP configuration parameters.
      */
     public class IdPConfParams {
 
@@ -106,7 +105,7 @@ public class OIDCAuthenticatorConstants {
     }
 
     /**
-     * Claim class.
+     * This class holds the constants related to claims.
      */
     public class Claim {
 
@@ -143,7 +142,7 @@ public class OIDCAuthenticatorConstants {
     }
 
     /**
-     * Back Channel Logout class.
+     *  This class holds the constants related to Back Channel Logout.
      */
     public class BackchannelLogout {
 
