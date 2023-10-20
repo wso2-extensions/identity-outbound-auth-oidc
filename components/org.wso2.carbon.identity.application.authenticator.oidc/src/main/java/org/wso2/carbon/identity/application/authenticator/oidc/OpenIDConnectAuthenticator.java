@@ -46,6 +46,7 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
+import org.wso2.carbon.identity.application.authentication.framework.model.AdditionalData;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
@@ -1290,14 +1291,20 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
         requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
 
-        Map<String, String> additionalData = new HashMap<>();
-        additionalData.put(REQUIRED_PARAMS, requiredParameterList.toString());
-        additionalData.put(REDIRECT_URL,
-                (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX));
-        additionalData.put(PROMPT_TYPE, REDIRECTION_PROMPT);
+        AdditionalData additionalData = getAdditionalData(context, requiredParameterList);
         authenticatorData.setAdditionalData(additionalData);
 
         return Optional.of(authenticatorData);
+    }
+
+    private static AdditionalData getAdditionalData(AuthenticationContext context, List<String> requiredParameterList) {
+
+        AdditionalData additionalData = new AdditionalData();
+        additionalData.setRequiredParams(requiredParameterList);
+        additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                REDIRECT_URL_SUFFIX));
+        additionalData.setPromptType(REDIRECTION_PROMPT);
+        return additionalData;
     }
 
     /**
