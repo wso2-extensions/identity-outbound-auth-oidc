@@ -257,6 +257,20 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     }
 
     @Test
+    public void testCanHandleForNativeSDKBasedFederation() throws Exception {
+
+        mockStatic(LoggerUtils.class);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM)).thenReturn(accessToken);
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ID_TOKEN_PARAM)).thenReturn(idToken);
+        when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM))
+                .thenReturn(sessionDataKey);
+
+        assertTrue(openIDConnectAuthenticator.canHandle(mockServletRequest));
+        assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), sessionDataKey);
+    }
+
+    @Test
     public void testGetAuthorizationServerEndpoint() throws IOException {
 
         assertNull(openIDConnectAuthenticator.getAuthorizationServerEndpoint(authenticatorProperties),
