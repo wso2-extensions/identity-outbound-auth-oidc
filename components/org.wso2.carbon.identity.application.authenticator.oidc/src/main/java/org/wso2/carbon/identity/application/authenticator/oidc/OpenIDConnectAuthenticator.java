@@ -115,7 +115,6 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECTION_PROMPT;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
@@ -1294,19 +1293,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
         requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
 
-        AdditionalData additionalData = getAdditionalData(context, requiredParameterList);
-        authenticatorData.setAdditionalData(additionalData);
+        authenticatorData.setRequiredParams(requiredParameterList);
+        authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
+        authenticatorData.setAdditionalData(getAdditionalData(context));
 
         return Optional.of(authenticatorData);
     }
 
-    private static AdditionalData getAdditionalData(AuthenticationContext context, List<String> requiredParameterList) {
+    private static AdditionalData getAdditionalData(AuthenticationContext context) {
 
         AdditionalData additionalData = new AdditionalData();
-        additionalData.setRequiredParams(requiredParameterList);
         additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
                 REDIRECT_URL_SUFFIX));
-        additionalData.setPromptType(REDIRECTION_PROMPT);
         return additionalData;
     }
 

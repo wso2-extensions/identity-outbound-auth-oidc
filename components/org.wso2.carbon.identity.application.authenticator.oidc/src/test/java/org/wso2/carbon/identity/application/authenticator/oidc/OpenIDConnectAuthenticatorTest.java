@@ -836,10 +836,10 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         Assert.assertEquals(authenticatorDataObj.getName(), AUTHENTICATOR_NAME);
         Assert.assertEquals(authenticatorDataObj.getI18nKey(), AUTHENTICATOR_OIDC);
         Assert.assertEquals(authenticatorDataObj.getDisplayName(), AUTHENTICATOR_FRIENDLY_NAME);
-        Assert.assertEquals(authenticatorDataObj.getAdditionalDataObj().getRequiredParams().size(),
+        Assert.assertEquals(authenticatorDataObj.getRequiredParams().size(),
                 2);
-        Assert.assertEquals(authenticatorDataObj.getAdditionalDataObj().getPromptType(),
-                REDIRECTION_PROMPT);
+        Assert.assertEquals(authenticatorDataObj.getPromptType(),
+                FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
 
     }
 
