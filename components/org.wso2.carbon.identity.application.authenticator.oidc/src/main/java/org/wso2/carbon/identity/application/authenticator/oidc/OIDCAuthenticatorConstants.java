@@ -69,10 +69,7 @@ public class OIDCAuthenticatorConstants {
             "/slo(.*)");
     public static final String OIDC_FEDERATION_NONCE = "oidc_federation_nonce";
     public static final String AUTHENTICATOR_OIDC = "authenticator.oidc";
-    public static final String REQUIRED_PARAMS = "required_params";
-    public static final String REDIRECT_URL = "redirect_url";
     public static final String REDIRECT_URL_SUFFIX = "_redirect_url";
-    public static final String PROMPT_TYPE = "prompt_type";
     public static final String REDIRECTION_PROMPT = "REDIRECTION_PROMPT";
 
     /**
