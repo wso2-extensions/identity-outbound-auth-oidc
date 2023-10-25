@@ -71,8 +71,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
@@ -91,7 +89,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.*;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
+        AUTHENTICATOR_FRIENDLY_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 
 /***
@@ -824,7 +826,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
         when(mockAuthenticationContext.getProperty(
-                OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX)).thenReturn(redirectUrl);
+                OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX))
+                .thenReturn(redirectUrl);
         Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
                 (mockAuthenticationContext);
 
@@ -861,7 +864,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
         when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
-        authenticatorProperties.put(CLIENT_ID, clientId);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, clientId);
 
         Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
                 (mockAuthenticationContext);
@@ -883,7 +886,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         Assert.assertEquals(authenticatorDataObj.getAdditionalData()
                 .getAdditionalAuthenticationParams().get(NONCE), nonce);
         Assert.assertEquals(authenticatorDataObj.getAdditionalData()
-                .getAdditionalAuthenticationParams().get(CLIENT_ID_PARAM), clientId);
+                .getAdditionalAuthenticationParams().get(OIDCAuthenticatorConstants.CLIENT_ID_PARAM), clientId);
     }
 
     private ExternalIdPConfig getDummyExternalIdPConfig() {

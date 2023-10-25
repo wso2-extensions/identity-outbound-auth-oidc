@@ -1298,7 +1298,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } else {
             requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
             requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
-
             authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
             authenticatorData.setAdditionalData(getAdditionalData(context, false));
         }
@@ -1321,7 +1320,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
             additionalAuthenticationParams.put(OIDCAuthenticatorConstants.CLIENT_ID_PARAM,
                     context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.CLIENT_ID));
-
             additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
         } else {
             additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
