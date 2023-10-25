@@ -43,7 +43,6 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
-import org.wso2.carbon.identity.application.authentication.framework.model.AdditionalData;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
@@ -72,8 +71,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
@@ -94,10 +91,10 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECTION_PROMPT;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
         AUTHENTICATOR_FRIENDLY_NAME;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 
 /***
  * Unit test class for OpenIDConnectAuthenticator class.
@@ -172,6 +169,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     private static Map<String, String> authenticatorProperties;
     private static Map<String, String> authenticatorParamProperties;
+    private static String clientId = "DpPQt4KnvcehtUuQ0Jf6i0gl0E0a";
     private static String accessToken = "4952b467-86b2-31df-b63c-0bf25cec4f86s";
     private static String idToken = "eyJ4NXQiOiJOVEF4Wm1NeE5ETXlaRGczTVRVMVpHTTBNekV6T0RKaFpXSTRORE5" +
             "sWkRVMU9HRmtOakZpTVEiLCJraWQiOiJOVEF4Wm1NeE5ETXlaRGczTVRVMVpHTTBNekV6T0RKaFpXSTRORE5sWkRVMU9" +
@@ -186,6 +184,10 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     private static String sessionDataKey = "7b1c8131-c6bd-4682-892e-1a948a9e57e8";
     private static String nonce = "0ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
     private static String invalidNonce = "7ed8f1b3-e83f-46c0-8d52-f0d2e7925f98";
+    private static String redirectUrl = "https://accounts.google.com/o/oauth2/v2/auth?scope=openid&" +
+            "response_type=code&redirect_uri=https%3A%2F%2Flocalhost%3A9443%2Fcommonauth&" +
+            "state=958e9049-8cd2-4580-8745-6679ac8d33f6%2COIDC&nonce=0ed8f1b3-e83f-46c0-8d52-f0d2e7925f98&" +
+            "client_id=sample.client-id";
     private static OAuthClientResponse token;
     private Map<String, String> paramValueMap;
     private int TENANT_ID = 1234;
@@ -823,12 +825,11 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
+        when(mockAuthenticationContext.getProperty(
+                OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX))
+                .thenReturn(redirectUrl);
         Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
                 (mockAuthenticationContext);
-
-        List<String> requiredParameterList = new ArrayList<>();
-        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
 
         Assert.assertTrue(authenticatorData.isPresent());
         AuthenticatorData authenticatorDataObj = authenticatorData.get();
@@ -840,7 +841,52 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 2);
         Assert.assertEquals(authenticatorDataObj.getPromptType(),
                 FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
+        Assert.assertTrue(authenticatorDataObj.getRequiredParams()
+                .contains(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE));
+        Assert.assertTrue(authenticatorDataObj.getRequiredParams()
+                .contains(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE));
+        Assert.assertEquals(authenticatorDataObj.getAdditionalData().getRedirectUrl(), redirectUrl);
+    }
 
+    @Test
+    public void testGetAuthInitiationDataForNativeSDKBasedFederation() {
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("true");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+
+        when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
+        when(externalIdPConfig.getIdPName()).thenReturn("LOCAL");
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
+        when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
+        when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
+        when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, clientId);
+
+        Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
+                (mockAuthenticationContext);
+
+        Assert.assertTrue(authenticatorData.isPresent());
+        AuthenticatorData authenticatorDataObj = authenticatorData.get();
+
+        Assert.assertEquals(authenticatorDataObj.getName(), AUTHENTICATOR_NAME);
+        Assert.assertEquals(authenticatorDataObj.getI18nKey(), AUTHENTICATOR_OIDC);
+        Assert.assertEquals(authenticatorDataObj.getDisplayName(), AUTHENTICATOR_FRIENDLY_NAME);
+        Assert.assertEquals(authenticatorDataObj.getRequiredParams().size(),
+                2);
+        Assert.assertEquals(authenticatorDataObj.getPromptType(),
+                FrameworkConstants.AuthenticatorPromptType.INTERNAL_PROMPT);
+        Assert.assertTrue(authenticatorDataObj.getRequiredParams()
+                .contains(OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM));
+        Assert.assertTrue(authenticatorDataObj.getRequiredParams()
+                .contains(OIDCAuthenticatorConstants.ID_TOKEN_PARAM));
+        Assert.assertEquals(authenticatorDataObj.getAdditionalData()
+                .getAdditionalAuthenticationParams().get(NONCE), nonce);
+        Assert.assertEquals(authenticatorDataObj.getAdditionalData()
+                .getAdditionalAuthenticationParams().get(OIDCAuthenticatorConstants.CLIENT_ID_PARAM), clientId);
     }
 
     private ExternalIdPConfig getDummyExternalIdPConfig() {

@@ -30,6 +30,7 @@ public class OIDCAuthenticatorConstants {
     public static final String CODE_PARAM = "code.param";
     public static final String ID_TOKEN_PARAM = "idToken";
     public static final String SESSION_DATA_KEY_PARAM = "sessionDataKey";
+    public static final String CLIENT_ID_PARAM = "clientId";
 
     private OIDCAuthenticatorConstants() {
 

@@ -1290,21 +1290,41 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         authenticatorData.setIdp(idpName);
 
         List<String> requiredParameterList = new ArrayList<>();
-        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
-        requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
-
+        if (isTrustedTokenIssuer(context)) {
+            requiredParameterList.add(ACCESS_TOKEN_PARAM);
+            requiredParameterList.add(ID_TOKEN_PARAM);
+            authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.INTERNAL_PROMPT);
+            authenticatorData.setAdditionalData(getAdditionalData(context, true));
+        } else {
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
+            authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
+            authenticatorData.setAdditionalData(getAdditionalData(context, false));
+        }
         authenticatorData.setRequiredParams(requiredParameterList);
-        authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
-        authenticatorData.setAdditionalData(getAdditionalData(context));
 
         return Optional.of(authenticatorData);
     }
 
-    private static AdditionalData getAdditionalData(AuthenticationContext context) {
+    private static AdditionalData getAdditionalData(
+            AuthenticationContext context, boolean isNativeSDKBasedFederationCall) {
 
         AdditionalData additionalData = new AdditionalData();
-        additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
-                REDIRECT_URL_SUFFIX));
+
+        if (isNativeSDKBasedFederationCall) {
+            Map<String, String> additionalAuthenticationParams = new HashMap<>();
+
+            String nonce = (String) context.getProperty(OIDC_FEDERATION_NONCE);
+            if (StringUtils.isNotBlank(nonce)) {
+                additionalAuthenticationParams.put(NONCE, nonce);
+            }
+            additionalAuthenticationParams.put(OIDCAuthenticatorConstants.CLIENT_ID_PARAM,
+                    context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.CLIENT_ID));
+            additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
+        } else {
+            additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                    REDIRECT_URL_SUFFIX));
+        }
         return additionalData;
     }
 
