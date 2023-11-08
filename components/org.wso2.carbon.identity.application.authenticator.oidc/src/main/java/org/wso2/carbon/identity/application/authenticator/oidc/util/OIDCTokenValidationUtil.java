@@ -61,7 +61,9 @@ public class OIDCTokenValidationUtil {
      *
      * @param audienceList - list containing audience values.
      * @param idp - identity provider.
-     * @Param tenantDomain - the tenant domain
+     * @param tenantDomain - the tenant domain
+     *
+     * @throws AuthenticationFailedException if none of the audience values matched the tokenEndpoint alias
      */
     public static void validateAudience(List<String> audienceList, IdentityProvider idp, String tenantDomain)
             throws AuthenticationFailedException {
@@ -78,8 +80,10 @@ public class OIDCTokenValidationUtil {
             }
         }
         if (!audienceFound) {
-            throw new AuthenticationFailedException ("None of the audience values matched the tokenEndpoint Alias "
-                    + tokenEndPointAlias);
+            throw new AuthenticationFailedException (
+                    OIDCErrorConstants.ErrorMessages.JWT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getCode(),
+                    String.format(OIDCErrorConstants.ErrorMessages.JWT_TOKEN_AUD_CLAIM_VALIDATION_FAILED.getMessage(),
+                            tokenEndPointAlias));
         }
     }
 

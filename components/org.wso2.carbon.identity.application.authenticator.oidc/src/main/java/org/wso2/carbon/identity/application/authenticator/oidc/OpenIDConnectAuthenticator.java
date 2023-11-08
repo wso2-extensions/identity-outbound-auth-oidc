@@ -73,6 +73,7 @@ import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
+import org.wso2.carbon.identity.oauth2.IdentityOAuth2ClientException;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
@@ -752,8 +753,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String accessToken = request.getParameter(ACCESS_TOKEN_PARAM);
             try {
                 validateJWTToken(context, idToken);
-            } catch (ParseException | IdentityOAuth2Exception | JOSEException e) {
-                throw new AuthenticationFailedException("JWT Token validation Failed.");
+            } catch (ParseException | IdentityOAuth2ClientException | JOSEException e) {
+                throw new AuthenticationFailedException(ErrorMessages.INVALID_JWT_TOKEN.getCode(),
+                        ErrorMessages.INVALID_JWT_TOKEN.getMessage());
+            } catch (IdentityOAuth2Exception e) {
+                throw new AuthenticationFailedException(ErrorMessages.JWT_TOKEN_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.JWT_TOKEN_VALIDATION_FAILED.getMessage(), e);
             }
             NativeSDKBasedFederatedOAuthClientResponse nativeSDKBasedFederatedOAuthClientResponse
                     = new NativeSDKBasedFederatedOAuthClientResponse();
@@ -790,7 +795,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         IdentityProvider identityProvider = getIdentityProvider(idpIdentifier, tenantDomain);
 
         OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider);
-        OIDCTokenValidationUtil.validateAudience(claimsSet.getAudience(), identityProvider , tenantDomain);
+        OIDCTokenValidationUtil.validateAudience(claimsSet.getAudience(), identityProvider, tenantDomain);
     }
 
     /**
@@ -1046,7 +1051,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
-            callbackUrl = getCallbackUrl(authenticatorProperties);
+            if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
+                callbackUrl = (String) context.getProperty(REDIRECT_URL);
+            } else {
+                callbackUrl = getCallbackUrl(authenticatorProperties);
+            }
         }
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
@@ -1651,7 +1660,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         IdentityProviderProperty[] identityProviderProperties = externalIdentityProvider.getIdpProperties();
         for (IdentityProviderProperty identityProviderProperty: identityProviderProperties) {
-            if (identityProviderProperty.getName().equals(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER)) {
+            if (IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER.equals(identityProviderProperty.getName())) {
                 return Boolean.parseBoolean(identityProviderProperty.getValue());
             }
         }
