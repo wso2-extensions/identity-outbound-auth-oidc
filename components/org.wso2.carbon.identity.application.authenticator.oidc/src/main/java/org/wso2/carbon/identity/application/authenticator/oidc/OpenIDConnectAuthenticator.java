@@ -130,6 +130,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
+    private static final String IS_API_BASED = "IS_API_BASED";
+    private static final String REDIRECT_URL = "REDIRECT_URL";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
 
@@ -450,6 +452,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
+
+                if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
+                    callbackurl = (String) context.getProperty(REDIRECT_URL);
+                }
                 String state = getStateParameter(context, authenticatorProperties);
                 String nonce = UUID.randomUUID().toString();
                 context.setProperty(OIDC_FEDERATION_NONCE, nonce);

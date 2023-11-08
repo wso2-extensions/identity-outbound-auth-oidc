@@ -95,6 +95,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
         AUTHENTICATOR_FRIENDLY_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator.IS_API_BASED;
 
 /***
  * Unit test class for OpenIDConnectAuthenticator class.
@@ -828,6 +829,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getProperty(
                 OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX))
                 .thenReturn(redirectUrl);
+        when(mockAuthenticationContext.getProperty(IS_API_BASED)).thenReturn("true");
         Optional<AuthenticatorData> authenticatorData = openIDConnectAuthenticator.getAuthInitiationData
                 (mockAuthenticationContext);
 
