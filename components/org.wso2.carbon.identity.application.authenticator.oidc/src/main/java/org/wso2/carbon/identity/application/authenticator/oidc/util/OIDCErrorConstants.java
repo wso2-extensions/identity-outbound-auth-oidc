@@ -98,7 +98,9 @@ public class OIDCErrorConstants {
                 "OID-65016", "Error while validating the iss claim in the jwt token"),
         JWT_TOKEN_VALIDATION_FAILED("OID-65016", "JWT token validation Failed."),
         JWT_TOKEN_SIGNATURE_VALIDATION_FAILED("OID-65017",
-                "Error while validating the JWT token signature");
+                "Error while validating the JWT token signature"),
+        JWT_TOKEN_PARSING_FAILED("OID-65018",
+                                                      "Error occurred while parsing JWT provided by federated IDP.");
 
         private final String code;
         private final String message;
