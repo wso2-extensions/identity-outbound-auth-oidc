@@ -1345,6 +1345,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             authenticatorData.setAdditionalData(getAdditionalData(context, false));
         }
         authenticatorData.setRequiredParams(requiredParameterList);
+        if (context.getProperty(AUTHENTICATOR_MESSAGE) != null) {
+            authenticatorData.setMessage((AuthenticatorMessage) context.getProperty(AUTHENTICATOR_MESSAGE));
+        }
 
         return Optional.of(authenticatorData);
     }
