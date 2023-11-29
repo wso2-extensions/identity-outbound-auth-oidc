@@ -285,6 +285,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ID_TOKEN_PARAM)).thenReturn(idToken);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM))
                 .thenReturn(sessionDataKey);
+        when(mockServletRequest.getAttribute(FrameworkConstants.IS_API_BASED_AUTH_FLOW)).thenReturn(true);
 
         assertTrue(openIDConnectAuthenticator.canHandle(mockServletRequest));
         assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), sessionDataKey);
@@ -830,6 +831,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.ID_TOKEN_PARAM)).thenReturn(idToken);
         when(mockServletRequest.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM))
                 .thenReturn(sessionDataKey);
+        when(mockServletRequest.getAttribute(FrameworkConstants.IS_API_BASED_AUTH_FLOW)).thenReturn(true);
 
         assertEquals(openIDConnectAuthenticator.getContextIdentifier(mockServletRequest), sessionDataKey);
     }
