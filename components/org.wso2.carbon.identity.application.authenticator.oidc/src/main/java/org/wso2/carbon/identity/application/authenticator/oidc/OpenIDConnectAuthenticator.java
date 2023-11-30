@@ -118,6 +118,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.STATE_PARAM_SUFFIX;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
 /**
@@ -459,7 +460,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
                     callbackurl = (String) context.getProperty(REDIRECT_URL);
                 }
-                String state = getStateParameter(context, authenticatorProperties);
+                String state = getStateParameter(request, context, authenticatorProperties);
+                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
                 String nonce = UUID.randomUUID().toString();
                 context.setProperty(OIDC_FEDERATION_NONCE, nonce);
 
@@ -574,9 +576,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         context.setProperty(AUTHENTICATOR_MESSAGE, authenticatorMessage);
     }
 
-    private String getStateParameter(AuthenticationContext context, Map<String, String> authenticatorProperties) {
+    private String getStateParameter(HttpServletRequest request, AuthenticationContext context,
+                                     Map<String, String> authenticatorProperties) {
 
-        String state = context.getContextIdentifier() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        String state;
+        if (FrameworkUtils.isAPIBasedAuthenticationFlow(request)) {
+            state = UUID.randomUUID() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        } else {
+            state = context.getContextIdentifier() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        }
+
         return getState(state, authenticatorProperties);
     }
 
@@ -911,7 +920,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String callback = getCallbackUrl(context.getAuthenticatorProperties());
             paramMap.put(OIDCAuthenticatorConstants.POST_LOGOUT_REDIRECT_URI, callback);
 
-            String sessionID = getStateParameter(context, context.getAuthenticatorProperties());
+            String sessionID = getStateParameter(request, context, context.getAuthenticatorProperties());
             paramMap.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, sessionID);
 
             try {
@@ -1156,7 +1165,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.debug("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
         }
 
-        if (isNativeSDKBasedFederationCall(request)) {
+        if (FrameworkUtils.isAPIBasedAuthenticationFlow(request)) {
             return request.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM);
         }
 
@@ -1370,6 +1379,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } else {
             additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
                     REDIRECT_URL_SUFFIX));
+            Map<String, String> additionalAuthenticationParams = new HashMap<>();
+            String state = (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                    STATE_PARAM_SUFFIX);
+            additionalAuthenticationParams.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, state);
+            additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
         }
         return additionalData;
     }
