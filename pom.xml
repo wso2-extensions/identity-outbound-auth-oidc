@@ -307,7 +307,7 @@
         <carbon.identity.framework.version>5.25.560</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.7</json-smart.version>
-        <json.wso2.version>3.0.0.wso2v2</json.wso2.version>
+        <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
         <carbon.kernel.version>4.9.10</carbon.kernel.version>
         <maven.buildnumber.plugin.version>1.4</maven.buildnumber.plugin.version>
         <carbon.p2.plugin.version>1.5.3</carbon.p2.plugin.version>
