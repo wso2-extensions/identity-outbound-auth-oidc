@@ -27,7 +27,7 @@
     <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>identity-application-auth-oidc</artifactId>
-    <version>5.11.8-SNAPSHOT</version>
+    <version>5.11.31-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>WSO2 Carbon - OpenID Connect Application Authenticator Feature Aggregator Module</name>
     <description>
@@ -72,6 +72,11 @@
             <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
                 <artifactId>org.wso2.carbon.identity.application.common</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.central.log.mgt</artifactId>
                 <version>${carbon.identity.framework.version}</version>
             </dependency>
             <dependency>
@@ -196,6 +201,12 @@
                 </exclusions>
             </dependency>
             <dependency>
+                <groupId>org.wso2.carbon.identity.organization.management.core</groupId>
+                <artifactId>org.wso2.carbon.identity.organization.management.service</artifactId>
+                <version>${identity.organization.management.core.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>${h2database.version}</version>
@@ -293,11 +304,11 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>5.25.90</carbon.identity.framework.version>
+        <carbon.identity.framework.version>5.25.560</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.7</json-smart.version>
-        <json.wso2.version>3.0.0.wso2v1</json.wso2.version>
-        <carbon.kernel.version>4.9.0</carbon.kernel.version>
+        <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
+        <carbon.kernel.version>4.9.10</carbon.kernel.version>
         <maven.buildnumber.plugin.version>1.4</maven.buildnumber.plugin.version>
         <carbon.p2.plugin.version>1.5.3</carbon.p2.plugin.version>
         <org.slf4j.verison>1.6.1</org.slf4j.verison>
@@ -309,15 +320,17 @@
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
         <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
 
+        <identity.organization.management.core.version>1.0.50</identity.organization.management.core.version>
+
         <commons-lang.wso2.version>2.6.0.wso2v1</commons-lang.wso2.version>
         <commons-collections.wso2.version>3.2.2.wso2v1</commons-collections.wso2.version>
         <commons-codec.version>1.14.0.wso2v1</commons-codec.version>
 
         <carbon.identity.inbound.oauth.package.import.version.range>[6.0.0, 7.0.0)
         </carbon.identity.inbound.oauth.package.import.version.range>
-        <identity.framework.package.import.version.range>[5.14.0, 7.0.0)
+        <identity.framework.package.import.version.range>[5.25.260, 7.0.0)
         </identity.framework.package.import.version.range>
-        <carbon.kernel.package.import.version.range>[4.5.0, 5.0.0)</carbon.kernel.package.import.version.range>
+        <carbon.kernel.package.import.version.range>[4.9.10, 5.0.0)</carbon.kernel.package.import.version.range>
         <carbon.identity.oauth.common.package.import.version.range>[6.2.0, 7.0.0)
         </carbon.identity.oauth.common.package.import.version.range>
         <carbon.kernel.package.import.version.range>[4.4.0, 5.0.0)</carbon.kernel.package.import.version.range>

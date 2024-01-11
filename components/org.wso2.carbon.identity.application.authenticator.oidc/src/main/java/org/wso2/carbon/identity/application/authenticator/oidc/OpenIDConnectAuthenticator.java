@@ -1,23 +1,26 @@
-/**
- * Copyright (c) 2013, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+/*
+ * Copyright (c) 2013, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
+ * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.JSONObjectUtils;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import net.minidev.json.JSONArray;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.MapUtils;
@@ -39,19 +42,30 @@ import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorFlowStatus;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
+import org.wso2.carbon.identity.application.authentication.framework.model.AdditionalData;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorMessage;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCTokenValidationUtil;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
+import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
+import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
 import org.wso2.carbon.identity.base.IdentityConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LogConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.claim.metadata.mgt.model.ExternalClaim;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
@@ -60,9 +74,15 @@ import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
+import org.wso2.carbon.identity.oauth2.IdentityOAuth2ClientException;
+import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
+import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
+import org.wso2.carbon.idp.mgt.IdentityProviderManager;
+import org.wso2.carbon.idp.mgt.util.IdPManagementConstants;
 import org.wso2.carbon.user.api.UserRealm;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
+import org.wso2.carbon.utils.DiagnosticLog;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -82,15 +102,31 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ID_TOKEN_PARAM;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.STATE_PARAM_SUFFIX;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
+/**
+ * This class holds the OIDC authenticator.
+ */
 public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         implements FederatedApplicationAuthenticator {
 
@@ -101,8 +137,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final String PKCE_CODE_CHALLENGE_METHOD = "S256";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
+    private static final String IS_API_BASED = "IS_API_BASED";
+    private static final String REDIRECT_URL = "REDIRECT_URL";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
+    private static final String AUTHENTICATOR_MESSAGE = "authenticatorMessage";
 
     private static final String IS_PKCE_ENABLED_NAME = "isPKCEEnabled";
     private static final String IS_PKCE_ENABLED_DISPLAY_NAME = "Enable PKCE";
@@ -134,6 +173,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 return AuthenticatorFlowStatus.INCOMPLETE;
             }
         }
+        /*
+        During the logout flow, the string 'OIDC' is appended to the logout request. This is done to identify the
+        logout request as an OIDC logout request. However, in scenarios where multiple IS instances are chained as
+        federated idps, the logout request and the logout response needs to be distinctly identified and handled
+        accordingly. To identify this some additional checks needs to be performed which is handled in the following
+        method.
+         */
+        if (context.isLogoutRequest()) {
+            return processLogout(request, response, context);
+        }
         return super.process(request, response, context);
     }
 
@@ -160,12 +209,22 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.trace("Inside OpenIDConnectAuthenticator.canHandle()");
         }
 
-        if (OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request))) {
-            return true;
+        boolean canHandle;
+        if (isNativeSDKBasedFederationCall(request)) {
+            canHandle = true;
+        } else {
+            canHandle = OIDCAuthenticatorConstants.LOGIN_TYPE.equals(getLoginType(request));
         }
-
+        if (canHandle && LoggerUtils.isDiagnosticLogsEnabled()) {
+            DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), FrameworkConstants.LogConstants.ActionIDs.HANDLE_AUTH_STEP);
+            diagnosticLogBuilder.resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.INTERNAL_SYSTEM)
+                    .resultMessage("Outbound OIDC authenticator handling the authentication.");
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        }
+        return canHandle;
         // TODO : What if IdP failed?
-        return false;
     }
 
     /**
@@ -179,7 +238,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
     protected boolean isInitialRequest(AuthenticationContext context, HttpServletRequest request) {
 
-        return !context.isLogoutRequest() && !hasCodeParamInRequest(request) && !hasErrorParamInRequest(request);
+        return !context.isLogoutRequest() && !hasCodeParamInRequest(request) && !hasErrorParamInRequest(request) &&
+                !isNativeSDKBasedFederationCall(request);
     }
 
     private boolean hasErrorParamInRequest(HttpServletRequest request) {
@@ -230,7 +290,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * Returns the token endpoint of OIDC federated authenticator
+     * Returns the token endpoint of OIDC federated authenticator.
      *
      * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
      *                                configuration.
@@ -251,7 +311,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * @return
+     * Get scopes from query param string or return default `openid` if none defined.
+     *
+     * @param scope String
+     * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
+     * @return Scopes.
      */
     protected String getScope(String scope, Map<String, String> authenticatorProperties) {
 
@@ -262,7 +326,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * Get Scopes.
+     * Get scopes defined in Scopes field.
      *
      * @param authenticatorProperties Map<String, String> (Authenticator property, Property value)
      * @return Scopes.
@@ -374,12 +438,41 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
+            if (LoggerUtils.isDiagnosticLogsEnabled()) {
+                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                        getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
+                diagnosticLogBuilder.resultMessage("Initiate outbound OIDC authentication request.")
+                        .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                        .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                        .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                        .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                        .inputParams(getApplicationDetails(context));
+                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+            }
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (authenticatorProperties != null) {
+                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
+                if (LoggerUtils.isDiagnosticLogsEnabled()) {
+                    diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(getComponentId(),
+                            INITIATE_OUTBOUND_AUTH_REQUEST);
+                    diagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                            .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                            .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                            .inputParam("authenticator properties", authenticatorProperties.keySet())
+                            .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                            .inputParams(getApplicationDetails(context));
+                }
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
                 String callbackurl = getCallbackUrl(authenticatorProperties);
-                String state = getStateParameter(context, authenticatorProperties);
+                if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
+                    callbackurl = (String) context.getProperty(REDIRECT_URL);
+                }
+                String state = getStateParameter(request, context, authenticatorProperties);
+                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
+                String nonce = UUID.randomUUID().toString();
+                context.setProperty(OIDC_FEDERATION_NONCE, nonce);
+                
                 boolean isPKCEEnabled = Boolean.parseBoolean(
                         authenticatorProperties.get(OIDCAuthenticatorConstants.IS_PKCE_ENABLED));
 
@@ -389,6 +482,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String queryString = getQueryString(authenticatorProperties);
                 if (StringUtils.isNotBlank(scopes)) {
+                    if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                        diagnosticLogBuilder.inputParam("scopes", scopes);
+                    }
                     queryString += "&scope=" + scopes;
                 }
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
@@ -413,22 +509,26 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         .toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
+                            .setParameter(NONCE, nonce)
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setState(state)
+                            .setParameter(NONCE, nonce)
                             .buildQueryMessage();
                 } else if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("redirect_uri=")) {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE)
-                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state).buildQueryMessage();
+                            .setScope(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE).setState(state)
+                            .setParameter(NONCE, nonce).buildQueryMessage();
 
                 } else {
                     authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                             .setRedirectURI(callbackurl)
                             .setResponseType(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE).setScope(scope)
-                            .setState(state).buildQueryMessage();
+                            .setState(state)
+                            .setParameter(NONCE, nonce).buildQueryMessage();
                 }
 
                 String loginPage = authzRequest.getLocationUri();
@@ -454,11 +554,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         loginPage = loginPage + queryString;
                     }
                 }
+                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX, loginPage);
                 response.sendRedirect(loginPage);
+                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                    diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
+                    LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+                }
             } else {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getMessage());
                 }
+                setAuthenticatorMessageToContext(ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED, context);
+
                 throw new AuthenticationFailedException(
                         ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getCode(),
                         ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getMessage());
@@ -467,6 +574,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error while encoding the additional query parameters", e);
             }
+            setAuthenticatorMessageToContext(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED, context);
+
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
         } catch (IOException e) {
@@ -478,9 +587,25 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return;
     }
 
-    private String getStateParameter(AuthenticationContext context, Map<String, String> authenticatorProperties) {
+    private static void setAuthenticatorMessageToContext(ErrorMessages errorMessage,
+                                                         AuthenticationContext context) {
 
-        String state = context.getContextIdentifier() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        AuthenticatorMessage authenticatorMessage = new AuthenticatorMessage(FrameworkConstants.
+                AuthenticatorMessageType.ERROR, errorMessage.
+                getCode(), errorMessage.getMessage(), null);
+        context.setProperty(AUTHENTICATOR_MESSAGE, authenticatorMessage);
+    }
+
+    private String getStateParameter(HttpServletRequest request, AuthenticationContext context,
+                                     Map<String, String> authenticatorProperties) {
+
+        String state;
+        if (FrameworkUtils.isAPIBasedAuthenticationFlow(request)) {
+            state = UUID.randomUUID() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        } else {
+            state = context.getContextIdentifier() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
+        }
+
         return getState(state, authenticatorProperties);
     }
 
@@ -497,6 +622,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected void processAuthenticationResponse(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
+            diagnosticLogBuilder.resultMessage("Processing outbound OIDC authentication response.")
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                    .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
+                    .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                    .inputParams(getApplicationDetails(context));
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        }
         // oAuthResponse can be null in some authentication flows. i.e Google One Tap.
         OAuthClientResponse oAuthResponse = requestAccessToken(request, context);
         // TODO : return access token and id token to framework
@@ -505,6 +641,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
         if (requiredIDToken(authenticatorProperties) && StringUtils.isBlank(idToken)) {
+            setAuthenticatorMessageToContext(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE, context);
+
             throw new AuthenticationFailedException(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getCode(),
                     String.format(ErrorMessages.ID_TOKEN_MISSED_IN_OIDC_RESPONSE.getMessage(),
                             getTokenEndpoint(authenticatorProperties),
@@ -519,6 +657,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         Map<ClaimMapping, String> claimsMap = new HashMap<>();
         Map<String, Object> jwtAttributeMap = new HashMap<>();
 
+        DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                    getComponentId(), PROCESS_AUTHENTICATION_RESPONSE);
+            diagnosticLogBuilder.inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
+                    .inputParams(getApplicationDetails(context))
+                    .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
+                    .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION);
+        }
         if (StringUtils.isNotBlank(idToken)) {
             jwtAttributeMap = getIdTokenClaims(context, idToken);
             if (jwtAttributeMap.isEmpty()) {
@@ -526,13 +673,20 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(errorMessage);
                 }
+                setAuthenticatorMessageToContext(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL, context);
+
                 throw new AuthenticationFailedException(ErrorMessages.DECODED_JSON_OBJECT_IS_NULL.getCode(),
                         errorMessage);
             }
-
+            if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                diagnosticLogBuilder.inputParam("id token claims", jwtAttributeMap.keySet());
+            }
             String idpName = context.getExternalIdP().getIdPName();
             String sidClaim = (String) jwtAttributeMap.get(OIDCAuthenticatorConstants.Claim.SID);
             if (StringUtils.isNotBlank(sidClaim) && StringUtils.isNotBlank(idpName)) {
+                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+                    diagnosticLogBuilder.inputParam("federated idp name", idpName);
+                }
                 // Add 'sid' claim into authentication context, to be stored in the UserSessionStore for single logout.
                 context.setProperty(FEDERATED_IDP_SESSION_ID + idpName, sidClaim);
             }
@@ -542,6 +696,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
+            if (StringUtils.isNotBlank((String) context.getProperty(OIDC_FEDERATION_NONCE))) {
+                String nonce = (String) jwtAttributeMap.get(NONCE);
+                if (nonce == null) {
+                    LOG.debug("OIDC provider does not support nonce claim in id_token.");
+                }
+                if (nonce != null && !nonce.equals(context.getProperty(OIDC_FEDERATION_NONCE))) {
+                    setAuthenticatorMessageToContext(ErrorMessages.NONCE_MISMATCH, context);
+
+                    throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
+                            ErrorMessages.NONCE_MISMATCH.getMessage());
+                }
+            }
             String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
 
@@ -561,6 +727,24 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         claimsMap.putAll(getSubjectAttributes(oAuthResponse, authenticatorProperties));
         authenticatedUser.setUserAttributes(claimsMap);
         context.setSubject(authenticatedUser);
+        if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
+            diagnosticLogBuilder.resultMessage("Outbound OIDC authentication response processed successfully.")
+                    .resultStatus(DiagnosticLog.ResultStatus.SUCCESS);
+            diagnosticLogBuilder.inputParam("user attributes (local claim : remote claim)",
+                    getUserAttributeClaimMappingList(authenticatedUser));
+            LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+        }
+    }
+
+    /**
+     * Get the i18n key defined to represent the authenticator name.
+     *
+     * @return the 118n key.
+     */
+    @Override
+    public String getI18nKey() {
+
+        return AUTHENTICATOR_OIDC;
     }
 
     /**
@@ -594,6 +778,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
 
         if (StringUtils.isBlank(accessToken)) {
+            setAuthenticatorMessageToContext(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL, context);
+
             throw new AuthenticationFailedException(ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getCode(),
                     ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
         }
@@ -614,6 +800,25 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throws AuthenticationFailedException {
 
         OAuthClientResponse oAuthResponse;
+        if (isTrustedTokenIssuer(context) && isNativeSDKBasedFederationCall(request)) {
+            String idToken = request.getParameter(ID_TOKEN_PARAM);
+            String accessToken = request.getParameter(ACCESS_TOKEN_PARAM);
+            try {
+                validateJWTToken(context, idToken);
+            } catch (ParseException | IdentityOAuth2ClientException | JOSEException e) {
+                throw new AuthenticationFailedException(ErrorMessages.INVALID_JWT_TOKEN.getCode(),
+                        ErrorMessages.INVALID_JWT_TOKEN.getMessage());
+            } catch (IdentityOAuth2Exception e) {
+                throw new AuthenticationFailedException(ErrorMessages.JWT_TOKEN_VALIDATION_FAILED.getCode(),
+                        ErrorMessages.JWT_TOKEN_VALIDATION_FAILED.getMessage(), e);
+            }
+            NativeSDKBasedFederatedOAuthClientResponse nativeSDKBasedFederatedOAuthClientResponse
+                    = new NativeSDKBasedFederatedOAuthClientResponse();
+            nativeSDKBasedFederatedOAuthClientResponse.setAccessToken(accessToken);
+            nativeSDKBasedFederatedOAuthClientResponse.setIdToken(idToken);
+
+            return nativeSDKBasedFederatedOAuthClientResponse;
+        }
         try {
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
@@ -629,6 +834,86 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     ErrorMessages.AUTHENTICATION_PROCESS_FAILED.getMessage(), context.getSubject(), e);
         }
         return oAuthResponse;
+    }
+
+    private void validateJWTToken(AuthenticationContext context, String idToken) throws ParseException,
+            AuthenticationFailedException, JOSEException, IdentityOAuth2Exception {
+
+        SignedJWT signedJWT = SignedJWT.parse(idToken);
+        JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+        OIDCTokenValidationUtil.validateIssuerClaim(claimsSet);
+        String tenantDomain = context.getTenantDomain();
+        String idpIdentifier = OIDCTokenValidationUtil.getIssuer(claimsSet);
+        IdentityProvider identityProvider = getIdentityProvider(idpIdentifier, tenantDomain);
+
+        OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider);
+        OIDCTokenValidationUtil.validateAudience(claimsSet.getAudience(), identityProvider, tenantDomain);
+    }
+
+    /**
+     * Get the identity provider from issuer and tenant domain.
+     *
+     * @param jwtIssuer   JWT issuer.
+     * @param tenantDomain Tenant domain.
+     * @return IdentityProvider.
+     * @throws AuthenticationFailedException If there is an issue while getting the identity provider.
+     */
+    private IdentityProvider getIdentityProvider(String jwtIssuer, String tenantDomain)
+            throws AuthenticationFailedException {
+
+        IdentityProvider identityProvider;
+        ErrorMessages errorMessages = ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER;
+        try {
+            identityProvider = IdentityProviderManager.getInstance().getIdPByMetadataProperty(
+                    IdentityApplicationConstants.IDP_ISSUER_NAME, jwtIssuer, tenantDomain, false);
+
+            if (identityProvider == null) {
+                identityProvider = IdentityProviderManager.getInstance().getIdPByName(jwtIssuer, tenantDomain);
+            }
+            if (identityProvider != null && StringUtils.equalsIgnoreCase(identityProvider.getIdentityProviderName(),
+                    OIDCAuthenticatorConstants.BackchannelLogout.DEFAULT_IDP_NAME)) {
+                // Check whether this jwt was issued by the resident identity provider.
+                identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
+
+                if (identityProvider == null) {
+                    throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage());
+                }
+            }
+        } catch (IdentityProviderManagementException e) {
+            throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage(), e);
+        }
+        return identityProvider;
+    }
+
+    /**
+     * Get the resident identity provider from issuer and tenant domain.
+     *
+     * @param tenantDomain Tenant domain.
+     * @param jwtIssuer   Issuer of the jwt.
+     * @return IdentityProvider.
+     * @throws AuthenticationFailedException If there is an issue while getting the resident identity provider.
+     */
+    private IdentityProvider getResidentIDPForIssuer(String tenantDomain, String jwtIssuer)
+            throws AuthenticationFailedException {
+
+        String issuer = StringUtils.EMPTY;
+        IdentityProvider residentIdentityProvider;
+        try {
+            residentIdentityProvider = IdentityProviderManager.getInstance().getResidentIdP(tenantDomain);
+        } catch (IdentityProviderManagementException e) {
+            String errorMsg = ErrorMessages.GETTING_RESIDENT_IDP_FAILED.getCode() + " - " +
+                    String.format(ErrorMessages.GETTING_RESIDENT_IDP_FAILED.getMessage(), tenantDomain);
+            throw new AuthenticationFailedException(errorMsg);
+        }
+        FederatedAuthenticatorConfig[] fedAuthnConfigs = residentIdentityProvider.getFederatedAuthenticatorConfigs();
+        FederatedAuthenticatorConfig oauthAuthenticatorConfig =
+                IdentityApplicationManagementUtil.getFederatedAuthenticator(fedAuthnConfigs,
+                        IdentityApplicationConstants.Authenticator.OIDC.NAME);
+        if (oauthAuthenticatorConfig != null) {
+            issuer = IdentityApplicationManagementUtil.getProperty(oauthAuthenticatorConfig.getProperties(),
+                    OIDCAuthenticatorConstants.BackchannelLogout.OIDC_IDP_ENTITY_ID).getValue();
+        }
+        return jwtIssuer.equals(issuer) ? residentIdentityProvider : null;
     }
 
     protected void processAuthenticatedUserScopes(AuthenticationContext context, String scopes) {
@@ -655,7 +940,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String callback = getCallbackUrl(context.getAuthenticatorProperties());
             paramMap.put(OIDCAuthenticatorConstants.POST_LOGOUT_REDIRECT_URI, callback);
 
-            String sessionID = getStateParameter(context, context.getAuthenticatorProperties());
+            String sessionID = getStateParameter(request, context, context.getAuthenticatorProperties());
             paramMap.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, sessionID);
 
             try {
@@ -695,6 +980,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         try {
             jwtAttributeSet = JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
         } catch (ParseException e) {
+            setAuthenticatorMessageToContext(ErrorMessages.JWT_TOKEN_PARSING_FAILED, context);
+
             LOG.error("Error occurred while parsing JWT provided by federated IDP: ", e);
         }
         Map<String, Object> jwtAttributeMap = new HashMap();
@@ -763,6 +1050,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         if (authenticatedUserId == null) {
+            setAuthenticatorMessageToContext(ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP, context);
             throw new AuthenticationFailedException(
                     ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP.getCode(),
                     ErrorMessages.USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP.getMessage());
@@ -821,7 +1109,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
-            callbackUrl = getCallbackUrl(authenticatorProperties);
+            if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
+                callbackUrl = (String) context.getProperty(REDIRECT_URL);
+            } else {
+                callbackUrl = getCallbackUrl(authenticatorProperties);
+            }
         }
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
@@ -886,6 +1178,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug(String.format(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getMessage(),
                         tokenEndPoint), e);
             }
+            setAuthenticatorMessageToContext(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED, context);
+
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_ACCESS_TOKEN_REQUEST_FAILED.getCode(), e);
         } catch (URLBuilderException e) {
             throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
@@ -915,6 +1209,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (LOG.isDebugEnabled()) {
             LOG.debug("Inside OpenIDConnectAuthenticator.getContextIdentifier()");
         }
+
+        if (FrameworkUtils.isAPIBasedAuthenticationFlow(request)) {
+            return request.getParameter(OIDCAuthenticatorConstants.SESSION_DATA_KEY_PARAM);
+        }
+
         String state = request.getParameter(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
         if (state != null) {
             return state.split(",")[0];
@@ -1048,7 +1347,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         enableBasicAuth.setDisplayName("Enable HTTP basic auth for client authentication");
         enableBasicAuth.setRequired(false);
         enableBasicAuth.setDescription(
-                "Specifies that HTTP basic authentication should be used for client authentication, else client credentials will be included in the request body");
+                "Specifies that HTTP basic authentication should be used for client authentication, " +
+                        "else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
         enableBasicAuth.setDisplayOrder(10);
         configProperties.add(enableBasicAuth);
@@ -1063,6 +1363,83 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         configProperties.add(enablePKCE);
 
         return configProperties;
+    }
+
+    /**
+     * This method is responsible for validating whether the authenticator is supported for API Based Authentication.
+     *
+     * @return true if the authenticator is supported for API Based Authentication.
+     */
+    @Override
+    public boolean isAPIBasedAuthenticationSupported() {
+
+        return true;
+    }
+
+    /**
+     * This method is responsible for obtaining authenticator-specific data needed to
+     * initialize the authentication process within the provided authentication context.
+     *
+     * @param context The authentication context containing information about the current authentication attempt.
+     * @return An {@code Optional} containing an {@code AuthenticatorData} object representing the initiation data.
+     *         If the initiation data is available, it is encapsulated within the {@code Optional}; otherwise,
+     *         an empty {@code Optional} is returned.
+     */
+    @Override
+    public Optional<AuthenticatorData> getAuthInitiationData(AuthenticationContext context) {
+
+        AuthenticatorData authenticatorData = new AuthenticatorData();
+        authenticatorData.setName(getName());
+        authenticatorData.setDisplayName(getFriendlyName());
+        authenticatorData.setI18nKey(getI18nKey());
+        String idpName = context.getExternalIdP().getIdPName();
+        authenticatorData.setIdp(idpName);
+
+        List<String> requiredParameterList = new ArrayList<>();
+        if (isTrustedTokenIssuer(context)) {
+            requiredParameterList.add(ACCESS_TOKEN_PARAM);
+            requiredParameterList.add(ID_TOKEN_PARAM);
+            authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.INTERNAL_PROMPT);
+            authenticatorData.setAdditionalData(getAdditionalData(context, true));
+        } else {
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE);
+            requiredParameterList.add(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE);
+            authenticatorData.setPromptType(FrameworkConstants.AuthenticatorPromptType.REDIRECTION_PROMPT);
+            authenticatorData.setAdditionalData(getAdditionalData(context, false));
+        }
+        authenticatorData.setRequiredParams(requiredParameterList);
+        if (context.getProperty(AUTHENTICATOR_MESSAGE) != null) {
+            authenticatorData.setMessage((AuthenticatorMessage) context.getProperty(AUTHENTICATOR_MESSAGE));
+        }
+
+        return Optional.of(authenticatorData);
+    }
+
+    private static AdditionalData getAdditionalData(
+            AuthenticationContext context, boolean isNativeSDKBasedFederationCall) {
+
+        AdditionalData additionalData = new AdditionalData();
+
+        if (isNativeSDKBasedFederationCall) {
+            Map<String, String> additionalAuthenticationParams = new HashMap<>();
+
+            String nonce = (String) context.getProperty(OIDC_FEDERATION_NONCE);
+            if (StringUtils.isNotBlank(nonce)) {
+                additionalAuthenticationParams.put(NONCE, nonce);
+            }
+            additionalAuthenticationParams.put(OIDCAuthenticatorConstants.CLIENT_ID_PARAM,
+                    context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.CLIENT_ID));
+            additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
+        } else {
+            additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                    REDIRECT_URL_SUFFIX));
+            Map<String, String> additionalAuthenticationParams = new HashMap<>();
+            String state = (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                    STATE_PARAM_SUFFIX);
+            additionalAuthenticationParams.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, state);
+            additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
+        }
+        return additionalData;
     }
 
     /**
@@ -1092,8 +1469,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             String userIdClaimUriInOIDCDialect = null;
             if (useLocalClaimDialect) {
                 if (StringUtils.isNotBlank(userIdClaimUri)) {
-                    // User ID is defined in local claim dialect at the IDP. Find the corresponding OIDC claim and retrieve
-                    // from idTokenClaims.
+                    // User ID is defined in local claim dialect at the IDP.
+                    // Find the corresponding OIDC claim and retrieve from idTokenClaims.
                     userIdClaimUriInOIDCDialect = getUserIdClaimUriInOIDCDialect(userIdClaimUri, spTenantDomain);
                 } else {
                     if (LOG.isDebugEnabled()) {
@@ -1132,6 +1509,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.warn("Unable to map subject claim (non-String type): " + subject);
             }
         } catch (ClaimMetadataException ex) {
+            setAuthenticatorMessageToContext(ErrorMessages.EXECUTING_CLAIM_TRANSFORMATION_FOR_IDP_FAILED, context);
+
             throw new AuthenticationFailedException(
                     ErrorMessages.EXECUTING_CLAIM_TRANSFORMATION_FOR_IDP_FAILED.getCode(),
                     String.format(ErrorMessages.EXECUTING_CLAIM_TRANSFORMATION_FOR_IDP_FAILED.getMessage(),
@@ -1214,6 +1593,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return builder.toString();
     }
 
+    /**
+     * Return the component ID of the Authenticator. This will be used for logging purposes.
+     * @return Component ID String.
+     */
+    protected String getComponentId() {
+
+        return OUTBOUND_AUTH_OIDC_SERVICE;
+    }
+
     private String interpretQueryString(AuthenticationContext context, String queryString,
                                         Map<String, String[]> parameters) {
 
@@ -1245,8 +1633,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     /**
      * Evaluate the query string for additional query params with actual key and value.
      *
-     * @param paramMap addition query param and value
-     * @return evaluated query string
+     * @param paramMap addition query param and value.
+     * @return evaluated query string.
      */
     private String getEvaluatedQueryString(Map<String, String> paramMap) throws UnsupportedEncodingException {
 
@@ -1258,7 +1646,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             queryString.append(param.getKey()).append("=")
                     .append(URLEncoder.encode(param.getValue().toString(), StandardCharsets.UTF_8.toString()))
                     .append("&");
-
         }
         return queryString.substring(0, queryString.length() - 1);
     }
@@ -1267,9 +1654,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * To capture the additional authenticator params from the adaptive script and interpret the query string with
      * additional params.
      *
-     * @param context     Authentication context
-     * @param queryString the query string with additional param
-     * @return interpreted query string
+     * @param context     Authentication context.
+     * @param queryString the query string with additional param.
+     * @return interpreted query string.
      */
     private String getQueryStringWithAuthenticatorParam(AuthenticationContext context, String queryString) {
 
@@ -1281,15 +1668,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (StringUtils.isNotEmpty(getRuntimeParams(context).get(paramName))) {
                 value = getRuntimeParams(context).get(paramName);
             }
-            try {
-                value = URLEncoder.encode(value, StandardCharsets.UTF_8.name());
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("InterpretQueryString with authenticator param: " + paramName + "," +
-                            " value: " + value);
-                }
-            } catch (UnsupportedEncodingException e) {
-                LOG.error("Error while encoding the authenticator param: " + paramName +
-                        " with value: " + value, e);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("InterpretQueryString with authenticator param: " + paramName + "," +
+                        " value: " + value);
             }
             queryString = queryString.replaceAll("\\$authparam\\{" + paramName + "}",
                     Matcher.quoteReplacement(value));
@@ -1344,5 +1725,83 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
             throw new AuthenticationFailedException("Error while generating code challenge", e);
         }
+    }
+
+    private AuthenticatorFlowStatus processLogout(HttpServletRequest request, HttpServletResponse response,
+                                                  AuthenticationContext context) throws LogoutFailedException {
+        try {
+            // check if a logout response
+            if (canHandle(request)
+                    && StringUtils.isEmpty(request.getParameter(FrameworkConstants.RequestParams.TYPE))
+                    && context.getExternalIdP() != null
+                    && context.getExternalIdP().getIdentityProvider() != null) {
+                processLogoutResponse(request, response, context);
+                return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+            }
+            context.setCurrentAuthenticator(getName());
+            initiateLogoutRequest(request, response, context);
+            return AuthenticatorFlowStatus.INCOMPLETE;
+        } catch (UnsupportedOperationException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Logout is disabled during social logout or logout url not defined in " +
+                        "idp configuration. Skipping logout and ignoring UnsupportedOperationException.", e);
+            }
+            return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+        }
+    }
+
+    /**
+     * Get application details from the authentication context.
+     * @param context Authentication context.
+     * @return Map of application details.
+     */
+    private Map<String, String> getApplicationDetails(AuthenticationContext context) {
+
+        Map<String, String> applicationDetailsMap = new HashMap<>();
+        FrameworkUtils.getApplicationResourceId(context).ifPresent(applicationId ->
+                applicationDetailsMap.put(LogConstants.InputKeys.APPLICATION_ID, applicationId));
+        FrameworkUtils.getApplicationName(context).ifPresent(applicationName ->
+                applicationDetailsMap.put(LogConstants.InputKeys.APPLICATION_NAME,
+                        applicationName));
+        return applicationDetailsMap;
+    }
+
+    private static List<String> getUserAttributeClaimMappingList(AuthenticatedUser authenticatedUser) {
+
+        return authenticatedUser.getUserAttributes().keySet().stream()
+                .map(claimMapping -> {
+                    String localClaim = claimMapping.getLocalClaim().getClaimUri();
+                    String remoteClaim = claimMapping.getRemoteClaim().getClaimUri();
+                    return localClaim + " : " + remoteClaim;
+                })
+                .collect(Collectors.toList());
+    }
+
+
+    private boolean isTrustedTokenIssuer(AuthenticationContext context) {
+
+        ExternalIdPConfig externalIdPConfig = context.getExternalIdP();
+        if (externalIdPConfig == null) {
+            return false;
+        }
+
+        IdentityProvider externalIdentityProvider = externalIdPConfig.getIdentityProvider();
+        if (externalIdentityProvider == null) {
+            return false;
+        }
+
+        IdentityProviderProperty[] identityProviderProperties = externalIdentityProvider.getIdpProperties();
+        for (IdentityProviderProperty identityProviderProperty: identityProviderProperties) {
+            if (IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER.equals(identityProviderProperty.getName())) {
+                return Boolean.parseBoolean(identityProviderProperty.getValue());
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isNativeSDKBasedFederationCall(HttpServletRequest request) {
+
+        return request.getParameter(ACCESS_TOKEN_PARAM) != null && request.getParameter(ID_TOKEN_PARAM) != null;
     }
 }

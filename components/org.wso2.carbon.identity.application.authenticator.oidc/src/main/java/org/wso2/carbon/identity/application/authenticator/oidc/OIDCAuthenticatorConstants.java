@@ -1,17 +1,17 @@
-/**
- * Copyright (c) 2015, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+/*
+ * Copyright (c) 2015, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
+ * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -20,7 +20,17 @@ package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import java.util.regex.Pattern;
 
+/**
+ * This class holds the constants related to the OIDC authenticator.
+ */
 public class OIDCAuthenticatorConstants {
+
+    public static final String STATE_PARAM = "state.param";
+    public static final String ACCESS_TOKEN_PARAM = "accessToken";
+    public static final String CODE_PARAM = "code.param";
+    public static final String ID_TOKEN_PARAM = "idToken";
+    public static final String SESSION_DATA_KEY_PARAM = "sessionDataKey";
+    public static final String CLIENT_ID_PARAM = "clientId";
 
     private OIDCAuthenticatorConstants() {
 
@@ -61,7 +71,16 @@ public class OIDCAuthenticatorConstants {
     
     public static final String PKCE_CODE_VERIFIER = "PKCE_CODE_VERIFIER";
     public static final String IS_PKCE_ENABLED = "IsPKCEEnabled";
+  
+    public static final String OIDC_FEDERATION_NONCE = "oidc_federation_nonce";
+    public static final String AUTHENTICATOR_OIDC = "authenticator.oidc";
+    public static final String REDIRECT_URL_SUFFIX = "_redirect_url";
+    public static final String STATE_PARAM_SUFFIX = "_state_param";
+    public static final String REDIRECTION_PROMPT = "REDIRECTION_PROMPT";
 
+    /**
+     * This class holds the constants related to authenticator configuration parameters.
+     */
     public class AuthenticatorConfParams {
 
         private AuthenticatorConfParams() {
@@ -71,6 +90,9 @@ public class OIDCAuthenticatorConstants {
         public static final String DEFAULT_IDP_CONFIG = "DefaultIdPConfig";
     }
 
+    /**
+     * This class holds the constants related to IdP configuration parameters.
+     */
     public class IdPConfParams {
 
         private IdPConfParams() {
@@ -85,6 +107,9 @@ public class OIDCAuthenticatorConstants {
         public static final String USER_INFO_EP = "UserInfoEndPoint";
     }
 
+    /**
+     * This class holds the constants related to claims.
+     */
     public class Claim {
 
         private Claim() {
@@ -119,6 +144,9 @@ public class OIDCAuthenticatorConstants {
         public static final String BACKCHANNEL_LOGOUT_EVENT_CLAIM = "{}";
     }
 
+    /**
+     *  This class holds the constants related to Back Channel Logout.
+     */
     public class BackchannelLogout {
 
         private BackchannelLogout() {
@@ -136,5 +164,22 @@ public class OIDCAuthenticatorConstants {
                 "server error.";
 
         public static final long DEFAULT_IAT_VALIDITY_PERIOD = 15000;
+    }
+
+    /**
+     * Constants related to log management.
+     */
+    public static class LogConstants {
+
+        public static final String OUTBOUND_AUTH_OIDC_SERVICE = "outbound-auth-oidc";
+
+        /**
+         * Define action IDs for diagnostic logs.
+         */
+        public static class ActionIDs {
+
+            public static final String PROCESS_AUTHENTICATION_RESPONSE = "process-outbound-auth-oidc-response";
+            public static final String INITIATE_OUTBOUND_AUTH_REQUEST = "initiate-outbound-auth-oidc-request";
+        }
     }
 }

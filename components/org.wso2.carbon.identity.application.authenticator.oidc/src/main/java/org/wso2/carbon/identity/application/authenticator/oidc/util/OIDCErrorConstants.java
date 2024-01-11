@@ -38,6 +38,11 @@ public class OIDCErrorConstants {
                 "Authentication process failed"),
         USER_ID_NOT_FOUND_IN_ID_TOKEN_SENT_BY_FEDERATED_IDP("OID-60005",
                 "Cannot find the userId from the id_token sent by the federated IDP."),
+        NONCE_MISMATCH("OID-60016", "The nonce claim of the ID token is not equal to the nonce value " +
+                "sent in the authentication request"),
+        INVALID_JWT_TOKEN("OID-60017", "JWT token is invalid."),
+        JWT_TOKEN_AUD_CLAIM_VALIDATION_FAILED("OID-60018",
+                "None of the audience values matched the token endpoint alias: %s."),
         // Federated IdP initiated back-channel logout client errors.
         LOGOUT_TOKEN_EMPTY_OR_NULL("OID-60006",
                 "Logout token is empty or null. Pass a valid logout token"),
@@ -88,7 +93,14 @@ public class OIDCErrorConstants {
                 "Error while terminating the sessions for the user: %s"),
         RETRIEVING_USER_ID_FAILED("OID-65014",
                 "Error while retrieving user Id mapping for sub: %s"),
-        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error");
+        LOGOUT_SERVER_EXCEPTION("OID-65015", "Back channel logout failed due to server error"),
+        JWT_TOKEN_ISS_CLAIM_VALIDATION_FAILED(
+                "OID-65016", "Error while validating the iss claim in the jwt token"),
+        JWT_TOKEN_VALIDATION_FAILED("OID-65016", "JWT token validation Failed."),
+        JWT_TOKEN_SIGNATURE_VALIDATION_FAILED("OID-65017",
+                "Error while validating the JWT token signature"),
+        JWT_TOKEN_PARSING_FAILED("OID-65018",
+                                                      "Error occurred while parsing JWT provided by federated IDP.");
 
         private final String code;
         private final String message;
