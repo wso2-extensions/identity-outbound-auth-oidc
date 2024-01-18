@@ -118,6 +118,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SCOPE_PARAM_SUFFIX;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.STATE_PARAM_SUFFIX;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
@@ -493,6 +494,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String scope = paramValueMap.get(OAuthConstants.OAuth20Params.SCOPE);
                 scope = getScope(scope, authenticatorProperties);
+                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + SCOPE_PARAM_SUFFIX, scope);
 
                 if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=") && queryString
                         .toLowerCase().contains("redirect_uri=")) {
@@ -1375,6 +1377,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             }
             additionalAuthenticationParams.put(OIDCAuthenticatorConstants.CLIENT_ID_PARAM,
                     context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.CLIENT_ID));
+            String scope = (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
+                    SCOPE_PARAM_SUFFIX);
+            additionalAuthenticationParams.put(OIDCAuthenticatorConstants.SCOPE, scope);
             additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
         } else {
             additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
