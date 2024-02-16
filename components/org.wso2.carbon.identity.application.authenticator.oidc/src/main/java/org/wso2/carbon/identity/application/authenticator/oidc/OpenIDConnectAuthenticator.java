@@ -134,7 +134,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
-    private static final String IS_API_BASED = "IS_API_BASED";
+    protected static final String IS_API_BASED = "IS_API_BASED";
     private static final String REDIRECT_URL = "REDIRECT_URL";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
