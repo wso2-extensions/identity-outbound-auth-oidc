@@ -276,6 +276,17 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return callbackUrl;
     }
 
+    /**
+     * Resolve the callback URL from the context properties to use in the API based authentication flow.
+     *
+     * @param context Authentication context.
+     * @return Callback URL to be used in API based authentication flow.
+     */
+    protected String resolveCallBackURLForAPIBasedAuthFlow(AuthenticationContext context) {
+
+        return (String) context.getProperty(REDIRECT_URL);
+    }
+
     protected String getLogoutUrl(Map<String, String> authenticatorProperties) {
 
         return authenticatorProperties.get(OIDCAuthenticatorConstants.IdPConfParams.OIDC_LOGOUT_URL);
@@ -459,7 +470,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String callbackurl = getCallbackUrl(authenticatorProperties);
 
                 if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
-                    callbackurl = (String) context.getProperty(REDIRECT_URL);
+                    callbackurl = resolveCallBackURLForAPIBasedAuthFlow(context);
                 }
                 String state = getStateParameter(request, context, authenticatorProperties);
                 context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
@@ -1089,7 +1100,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
             if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
-                callbackUrl = (String) context.getProperty(REDIRECT_URL);
+                callbackUrl = resolveCallBackURLForAPIBasedAuthFlow(context);
             } else {
                 callbackUrl = getCallbackUrl(authenticatorProperties);
             }
