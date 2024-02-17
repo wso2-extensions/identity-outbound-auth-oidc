@@ -277,13 +277,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * Resolve the callback URL of the IdP based on authenticator properties and the context.
+     * Resolve the callback URL of the IdP, based on authenticator properties and the context properties
+     * to use in the API based authentication flow.
      *
      * @param authenticatorProperties Authenticator properties.
      * @param context                Authentication context.
-     * @return Callback URL.
+     * @return Callback URL to be used in API based authentication flow.
      */
-    protected String resolveCallBackURL(Map<String, String> authenticatorProperties, AuthenticationContext context) {
+    protected String resolveCallBackURLForAPIBasedAuthFlow(Map<String, String> authenticatorProperties,
+                                                           AuthenticationContext context) {
 
         String callbackurl = getCallbackUrl(authenticatorProperties);
         if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
@@ -472,7 +474,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 }
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
-                String callbackurl = resolveCallBackURL(authenticatorProperties, context);
+                String callbackurl = resolveCallBackURLForAPIBasedAuthFlow(authenticatorProperties, context);
 
                 String state = getStateParameter(request, context, authenticatorProperties);
                 context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
@@ -1101,7 +1103,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
-            callbackUrl = resolveCallBackURL(authenticatorProperties, context);
+            callbackUrl = resolveCallBackURLForAPIBasedAuthFlow(authenticatorProperties, context);
         }
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
