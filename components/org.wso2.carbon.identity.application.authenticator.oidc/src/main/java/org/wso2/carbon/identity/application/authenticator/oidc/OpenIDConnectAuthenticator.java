@@ -279,7 +279,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     /**
      * Resolve the callback URL from the context properties to use in the API based authentication flow.
      *
-     * @param context                Authentication context.
+     * @param context Authentication context.
      * @return Callback URL to be used in API based authentication flow.
      */
     protected String resolveCallBackURLForAPIBasedAuthFlow(AuthenticationContext context) {
