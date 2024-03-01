@@ -340,9 +340,9 @@
         <pax.logging.api.version>1.10.1</pax.logging.api.version>
         <apache.felix.scr.ds.annotations.version>1.2.4</apache.felix.scr.ds.annotations.version>
         <maven.scr.plugin.version>1.22.0</maven.scr.plugin.version>
-        <nimbusds.version>7.3.0.wso2v1</nimbusds.version>
+        <nimbusds.version>9.37.3.wso2v1</nimbusds.version>
         <nimbusds.oauth.version>8.28.3</nimbusds.oauth.version>
-        <nimbusds.osgi.version.range>[7.3.0,8.0.0)</nimbusds.osgi.version.range>
+        <nimbusds.osgi.version.range>[9.0.0,11)</nimbusds.osgi.version.range>
         <h2database.version>2.1.210</h2database.version>
     </properties>
 
