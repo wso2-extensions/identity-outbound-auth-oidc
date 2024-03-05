@@ -23,6 +23,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import net.minidev.json.JSONArray;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -48,8 +49,10 @@ import org.wso2.carbon.identity.application.authentication.framework.exception.A
 import org.wso2.carbon.identity.application.authentication.framework.exception.LogoutFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AdditionalData;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorMessage;
+import org.wso2.carbon.identity.application.authentication.framework.model.FederatedToken;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
@@ -94,6 +97,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -112,6 +116,7 @@ import javax.servlet.http.HttpServletResponse;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ID_TOKEN_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
@@ -136,6 +141,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final String DYNAMIC_PARAMETER_LOOKUP_REGEX = "\\$\\{(\\w+)\\}";
     private static final String IS_API_BASED = "IS_API_BASED";
     private static final String REDIRECT_URL = "REDIRECT_URL";
+    public static final String SPACE_REGEX = "\\s+";
+    public static final String SPACE = " ";
+    public static final String SEMI_COLON_DELIMITER = ";";
+    public static final String COMMA_DELIMITER = ",";
     private static Pattern pattern = Pattern.compile(DYNAMIC_PARAMETER_LOOKUP_REGEX);
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
     private static final String AUTHENTICATOR_MESSAGE = "authenticatorMessage";
@@ -481,6 +490,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String scopes = getScope(authenticatorProperties);
 
+                // Adding the scopes requested by the application side for token sharing.
+                scopes = addValidScopesForFederatedTokenSharing(context, authenticatorProperties, scopes);
+
                 String queryString = getQueryString(authenticatorProperties);
                 if (StringUtils.isNotBlank(scopes)) {
                     if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
@@ -580,6 +592,224 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return;
     }
 
+    /**
+     * This method is used to append the application side requested scopes after validating.
+     * The application can request the optional scopes either via adaptive scripts or via the authorize
+     * request query parameters.
+     * i.e. Adaptive Script example:
+     * This will ignore any other definition (common, local) of the authenticatorParams.
+     * var onLoginRequest = function(context) {
+     * executeStep(1, {
+     * authenticatorParams: {
+     * federated: {
+     * "Google Calender": {
+     * federated_token_scope: "https://googleapis.calander.readonly https://google.calander.list"
+     * }}}}, {});}
+     * i.e Authorize request query param example:
+     * /authorize?response_type=id_token&client_id={ClientId}&redirect_uri={https://app/callback}
+     * &scope=email profile openid
+     * &federated_token_scope=Google Calender;read write,Microsoft Authenticator;https://googleapis.calender
+     *
+     * @param context                 The authentication context.
+     * @param authenticatorProperties The authenticator properties.
+     * @param scopes                  The scopes defined in the authenticator properties.
+     * @return The IDP defined scope and the validated scopes requested by the application.
+     */
+    private String addValidScopesForFederatedTokenSharing(AuthenticationContext context,
+                                                          Map<String, String> authenticatorProperties, String scopes) {
+        /*
+        The scopes for the federated tokens are evaluated only of the authenticator configuration ShareFederatedToken
+        is enabled and the application has requested the federated token.
+         */
+        if (!Boolean.parseBoolean(authenticatorProperties.get(SHARE_FEDERATED_TOKEN_CONFIG)) ||
+                !requestedToShareFederatedToken(context)) {
+            return scopes;
+        }
+
+        // Get the application requested scopes for the federated tokens.
+        String requestedScopesForTokenSharing = getRequestedScopesForTokenSharing(context);
+
+        // Validating the application requested scopes by the authenticator allowed scopes for federated token sharing.
+        String validScopesForTokenSharing = validateScopeForTokenSharing(
+                authenticatorProperties.get(OIDCAuthenticatorConstants.FEDERATED_TOKEN_ALLOWED_SCOPE),
+                requestedScopesForTokenSharing);
+
+        if (StringUtils.isNotBlank(validScopesForTokenSharing)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Valid scopes matched for federated token sharing: " + validScopesForTokenSharing);
+            }
+            scopes = (scopes + SPACE + validScopesForTokenSharing).trim();
+        }
+        return scopes;
+    }
+
+    /**
+     * This method returns the scopes requested by the application for the federated tokens.
+     *
+     * @param context The authentication context.
+     * @return The scopes requested by the application for token sharing.
+     */
+    private String getRequestedScopesForTokenSharing(AuthenticationContext context) {
+        // The first priority is given to the parameters setup at the adaptive script. Then the query parameters.
+        String requestedScopesViaAdaptiveScript =
+                getAdaptiveScriptValues(context, OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+        // Checks if there exists scopes requested via adaptive script.
+        if (StringUtils.isNotBlank(requestedScopesViaAdaptiveScript)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Adaptive script parameter found for " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+            }
+            return requestedScopesViaAdaptiveScript;
+        } else {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No adaptive script parameter found for "
+                        + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " hence checking the query parameters.");
+            }
+            // Checks the scopes requested via authorize request query parameters.
+            return getRequestedScopedViaQueryParams(context);
+        }
+    }
+
+    /**
+     * This method returns the adaptive script federated authenticator param value for a given parameter name.
+     *
+     * @param context                The authentication context with federated authenticator params.
+     * @param authenticatorParamName The federated authenticator parameter name.
+     * @return The adaptive script federated authenticator param value for the given parameter name.
+     */
+    private String getAdaptiveScriptValues(AuthenticationContext context, String authenticatorParamName) {
+
+        Map<String, String> runtimeParams = this.getRuntimeParams(context);
+        String requestedScopesViaAdaptiveScript = null;
+        if (runtimeParams != null) {
+            requestedScopesViaAdaptiveScript = runtimeParams.get(authenticatorParamName);
+        }
+        return requestedScopesViaAdaptiveScript;
+    }
+
+    /**
+     * The optional scope string cannot have scattered segments for the same authenticator.
+     * Only the very first segment is considered.
+     * i.e. A valid string:
+     * Google Calender has read write scopes, Microsoft Authenticator has https://googleapis.calender scope
+     * A valid string:
+     * federated_token_scope=Google Calander;read write,Microsoft Authenticator;https://googleapis.calender
+     * A valid string:
+     * federated_token_scope=Google Calender;read https://googleapis.calender.read
+     *
+     * @param context The authentication context with authentication request having the query parameters.
+     * @return  The scopes requested by the application via the query parameters for federated token sharing.
+     */
+    private String getRequestedScopedViaQueryParams(AuthenticationContext context) {
+
+        if (context.getExternalIdP() == null) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No external IDP found in the authentication context. " +
+                        "Cannot retrieve the query parameters.");
+            }
+            return null;
+        }
+
+        String authenticatorName = context.getExternalIdP().getName();
+        if (StringUtils.isBlank(authenticatorName)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No external IDP name found in the authentication context. " +
+                        "Cannot retrieve the query parameters.");
+            }
+            return null;
+        }
+
+        String scopeString = getQueryParameter(context, OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+        // The optional scopes should come with the authenticator name only.
+        if (StringUtils.isBlank(scopeString) || !scopeString.contains(SEMI_COLON_DELIMITER)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Query parameter " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " is missing " +
+                        SEMI_COLON_DELIMITER + " delimiter or the value is empty.");
+            }
+            return null;
+        }
+
+        String[] scopeSegments = StringUtils.split(scopeString, COMMA_DELIMITER);
+        StringBuilder filteredScopes = new StringBuilder();
+
+        for (String scopesFollowedByAuthenticator : scopeSegments) {
+            String[] scopes = StringUtils.split(scopesFollowedByAuthenticator, SEMI_COLON_DELIMITER);
+            if (ArrayUtils.isNotEmpty(scopes) && scopes.length == 2 && authenticatorName.equals(scopes[0])) {
+                filteredScopes.append(scopes[1]).append(SPACE);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(
+                            "Scopes found for the authenticator " + authenticatorName + " in the query parameter " +
+                                    OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " : " + scopes[1]);
+                }
+            }
+        }
+
+        String requestedScopes = filteredScopes.toString();
+        if (LOG.isDebugEnabled() && StringUtils.isBlank(requestedScopes)) {
+            LOG.debug("No valid values found for the authenticator " + authenticatorName +
+                    " in the query parameter " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+        }
+
+        return filteredScopes.toString();
+    }
+
+    /**
+     * This method evaluates whether application has requested to share the token. The first priority is given to the
+     * authenticator parameters set at the adaptive script. Then the query parameters.
+     *
+     * @param context The authentication context.
+     * @return Whether the application has requested to share the token.
+     */
+    private boolean requestedToShareFederatedToken(AuthenticationContext context) {
+
+        // The first priority is given to the parameters setup at the adaptive script. Then the query parameters.
+        String shareFederatedToken =
+                getAdaptiveScriptValues(context, OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM);
+
+        if (LOG.isDebugEnabled() && StringUtils.isNotBlank(shareFederatedToken)) {
+            LOG.debug("Adaptive script parameter " + OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM +
+                    " found for the federated token sharing. ");
+        }
+        // Checks if the token sharing is requested via adaptive script.
+        if (StringUtils.isBlank(shareFederatedToken)) {
+            // Checks if the token sharing is requested via authorize request query parameters.
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No adaptive script parameter " + OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM +
+                        " found for the federated token sharing. Checking the query parameters.");
+            }
+            shareFederatedToken = getQueryParameter(context, OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM);
+        }
+        return Boolean.parseBoolean(shareFederatedToken);
+    }
+
+    /**
+     * This method is used to retrieve the query parameters from the authentication request.
+     *
+     * @param context        The authentication context with authentication request.
+     * @param queryParamName The required query parameter name.
+     * @return The query parameter value.
+     */
+    private String getQueryParameter(AuthenticationContext context, String queryParamName) {
+
+        AuthenticationRequest authenticationRequest = context.getAuthenticationRequest();
+        if (authenticationRequest == null || StringUtils.isBlank(queryParamName)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Invalid authentication request or invalid query parameter name : " + queryParamName);
+            }
+            return null;
+        }
+        String[] queryParamValues = authenticationRequest.getRequestQueryParam(queryParamName);
+        if (ArrayUtils.isNotEmpty(queryParamValues)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Query parameter found for," + queryParamName);
+            }
+            return queryParamValues[0];
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("No value found for the query parameter : " + queryParamName);
+        }
+        return null;
+    }
+
     private static void setAuthenticatorMessageToContext(ErrorMessages errorMessage,
                                                          AuthenticationContext context) {
 
@@ -630,6 +860,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         OAuthClientResponse oAuthResponse = requestAccessToken(request, context);
         // TODO : return access token and id token to framework
         mapAccessToken(request, context, oAuthResponse);
+
+        // Adding the federated tokens to the context for token sharing.
+        addFederatedTokensToContext(context, oAuthResponse);
+
         String idToken = mapIdToken(context, request, oAuthResponse);
 
         Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
@@ -777,6 +1011,75 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL.getMessage());
         }
         context.setProperty(OIDCAuthenticatorConstants.ACCESS_TOKEN, accessToken);
+    }
+
+    /**
+     * Add the federated tokens to the authentication context. This is used to share the tokens with the application.
+     *
+     * @param context       The authentication context for the request on which the federated tokens are kept.
+     * @param oAuthResponse The OAuth client response.
+     */
+    private void addFederatedTokensToContext(AuthenticationContext context, OAuthClientResponse oAuthResponse) {
+        /*
+        Federated tokens are added only of the authenticator configuration ShareFederatedToken is enabled and the
+        application has requested the federated token.
+         */
+        if (context.getAuthenticatorProperties() == null || !Boolean.parseBoolean(
+                context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG)) ||
+                !requestedToShareFederatedToken(context)) {
+            return;
+        }
+
+        // If there is an existing list of federated tokens obtained in a previous step, utilizing the same list.
+        List<FederatedToken> federatedTokens;
+        Object federatedTokensObj = context.getProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS);
+        if (federatedTokensObj instanceof List) {
+            federatedTokens = (List<FederatedToken>) federatedTokensObj;
+        } else {
+            federatedTokens = new ArrayList<>();
+        }
+
+        String identityProviderName = context.getCurrentAuthenticator();
+        if (context.getExternalIdP() != null) {
+            identityProviderName = context.getExternalIdP().getIdPName();
+        }
+
+        FederatedToken federatedToken = new FederatedToken(identityProviderName,
+                oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN));
+        federatedToken.setRefreshToken(oAuthResponse.getParam(OIDCAuthenticatorConstants.REFRESH_TOKEN));
+        federatedToken.setTokenValidityPeriod(oAuthResponse.getParam(OIDCAuthenticatorConstants.EXPIRES_IN));
+        federatedToken.setScope(oAuthResponse.getParam(OIDCAuthenticatorConstants.SCOPE));
+        federatedTokens.add(federatedToken);
+
+        context.setProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS, federatedTokens);
+    }
+
+    /**
+     * This returns the intersection of the allowed scopes defined at the IDP configuration and the requested scopes
+     * from the application side for federated toke sharing.
+     *
+     * @param allowedScope   The administrator defined scopes in the IDP configuration for federated toke sharing.
+     * @param requestedScope The application side requested scopes for federated toke sharing.
+     * @return The intersection of the allowed and the requested scopes for federated toke sharing.
+     */
+    private String validateScopeForTokenSharing(String allowedScope, String requestedScope) {
+
+        if (StringUtils.isNotBlank(allowedScope) && StringUtils.isNotBlank(requestedScope)) {
+            Set<String> allowedScopesSet = new HashSet<>(Arrays.asList(allowedScope.split(SPACE_REGEX)));
+            Set<String> requestedScopesSet = new HashSet<>(Arrays.asList(requestedScope.split(SPACE_REGEX)));
+
+            Set<String> subset = new HashSet<>(requestedScopesSet);
+            subset.retainAll(allowedScopesSet);
+
+            if (CollectionUtils.isNotEmpty(subset)) {
+                return StringUtils.join(subset, SPACE);
+            } else {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("No valid scopes matched for federated token sharing.");
+                }
+            }
+        }
+        return null;
     }
 
     /**
