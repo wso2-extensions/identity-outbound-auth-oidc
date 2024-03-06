@@ -637,7 +637,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         if (StringUtils.isNotBlank(validScopesForTokenSharing)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Valid scopes matched for federated token sharing: " + validScopesForTokenSharing +
+                LOG.debug("Valid scopes found for federated token sharing: " + validScopesForTokenSharing +
                         ", IDP: " + OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context));
             }
             scopes = (scopes + SPACE + validScopesForTokenSharing).trim();
@@ -1071,11 +1071,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     /**
      * This returns the intersection of the allowed scopes defined at the IDP configuration and the requested scopes
-     * from the application side for federated toke sharing.
+     * from the application side for federated token sharing.
      *
-     * @param allowedScope   The administrator defined scopes in the IDP configuration for federated toke sharing.
-     * @param requestedScope The application side requested scopes for federated toke sharing.
-     * @return The intersection of the allowed and the requested scopes for federated toke sharing.
+     * @param allowedScope   The administrator defined scopes in the IDP configuration for federated token sharing.
+     * @param requestedScope The application side requested scopes for federated token sharing.
+     * @return The intersection of the allowed and the requested scopes for federated token sharing.
      */
     private String validateScopeForTokenSharing(String allowedScope, String requestedScope) {
 
@@ -1088,10 +1088,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             if (CollectionUtils.isNotEmpty(subset)) {
                 return StringUtils.join(subset, SPACE);
-            } else {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("No valid scopes found for federated token sharing.");
-                }
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No valid scopes found for federated token sharing.");
             }
         }
         return null;
