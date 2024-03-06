@@ -59,6 +59,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDCo
 import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCTokenValidationUtil;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.OpenIDConnectAuthenticatorUtil;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
@@ -636,7 +637,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         if (StringUtils.isNotBlank(validScopesForTokenSharing)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Valid scopes matched for federated token sharing: " + validScopesForTokenSharing);
+                LOG.debug("Valid scopes matched for federated token sharing: " + validScopesForTokenSharing +
+                        ", IDP: " + OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context));
             }
             scopes = (scopes + SPACE + validScopesForTokenSharing).trim();
         }
@@ -650,19 +652,23 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return The scopes requested by the application for token sharing.
      */
     private String getRequestedScopesForTokenSharing(AuthenticationContext context) {
+
+        String authenticatorName = OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context);
         // The first priority is given to the parameters setup at the adaptive script. Then the query parameters.
         String requestedScopesViaAdaptiveScript =
                 getAdaptiveScriptValues(context, OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
         // Checks if there exists scopes requested via adaptive script.
         if (StringUtils.isNotBlank(requestedScopesViaAdaptiveScript)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Adaptive script parameter found for " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+                LOG.debug("Adaptive script parameter found for " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE
+                        + " in federated token sharing, IDP: " + authenticatorName);
             }
             return requestedScopesViaAdaptiveScript;
         } else {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("No adaptive script parameter found for "
-                        + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " hence checking the query parameters.");
+                LOG.debug("No adaptive script parameter found for " +
+                        OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " in federated token sharing, IDP: " +
+                        authenticatorName + " hence checking the query parameters.");
             }
             // Checks the scopes requested via authorize request query parameters.
             return getRequestedScopedViaQueryParams(context);
@@ -679,11 +685,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private String getAdaptiveScriptValues(AuthenticationContext context, String authenticatorParamName) {
 
         Map<String, String> runtimeParams = this.getRuntimeParams(context);
-        String requestedScopesViaAdaptiveScript = null;
+        String requestedParamViaAdaptiveScript = null;
         if (runtimeParams != null) {
-            requestedScopesViaAdaptiveScript = runtimeParams.get(authenticatorParamName);
+            requestedParamViaAdaptiveScript = runtimeParams.get(authenticatorParamName);
         }
-        return requestedScopesViaAdaptiveScript;
+        return requestedParamViaAdaptiveScript;
     }
 
     /**
@@ -703,7 +709,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         if (context.getExternalIdP() == null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("No external IDP found in the authentication context. " +
+                LOG.debug("No external IDP found in the authentication context for federated token sharing. " +
                         "Cannot retrieve the query parameters.");
             }
             return null;
@@ -712,7 +718,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String authenticatorName = context.getExternalIdP().getName();
         if (StringUtils.isBlank(authenticatorName)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("No external IDP name found in the authentication context. " +
+                LOG.debug("No external IDP name found in the authentication context for federated token sharing. " +
                         "Cannot retrieve the query parameters.");
             }
             return null;
@@ -723,7 +729,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isBlank(scopeString) || !scopeString.contains(SEMI_COLON_DELIMITER)) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Query parameter " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " is missing " +
-                        SEMI_COLON_DELIMITER + " delimiter or the value is empty.");
+                        SEMI_COLON_DELIMITER + " delimiter or the value is empty in federated token sharing, IDP: " +
+                        authenticatorName);
             }
             return null;
         }
@@ -736,17 +743,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (ArrayUtils.isNotEmpty(scopes) && scopes.length == 2 && authenticatorName.equals(scopes[0])) {
                 filteredScopes.append(scopes[1]).append(SPACE);
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug(
-                            "Scopes found for the authenticator " + authenticatorName + " in the query parameter " +
-                                    OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " : " + scopes[1]);
+                    LOG.debug("Scopes found for the authenticator " + authenticatorName + " in the query parameter " +
+                            OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " : " + scopes[1] +
+                            "in federated token sharing, IDP: " + authenticatorName);
                 }
             }
         }
 
         String requestedScopes = filteredScopes.toString();
         if (LOG.isDebugEnabled() && StringUtils.isBlank(requestedScopes)) {
-            LOG.debug("No valid values found for the authenticator " + authenticatorName +
-                    " in the query parameter " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
+            LOG.debug("No valid values found for the authenticator " + authenticatorName + " in the query parameter " +
+                    OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE + " for federated token sharing, IDP: " +
+                    authenticatorName);
         }
 
         return filteredScopes.toString();
@@ -761,20 +769,22 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
     private boolean requestedToShareFederatedToken(AuthenticationContext context) {
 
+        String authenticatorName = OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context);
         // The first priority is given to the parameters setup at the adaptive script. Then the query parameters.
         String shareFederatedToken =
                 getAdaptiveScriptValues(context, OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM);
 
         if (LOG.isDebugEnabled() && StringUtils.isNotBlank(shareFederatedToken)) {
             LOG.debug("Adaptive script parameter " + OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM +
-                    " found for the federated token sharing. ");
+                    " found for federated token sharing, IDP: " + authenticatorName);
         }
         // Checks if the token sharing is requested via adaptive script.
         if (StringUtils.isBlank(shareFederatedToken)) {
             // Checks if the token sharing is requested via authorize request query parameters.
             if (LOG.isDebugEnabled()) {
                 LOG.debug("No adaptive script parameter " + OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM +
-                        " found for the federated token sharing. Checking the query parameters.");
+                        " found for federated token sharing, IDP: " + authenticatorName +
+                        " Checking the query parameters.");
             }
             shareFederatedToken = getQueryParameter(context, OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM);
         }
@@ -790,22 +800,26 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      */
     private String getQueryParameter(AuthenticationContext context, String queryParamName) {
 
+        String authenticatorName = OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context);
         AuthenticationRequest authenticationRequest = context.getAuthenticationRequest();
         if (authenticationRequest == null || StringUtils.isBlank(queryParamName)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Invalid authentication request or invalid query parameter name : " + queryParamName);
+                LOG.debug("Invalid authentication request or invalid query parameter name : " + queryParamName +
+                        " for federated token sharing, IDP: " + authenticatorName);
             }
             return null;
         }
         String[] queryParamValues = authenticationRequest.getRequestQueryParam(queryParamName);
         if (ArrayUtils.isNotEmpty(queryParamValues)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Query parameter found for," + queryParamName);
+                LOG.debug("Query parameter found for," + queryParamName + " in federated token sharing, IDP: " +
+                        authenticatorName);
             }
             return queryParamValues[0];
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug("No value found for the query parameter : " + queryParamName);
+            LOG.debug("No value found for the query parameter : " + queryParamName +
+                    " in federated token sharing, IDP: " + authenticatorName);
         }
         return null;
     }
@@ -1020,6 +1034,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @param oAuthResponse The OAuth client response.
      */
     private void addFederatedTokensToContext(AuthenticationContext context, OAuthClientResponse oAuthResponse) {
+
         /*
         Federated tokens are added only of the authenticator configuration ShareFederatedToken is enabled and the
         application has requested the federated token.
@@ -1039,10 +1054,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             federatedTokens = new ArrayList<>();
         }
 
-        String identityProviderName = context.getCurrentAuthenticator();
-        if (context.getExternalIdP() != null) {
-            identityProviderName = context.getExternalIdP().getIdPName();
-        }
+        String identityProviderName = OpenIDConnectAuthenticatorUtil.getFederatedAuthenticatorName(context);
 
         FederatedToken federatedToken = new FederatedToken(identityProviderName,
                 oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN));
@@ -1052,6 +1064,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         federatedTokens.add(federatedToken);
 
         context.setProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS, federatedTokens);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Federated tokens added to the authentication context, IDP: " + identityProviderName);
+        }
     }
 
     /**
@@ -1075,7 +1090,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 return StringUtils.join(subset, SPACE);
             } else {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("No valid scopes matched for federated token sharing.");
+                    LOG.debug("No valid scopes found for federated token sharing.");
                 }
             }
         }
