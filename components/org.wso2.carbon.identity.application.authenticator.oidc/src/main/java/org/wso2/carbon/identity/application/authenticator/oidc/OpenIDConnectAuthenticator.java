@@ -2099,7 +2099,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         if (context == null || context.getExternalIdP() == null || context.getExternalIdP().getIdPName() == null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Cannot resolve the authenticator name from the authentication context");
+                LOG.debug("Cannot resolve the authenticator name from the authentication context.");
             }
             return StringUtils.EMPTY;
         }
