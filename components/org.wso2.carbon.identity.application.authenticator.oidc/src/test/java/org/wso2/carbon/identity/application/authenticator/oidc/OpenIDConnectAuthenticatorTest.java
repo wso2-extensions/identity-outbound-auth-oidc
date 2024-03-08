@@ -49,6 +49,7 @@ import org.wso2.carbon.identity.application.authentication.framework.exception.A
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticationRequest;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatorData;
+import org.wso2.carbon.identity.application.authentication.framework.model.FederatedToken;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
@@ -61,6 +62,7 @@ import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
+import org.wso2.carbon.identity.core.URLBuilderException;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
@@ -81,6 +83,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -100,12 +103,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_FRIENDLY_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.
-        AUTHENTICATOR_FRIENDLY_NAME;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM;
 
 /***
  * Unit test class for OpenIDConnectAuthenticator class.
@@ -118,6 +122,9 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
         "org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException"})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
+    private static final String OIDC_PARAM_MAP_STRING = "oidc:param.map";
+    private static final String HTTPS_LOCALHOST_9443 = "https://localhost:9443";
+    private static final String COMMA_SEPARATOR = ",";
     @Mock
     private HttpServletRequest mockServletRequest;
 
@@ -187,6 +194,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     private static Map<String, String> authenticatorParamProperties;
     private static String clientId = "u5FIfG5xzLvBGiamoAYzzcqpBqga";
     private static String accessToken = "4952b467-86b2-31df-b63c-0bf25cec4f86s";
+    private static String refreshToken = "6357238-86b2-31df-b63c-0bf25cec4f86s";
+    private static String expiresIn = "3600";
+    private String scope = "openid email profile";
     private static String idToken = "eyJ4NXQiOiJOVEF4Wm1NeE5ETXlaRGczTVRVMVpHTTBNekV6T0RKaFpXSTRORE5" +
             "sWkRVMU9HRmtOakZpTVEiLCJraWQiOiJOVEF4Wm1NeE5ETXlaRGczTVRVMVpHTTBNekV6T0RKaFpXSTRORE5sWkRVMU9" +
             "HRmtOakZpTVEiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImF1ZCI6WyJ1NUZJZkc1eHpMdkJHaWFtb0FZenpjc" +
@@ -238,7 +248,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public Object[][] getSeperator() {
 
         return new String[][]{
-                {","},
+                {COMMA_SEPARATOR},
                 {",,,"}
         };
     }
@@ -607,7 +617,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
         Map<String, String> paramMap = new HashMap<>();
         paramMap.put("redirect_uri", "http:/localhost:9443/oauth2/redirect");
-        when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramMap);
+        when(mockAuthenticationContext.getProperty(OIDC_PARAM_MAP_STRING)).thenReturn(paramMap);
         setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
@@ -959,10 +969,10 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockUserRealm.getUserStoreManager()).thenReturn(mockUserStoreManager);
         when(mockUserStoreManager.getRealmConfiguration()).thenReturn(mockRealmConfiguration);
         when(mockRealmConfiguration.getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR))
-                .thenReturn(",");
+                .thenReturn(COMMA_SEPARATOR);
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL("", false, false))
-                .thenReturn("https://localhost:9443");
+                .thenReturn(HTTPS_LOCALHOST_9443);
 
         mockStatic(ServiceURLBuilder.class);
         when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
@@ -985,7 +995,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
         paramValueMap = new HashMap<>();
-        when(mockAuthenticationContext.getProperty("oidc:param.map")).thenReturn(paramValueMap);
+        when(mockAuthenticationContext.getProperty(OIDC_PARAM_MAP_STRING)).thenReturn(paramValueMap);
         when(mockAuthenticationContext.getContextIdentifier()).thenReturn("");
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(getDummyExternalIdPConfig());
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
@@ -1081,4 +1091,266 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         identityProvider.setIdentityProviderName("DummyIDPName");
         return new ExternalIdPConfig(identityProvider);
     }
+
+    private ExternalIdPConfig getExternalIdPConfig(String idpName) {
+
+        IdentityProvider identityProvider = new IdentityProvider();
+        identityProvider.setIdentityProviderName(idpName);
+        return new ExternalIdPConfig(identityProvider);
+    }
+
+    /**
+     * This method generates test criteria on the query parameter change on sharing the federated token for
+     * different combination of the IDP configuration value. The adaptive script parameter values are same
+     * to the query parameter values.
+     *
+     * @return Object[][] The test criteria.
+     */
+    @DataProvider(name = "shareFederatedTokenParams")
+    public Object[][] shareFederatedTokenParams() {
+
+        return new Object[][]{
+                {"IDP config is enabled, application requested the federated token, " +
+                        "adaptive script requested the federated token", "true", "true", "true"},
+                {"IDP config is disabled, application requested the federated token", "false", "true", "true"},
+                {"IDP config is enabled, application did not request the federated token", "true", "false", "false"},
+                {"IDP config is disabled, application did not request the federated token", "false", "false",
+                        "false"},
+                {"IDP config is disabled, application did not send the parameter", "true", null, null},
+                {"IDP config is disabled, application did not send the parameter", "false", null, null},
+                {"No IDP config found, application requested the federated token", null, "true", "true"},
+                {"No IDP config found, application did not request the federated token", null, "false", "false"},
+                {"No IDP config found, application did not send the parameter", null, null, null}
+        };
+    }
+
+    /**
+     * This method generates test criteria on the adaptive script parameter change on sharing the federated token.
+     *
+     * @return Object[][] The test criteria.
+     */
+    @DataProvider(name = "shareFederatedTokenParamsForAdaptiveScriptConfigs")
+    public Object[][] shareFederatedTokenParamsForAdaptiveScriptConfigs() {
+
+        return new Object[][]{
+                {"IDP config is enabled, authorize call requested the federated token," +
+                        " adaptive script requested the federated token", "true", "true", "true"},
+                {"IDP config is enabled, authorize call requested the federated token," +
+                        " adaptive script did not request the federated token", "true", "true", "false"},
+                {"IDP config is enabled, authorize call requested the federated token," +
+                        " no adaptive script config found", "true", "true", null},
+                {"IDP config is disabled, authorize call requested the federated token", "false", "true", "true"},
+                {"IDP config is enabled, authorize call did not request the federated token," +
+                        " adaptive script did not request the federated token", "true", "false", "false"},
+                {"IDP config is enabled, authorize call did not request the federated token," +
+                        " adaptive script requested the federated token", "true", "false", "true"},
+                {"IDP config is enabled, authorize call did not request the federated token," +
+                        " no adaptive script config found", "true", "false", null},
+                {"IDP config is disabled, authorize call did not request the federated token",
+                        "false", "false", "false"},
+                {"IDP config is disabled, authorize call did not send the parameter," +
+                        " no adaptive script config found", "true", null, null},
+                {"IDP config is disabled, authorize call did not send the parameter," +
+                        " adaptive script requested the federated token", "true", null, "true"},
+                {"IDP config is disabled, authorize call did not send the parameter," +
+                        " adaptive script did not request the federated token", "true", null, "false"},
+                {"IDP config is disabled, authorize call did not send the parameter", "false", null, null},
+                {"No IDP config found, authorize call requested the federated token", null, "true", "true"},
+                {"No IDP config found, authorize call did not request the federated token", null, "false", "false"},
+                {"No IDP config found, authorize call did not send the parameter", null, null, null}
+        };
+    }
+
+    @Test(dataProvider = "shareFederatedTokenParamsForAdaptiveScriptConfigs")
+    public void testShareFederatedTokenParamsForAdaptiveScriptConfigs(String errorMessage,
+                                                                      String enableShareTokenIDPConfig,
+                                                                      String shareTokenQueryParameter,
+                                                                      String shareTokeAdaptiveScriptParam)
+            throws Exception {
+
+        testShareFederatedTokenForIDPConfigAndQueryParameter(errorMessage, enableShareTokenIDPConfig,
+                shareTokenQueryParameter, shareTokeAdaptiveScriptParam);
+    }
+
+    @Test(dataProvider = "shareFederatedTokenParams")
+    public void testShareFederatedTokenForIDPConfigAndQueryParameter(String errorMessage,
+                                                                     String enableShareTokenIDPConfig,
+                                                                     String shareTokenQueryParameter,
+                                                                     String shareTokeAdaptiveScriptParam)
+            throws Exception {
+
+        String authenticator = "Google Calender";
+        mockStaticClasses();
+        mockServiceVariables();
+
+        AuthenticationRequest authenticationRequest = new AuthenticationRequest();
+        mapQueryParamsToAuthenticationRequest(authenticationRequest, SHARE_FEDERATED_TOKEN_PARAM,
+                shareTokenQueryParameter);
+        AuthenticationContext authenticationContext =
+                getAuthenticationContext(authenticator, authenticationRequest, enableShareTokenIDPConfig);
+        addAdaptiveScriptParams(authenticationContext, SHARE_FEDERATED_TOKEN_PARAM, shareTokeAdaptiveScriptParam);
+        mockIDPAuthentication();
+
+        openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest, mockServletResponse,
+                authenticationContext);
+
+        if (Boolean.parseBoolean(enableShareTokenIDPConfig) && ((StringUtils.isBlank(shareTokeAdaptiveScriptParam) &&
+                Boolean.parseBoolean(shareTokenQueryParameter)) ||
+                Boolean.parseBoolean(shareTokeAdaptiveScriptParam))) {
+            assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
+
+            if (authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) != null &&
+                    authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) instanceof List) {
+                List<FederatedToken> federatedToken = (List<FederatedToken>) authenticationContext.getProperty(
+                        FrameworkConstants.FEDERATED_TOKENS);
+                assertEquals(federatedToken.get(0).getAccessToken(), accessToken, "No access token found");
+                assertEquals(federatedToken.get(0).getRefreshToken(), refreshToken, "No refresh token found");
+                assertEquals(federatedToken.get(0).getTokenValidityPeriod(), expiresIn, "No expiry time found");
+                assertEquals(federatedToken.get(0).getScope(), scope, "No scope found");
+            }
+        } else {
+            assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
+        }
+    }
+
+    /**
+     * This method generates an authentication instance for the federated token sharing.
+     *
+     * @param authenticator             The federated authenticator name.
+     * @param authenticationRequest     The authentication request.
+     * @param enableShareTokenIDPConfig The IDP config of the enabling the federated token sharing.
+     * @return AuthenticationContext The generated authentication context for the federated token sharing.
+     */
+    private AuthenticationContext getAuthenticationContext(String authenticator,
+                                                           AuthenticationRequest authenticationRequest,
+                                                           String enableShareTokenIDPConfig) {
+
+        AuthenticationContext authenticationContext = new AuthenticationContext();
+        authenticationContext.setAuthenticationRequest(authenticationRequest);
+        authenticationContext.setExternalIdP(getExternalIdPConfig(authenticator));
+        authenticationContext.setProperty(OIDC_PARAM_MAP_STRING, paramValueMap);
+        authenticationContext.setContextIdentifier("");
+
+        if (StringUtils.isNotBlank(enableShareTokenIDPConfig)) {
+            authenticatorProperties.put(SHARE_FEDERATED_TOKEN_CONFIG, enableShareTokenIDPConfig);
+        }
+        authenticationContext.setAuthenticatorProperties(authenticatorProperties);
+
+        return authenticationContext;
+    }
+
+    /**
+     * This method maps the authorize request query parameters for testing.
+     *
+     * @param authenticationRequest The authentication request to map the query parameters.
+     * @param queryParameterName    The query parameter name.
+     * @param queryParameterValue   The query parameter value.
+     */
+    private void mapQueryParamsToAuthenticationRequest(AuthenticationRequest authenticationRequest,
+                                                       String queryParameterName, String queryParameterValue) {
+        if (StringUtils.isNotBlank(queryParameterValue)) {
+            String[] queryParam = new String[]{queryParameterValue};
+            authenticationRequest.addRequestQueryParam(queryParameterName, queryParam);
+        }
+    }
+
+    /**
+     * This method mocks the adaptive parameters to the authentication context.
+     *
+     * @param authenticationContext            The authentication context to be tested.
+     * @param shareTokeAdaptiveScriptParamName The adaptive scrip parameter name.
+     * @param shareTokeAdaptiveScriptParam     The adaptive script parameter value.
+     */
+    private void addAdaptiveScriptParams(AuthenticationContext authenticationContext,
+                                         String shareTokeAdaptiveScriptParamName, String shareTokeAdaptiveScriptParam) {
+
+        Map<String, String> adaptiveScriptParam = new HashMap<>();
+        Map<String, Map<String, String>> runtimeParams = new HashMap<>();
+        authenticationContext.addParameter("RUNTIME_PARAMS", runtimeParams);
+        runtimeParams.put(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME, adaptiveScriptParam);
+
+        if (StringUtils.isNotBlank(shareTokeAdaptiveScriptParam)) {
+            adaptiveScriptParam.put(shareTokeAdaptiveScriptParamName, shareTokeAdaptiveScriptParam);
+        }
+    }
+
+    /**
+     * This method mocks the external IDP authentication flow and the value mappings.
+     *
+     * @throws Exception Throws the exceptions on error.
+     */
+    private void mockIDPAuthentication() throws Exception {
+
+        IdentityProviderProperty[] identityProviderProperties = getIdentityProviderProperties();
+        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
+        when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
+        whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
+        when(mockOAuthClient.accessToken(Matchers.anyObject())).thenReturn(mockOAuthJSONAccessTokenResponse);
+        when(mockOAuthJSONAccessTokenResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN)).thenReturn(
+                accessToken);
+        when(mockOAuthJSONAccessTokenResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN)).thenReturn(idToken);
+        when(mockOAuthJSONAccessTokenResponse.getParam(OIDCAuthenticatorConstants.REFRESH_TOKEN)).thenReturn(
+                refreshToken);
+        when(mockOAuthJSONAccessTokenResponse.getParam(OIDCAuthenticatorConstants.EXPIRES_IN)).thenReturn(expiresIn);
+        when(mockOAuthJSONAccessTokenResponse.getParam(OIDCAuthenticatorConstants.SCOPE)).thenReturn(scope);
+    }
+
+    /**
+     * This method mocks the service variable for the authorization call.
+     *
+     * @throws OAuthProblemException Throws on the oAuth flow exception.
+     * @throws UserStoreException    Throws on the user store exception.
+     * @throws URLBuilderException   Throws on the url builder exception.
+     */
+    private void mockServiceVariables() throws OAuthProblemException, UserStoreException, URLBuilderException {
+
+        when(OAuthAuthzResponse.oauthCodeAuthzResponse(mockServletRequest)).thenReturn(mockOAuthzResponse);
+        when(mockServletRequest.getParameter("domain")).thenReturn(superTenantDomain);
+        when(mockOAuthzResponse.getCode()).thenReturn("200");
+        setParametersForOAuthClientResponse(mockOAuthClientResponse, accessToken, idToken);
+        when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
+        when(openIDConnectAuthenticatorDataHolder.getRealmService()).thenReturn(mockRealmService);
+        when(mockRealmService.getTenantManager()).thenReturn(mockTenantManger);
+        when(mockTenantManger.getTenantId(anyString())).thenReturn(TENANT_ID);
+        when(mockRealmService.getTenantUserRealm(anyInt())).thenReturn(mockUserRealm);
+        when(mockUserRealm.getUserStoreManager()).thenReturn(mockUserStoreManager);
+        when(mockUserStoreManager.getRealmConfiguration()).thenReturn(mockRealmConfiguration);
+        when(mockRealmConfiguration.getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR))
+                .thenReturn(COMMA_SEPARATOR);
+        when(IdentityUtil.getServerURL("", false, false))
+                .thenReturn(HTTPS_LOCALHOST_9443);
+        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.addPath(anyString())).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.addParameter(anyString(), anyString())).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.build()).thenReturn(serviceURL);
+        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
+    }
+
+    /**
+     * This method do all the static level mocks.
+     */
+    private void mockStaticClasses() {
+
+        mockStatic(OAuthAuthzResponse.class);
+        mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+        mockStatic(IdentityUtil.class);
+        mockStatic(ServiceURLBuilder.class);
+        mockStatic(LoggerUtils.class);
+    }
+
+    /**
+     * This method creates the external identity provider properties.
+     *
+     * @return IdentityProviderProperty[] The array of the idp properties.
+     */
+    private IdentityProviderProperty[] getIdentityProviderProperties() {
+
+        IdentityProviderProperty property = new IdentityProviderProperty();
+        property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
+        property.setValue("false");
+        IdentityProviderProperty[] identityProviderProperties = new IdentityProviderProperty[1];
+        identityProviderProperties[0] = property;
+        return identityProviderProperties;
+    }
+
 }
