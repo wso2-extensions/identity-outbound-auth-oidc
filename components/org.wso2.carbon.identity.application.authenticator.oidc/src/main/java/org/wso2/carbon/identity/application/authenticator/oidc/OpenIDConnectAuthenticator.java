@@ -844,7 +844,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         String[] queryParamValues = authenticationRequest.getRequestQueryParam(queryParamName);
         if (ArrayUtils.isNotEmpty(queryParamValues)) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Query parameter found for," + queryParamName + " in federated token sharing, IDP: " +
+                LOG.debug("Query parameter found for, " + queryParamName + " in federated token sharing, IDP: " +
                         getFederatedAuthenticatorName(context));
             }
             return queryParamValues[0];
@@ -908,7 +908,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         mapAccessToken(request, context, oAuthResponse);
 
         /*
-        Federated tokens are added only of the authenticator configuration ShareFederatedToken is enabled and the
+        Federated tokens are added only if the authenticator configuration ShareFederatedToken is enabled and the
         application has requested the federated token.
          */
         if (context.getAuthenticatorProperties() != null && Boolean.parseBoolean(

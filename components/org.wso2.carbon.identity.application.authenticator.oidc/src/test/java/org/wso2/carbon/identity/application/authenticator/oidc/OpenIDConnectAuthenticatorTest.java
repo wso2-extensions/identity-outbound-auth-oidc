@@ -122,9 +122,9 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
         "org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException"})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
-    public static final String OIDC_PARAM_MAP_STRING = "oidc:param.map";
-    public static final String HTTPS_LOCALHOST_9443 = "https://localhost:9443";
-    public static final String COMMA_SEPARATOR = ",";
+    private static final String OIDC_PARAM_MAP_STRING = "oidc:param.map";
+    private static final String HTTPS_LOCALHOST_9443 = "https://localhost:9443";
+    private static final String COMMA_SEPARATOR = ",";
     @Mock
     private HttpServletRequest mockServletRequest;
 
@@ -1197,8 +1197,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         if (Boolean.parseBoolean(enableShareTokenIDPConfig) && ((StringUtils.isBlank(shareTokeAdaptiveScriptParam) &&
                 Boolean.parseBoolean(shareTokenQueryParameter)) ||
                 Boolean.parseBoolean(shareTokeAdaptiveScriptParam))) {
-            assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS),
-                    errorMessage);
+            assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
 
             if (authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) != null &&
                     authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) instanceof List) {
@@ -1210,8 +1209,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 assertEquals(federatedToken.get(0).getScope(), scope, "No scope found");
             }
         } else {
-            assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS),
-                    errorMessage);
+            assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
         }
     }
 
