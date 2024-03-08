@@ -1164,18 +1164,18 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test(dataProvider = "shareFederatedTokenParamsForAdaptiveScriptConfigs")
     public void testShareFederatedTokenParamsForAdaptiveScriptConfigs(String errorMessage,
                                                                       String enableShareTokenIDPConfig,
-                                                                      String shareTokenQP,
+                                                                      String shareTokenQueryParameter,
                                                                       String shareTokeAdaptiveScriptParam)
             throws Exception {
 
         testShareFederatedTokenForIDPConfigAndQueryParameter(errorMessage, enableShareTokenIDPConfig,
-                shareTokenQP, shareTokeAdaptiveScriptParam);
+                shareTokenQueryParameter, shareTokeAdaptiveScriptParam);
     }
 
     @Test(dataProvider = "shareFederatedTokenParams")
     public void testShareFederatedTokenForIDPConfigAndQueryParameter(String errorMessage,
                                                                      String enableShareTokenIDPConfig,
-                                                                     String shareTokenQP,
+                                                                     String shareTokenQueryParameter,
                                                                      String shareTokeAdaptiveScriptParam)
             throws Exception {
 
@@ -1184,7 +1184,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         mockServiceVariables();
 
         AuthenticationRequest authenticationRequest = new AuthenticationRequest();
-        mapQueryParamsToAuthenticationRequest(authenticationRequest, SHARE_FEDERATED_TOKEN_PARAM, shareTokenQP);
+        mapQueryParamsToAuthenticationRequest(authenticationRequest, SHARE_FEDERATED_TOKEN_PARAM,
+                shareTokenQueryParameter);
         AuthenticationContext authenticationContext =
                 getAuthenticationContext(authenticator, authenticationRequest, enableShareTokenIDPConfig);
         addAdaptiveScriptParams(authenticationContext, SHARE_FEDERATED_TOKEN_PARAM, shareTokeAdaptiveScriptParam);
@@ -1194,21 +1195,22 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 authenticationContext);
 
         if (Boolean.parseBoolean(enableShareTokenIDPConfig) && ((StringUtils.isBlank(shareTokeAdaptiveScriptParam) &&
-                Boolean.parseBoolean(shareTokenQP)) || Boolean.parseBoolean(shareTokeAdaptiveScriptParam))) {
-            assertNotNull(authenticationContext.getProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS),
+                Boolean.parseBoolean(shareTokenQueryParameter)) ||
+                Boolean.parseBoolean(shareTokeAdaptiveScriptParam))) {
+            assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS),
                     errorMessage);
 
-            if (authenticationContext.getProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS) != null &&
-                    authenticationContext.getProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS) instanceof List) {
+            if (authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) != null &&
+                    authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) instanceof List) {
                 List<FederatedToken> federatedToken = (List<FederatedToken>) authenticationContext.getProperty(
-                        OIDCAuthenticatorConstants.FEDERATED_TOKENS);
+                        FrameworkConstants.FEDERATED_TOKENS);
                 assertEquals(federatedToken.get(0).getAccessToken(), accessToken, "No access token found");
                 assertEquals(federatedToken.get(0).getRefreshToken(), refreshToken, "No refresh token found");
                 assertEquals(federatedToken.get(0).getTokenValidityPeriod(), expiresIn, "No expiry time found");
                 assertEquals(federatedToken.get(0).getScope(), scope, "No scope found");
             }
         } else {
-            assertNull(authenticationContext.getProperty(OIDCAuthenticatorConstants.FEDERATED_TOKENS),
+            assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS),
                     errorMessage);
         }
     }

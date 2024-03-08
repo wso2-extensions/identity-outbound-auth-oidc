@@ -33,7 +33,6 @@ public class OIDCAuthenticatorConstants {
     public static final String CLIENT_ID_PARAM = "clientId";
     public static final String REFRESH_TOKEN = "refresh_token";
     public static final String EXPIRES_IN = "expires_in";
-    public static final String FEDERATED_TOKENS = "federated_tokens";
     public static final String SHARE_FEDERATED_TOKEN_CONFIG = "ShareFederatedToken";
     public static final String SHARE_FEDERATED_TOKEN_PARAM = "share_federated_token";
     public static final String FEDERATED_TOKEN_ALLOWED_SCOPE = "FederatedTokenAllowedScope";
