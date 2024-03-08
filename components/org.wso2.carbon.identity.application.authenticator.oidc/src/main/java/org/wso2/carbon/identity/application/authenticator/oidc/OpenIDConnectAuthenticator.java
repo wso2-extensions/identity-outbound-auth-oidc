@@ -601,8 +601,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
     /**
      * This method is used to append the application side requested scopes after validating.
-     * The application can request the optional scopes either via adaptive scripts or via the authorize
-     * request query parameters.
+     * The application can request the scopes for federated token sharing either via adaptive scripts
+     * or via the authorize request query parameters. The adaptive script has the first priority
+     * while the request query parameters will be evaluated later.
      * i.e. Adaptive Script example:
      * This will ignore any other definition (common, local) of the authenticatorParams.
      * var onLoginRequest = function(context) {
