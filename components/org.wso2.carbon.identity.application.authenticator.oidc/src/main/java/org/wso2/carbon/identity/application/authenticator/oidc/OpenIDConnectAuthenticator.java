@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2013-2024, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -450,6 +450,23 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
+            String loginPage = prepareLoginPage(request, context);
+            response.sendRedirect(loginPage);
+            if (LoggerUtils.isDiagnosticLogsEnabled()) {
+                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                        getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
+                diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
+                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+            }
+        } catch (IOException e) {
+            throw new AuthenticationFailedException(ErrorMessages.IO_ERROR.getCode(), e.getMessage(), e);
+        }
+    }
+
+    protected String prepareLoginPage(HttpServletRequest request, AuthenticationContext context)
+            throws AuthenticationFailedException {
+
+        try {
             if (LoggerUtils.isDiagnosticLogsEnabled()) {
                 DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
                         getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
@@ -567,11 +584,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     }
                 }
                 context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX, loginPage);
-                response.sendRedirect(loginPage);
-                if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-                    diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
-                    LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
-                }
+                return loginPage;
             } else {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(ErrorMessages.RETRIEVING_AUTHENTICATOR_PROPERTIES_FAILED.getMessage());
@@ -590,13 +603,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
-        } catch (IOException e) {
-            throw new AuthenticationFailedException(ErrorMessages.IO_ERROR.getCode(), e.getMessage(), e);
         } catch (OAuthSystemException e) {
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
         }
-        return;
     }
 
     /**
