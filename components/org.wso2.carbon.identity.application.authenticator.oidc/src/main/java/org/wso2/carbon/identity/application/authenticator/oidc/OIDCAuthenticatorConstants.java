@@ -81,6 +81,8 @@ public class OIDCAuthenticatorConstants {
     public static final String SCOPE_PARAM_SUFFIX = "_scope_param";
     public static final String REDIRECTION_PROMPT = "REDIRECTION_PROMPT";
     public static final String SCOPE = "scope";
+    public static final String AMPERSAND_SIGN = "&";
+    public static final String EQUAL_SIGN = "=";
 
     /**
      * This class holds the constants related to authenticator configuration parameters.
