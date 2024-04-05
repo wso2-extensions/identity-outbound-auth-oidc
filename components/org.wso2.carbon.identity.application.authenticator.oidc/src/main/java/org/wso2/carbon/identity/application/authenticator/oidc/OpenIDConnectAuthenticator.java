@@ -450,41 +450,43 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                                                  AuthenticationContext context) throws AuthenticationFailedException {
 
         try {
-            String loginPage = prepareLoginPage(request, context);
-            response.sendRedirect(loginPage);
+            DiagnosticLog.DiagnosticLogBuilder flowCompletionDiagnosticLogBuilder = null;
             if (LoggerUtils.isDiagnosticLogsEnabled()) {
-                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                flowCompletionDiagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
                         getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
-                diagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
-                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+            }
+            String loginPage = prepareLoginPage(request, context, flowCompletionDiagnosticLogBuilder);
+            response.sendRedirect(loginPage);
+            if (LoggerUtils.isDiagnosticLogsEnabled() && flowCompletionDiagnosticLogBuilder != null) {
+                flowCompletionDiagnosticLogBuilder.resultMessage("Redirecting to the federated IDP login page.");
+                LoggerUtils.triggerDiagnosticLogEvent(flowCompletionDiagnosticLogBuilder);
             }
         } catch (IOException e) {
             throw new AuthenticationFailedException(ErrorMessages.IO_ERROR.getCode(), e.getMessage(), e);
         }
     }
 
-    protected String prepareLoginPage(HttpServletRequest request, AuthenticationContext context)
+    protected String prepareLoginPage(HttpServletRequest request, AuthenticationContext context,
+                                      DiagnosticLog.DiagnosticLogBuilder flowCompletionDiagnosticLogBuilder)
             throws AuthenticationFailedException {
 
         try {
             if (LoggerUtils.isDiagnosticLogsEnabled()) {
-                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(
+                DiagnosticLog.DiagnosticLogBuilder flowInitiationDiagnosticLogBuilder =
+                        new DiagnosticLog.DiagnosticLogBuilder(
                         getComponentId(), INITIATE_OUTBOUND_AUTH_REQUEST);
-                diagnosticLogBuilder.resultMessage("Initiate outbound OIDC authentication request.")
+                flowInitiationDiagnosticLogBuilder.resultMessage("Initiate outbound OIDC authentication request.")
                         .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                         .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                         .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
                         .inputParam(LogConstants.InputKeys.IDP, context.getExternalIdP().getIdPName())
                         .inputParams(getApplicationDetails(context));
-                LoggerUtils.triggerDiagnosticLogEvent(diagnosticLogBuilder);
+                LoggerUtils.triggerDiagnosticLogEvent(flowInitiationDiagnosticLogBuilder);
             }
             Map<String, String> authenticatorProperties = context.getAuthenticatorProperties();
             if (authenticatorProperties != null) {
-                DiagnosticLog.DiagnosticLogBuilder diagnosticLogBuilder = null;
                 if (LoggerUtils.isDiagnosticLogsEnabled()) {
-                    diagnosticLogBuilder = new DiagnosticLog.DiagnosticLogBuilder(getComponentId(),
-                            INITIATE_OUTBOUND_AUTH_REQUEST);
-                    diagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                    flowCompletionDiagnosticLogBuilder.logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
                             .resultStatus(DiagnosticLog.ResultStatus.SUCCESS)
                             .inputParam(LogConstants.InputKeys.STEP, context.getCurrentStep())
                             .inputParam("authenticator properties", authenticatorProperties.keySet())
@@ -519,8 +521,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String queryString = getQueryString(authenticatorProperties);
                 if (StringUtils.isNotBlank(scopes)) {
-                    if (LoggerUtils.isDiagnosticLogsEnabled() && diagnosticLogBuilder != null) {
-                        diagnosticLogBuilder.inputParam("scopes", scopes);
+                    if (LoggerUtils.isDiagnosticLogsEnabled() && flowCompletionDiagnosticLogBuilder != null) {
+                        flowCompletionDiagnosticLogBuilder.inputParam("scopes", scopes);
                     }
                     queryString += "&scope=" + scopes;
                 }
