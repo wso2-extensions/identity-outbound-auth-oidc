@@ -2077,11 +2077,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     protected String extractScopesFromURL(String url) throws UnsupportedEncodingException {
 
         if (StringUtils.isNotBlank(url)) {
-            String[] params = url.split(OIDCAuthenticatorConstants.AMPERSAND_SIGN);
-            for (String param : params) {
-                String[] keyValue = param.split(OIDCAuthenticatorConstants.EQUAL_SIGN);
-                if (keyValue.length >= 2 && OAuthConstants.OAuth20Params.SCOPE.equals(keyValue[0])) {
-                    return URLDecoder.decode(param, FrameworkUtils.UTF_8);
+            String[] splitUrl = url.split(OIDCAuthenticatorConstants.QUESTION_SIGN, 2);
+            if (splitUrl.length == 2) {
+                String[] params = splitUrl[1].split(OIDCAuthenticatorConstants.AMPERSAND_SIGN);
+                for (String param : params) {
+                    String[] keyValue = param.split(OIDCAuthenticatorConstants.EQUAL_SIGN, 2);
+                    if (keyValue.length == 2 && OAuthConstants.OAuth20Params.SCOPE.equals(keyValue[0])) {
+                        return URLDecoder.decode(keyValue[1], FrameworkUtils.UTF_8);
+                    }
                 }
             }
         }
