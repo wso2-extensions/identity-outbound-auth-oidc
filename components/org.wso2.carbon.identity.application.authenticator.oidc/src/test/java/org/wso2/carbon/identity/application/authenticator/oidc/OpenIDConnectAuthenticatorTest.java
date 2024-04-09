@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2017-2024, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -43,7 +43,9 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.ApplicationConfig;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.SequenceConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
@@ -57,6 +59,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCTokenVal
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.IdentityProviderProperty;
+import org.wso2.carbon.identity.application.common.model.ServiceProvider;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
@@ -1161,6 +1164,25 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         };
     }
 
+    /**
+     * This method generates test criteria on extracting scopes from given URL query parameters.
+     *
+     * @return Object[][] The test criteria.
+     */
+    @DataProvider(name = "authorizeUrls")
+    public Object[][] authorizeUrls() {
+
+        return new Object[][]{
+                {"https://localhost:9443/oauth2/authorize?scope=openid+profile+email&clientID=aishf784hwbf947gfo",
+                        "openid profile email"},
+                {"https://localhost:9443/oauth2/authorize?scope=openid+profile+email", "openid profile email"},
+                {"https://localhost:9443/oauth2/authorize?scope=openid", "openid"},
+                {"https://localhost:9443/oauth2/authorize?clientID=aishf784hwbf947gfo", ""},
+                {"https://localhost:9443/oauth2/authorize", ""},
+                {"", ""}
+        };
+    }
+
     @Test(dataProvider = "shareFederatedTokenParamsForAdaptiveScriptConfigs")
     public void testShareFederatedTokenParamsForAdaptiveScriptConfigs(String errorMessage,
                                                                       String enableShareTokenIDPConfig,
@@ -1211,6 +1233,35 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         } else {
             assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
         }
+    }
+
+    @Test
+    public void testGetApplicationDetails() throws Exception {
+
+        AuthenticationContext mockedAuthenticationContext = mock(AuthenticationContext.class);
+        when(mockedAuthenticationContext.getServiceProviderName()).thenReturn("Test App");
+
+        SequenceConfig mockedSequenceConfig = mock(SequenceConfig.class);
+        ApplicationConfig mockedApplicationConfig = mock(ApplicationConfig.class);
+        ServiceProvider mockedServiceProvider = mock(ServiceProvider.class);
+        when(mockedAuthenticationContext.getSequenceConfig()).thenReturn(mockedSequenceConfig);
+        when(mockedSequenceConfig.getApplicationConfig()).thenReturn(mockedApplicationConfig);
+        when(mockedApplicationConfig.getServiceProvider()).thenReturn(mockedServiceProvider);
+        when(mockedServiceProvider.getApplicationResourceId()).thenReturn("test-app-resource-id");
+
+        Map<String, String> applicationDetails =
+                openIDConnectAuthenticator.getApplicationDetails(mockedAuthenticationContext);
+        assertEquals(applicationDetails.get("application name"), "Test App",
+                "Application name is not set properly.");
+        assertEquals(applicationDetails.get("app id"), "test-app-resource-id",
+                "Application id is not set properly.");
+    }
+
+    @Test(dataProvider = "authorizeUrls")
+    public void testExtractScopesFromURL(String url, String expectedScopes) throws Exception {
+
+        String scopes = openIDConnectAuthenticator.extractScopesFromURL(url);
+        assertEquals(scopes, expectedScopes, "Scopes are not extracted properly.");
     }
 
     /**
