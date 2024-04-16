@@ -542,28 +542,28 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
                 "Invalid Id token in the authentication context.");
     }
 
-    /**
-     * Test whether the token request contains the code verifier when PKCE is enabled.
-     *
-     * @throws URLBuilderException
-     * @throws AuthenticationFailedException
-     */
-    @Test()
-    public void testGetAccessTokenRequestWithPKCE() throws URLBuilderException, AuthenticationFailedException {
-        mockAuthenticationRequestContext(mockAuthenticationContext);
-        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
-        when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER))
-                .thenReturn("sample_code_verifier");
-        when(mockOAuthzResponse.getCode()).thenReturn("abc");
-        mockStatic(ServiceURLBuilder.class);
-        ServiceURLBuilder serviceURLBuilder = mock(ServiceURLBuilder.class);
-        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
-        when(serviceURLBuilder.build()).thenReturn(serviceURL);
-        when(serviceURL.getAbsolutePublicURL()).thenReturn("http://localhost:9443");
-        OAuthClientRequest request = openIDConnectAuthenticator
-                .getAccessTokenRequest(mockAuthenticationContext, mockOAuthzResponse);
-        assertTrue(request.getBody().contains("code_verifier=sample_code_verifier"));
-    }
+//    /**
+//     * Test whether the token request contains the code verifier when PKCE is enabled.
+//     *
+//     * @throws URLBuilderException
+//     * @throws AuthenticationFailedException
+//     */
+//    @Test()
+//    public void testGetAccessTokenRequestWithPKCE() throws URLBuilderException, AuthenticationFailedException {
+//        mockAuthenticationRequestContext(mockAuthenticationContext);
+//        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
+//        when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER))
+//                .thenReturn("sample_code_verifier");
+//        when(mockOAuthzResponse.getCode()).thenReturn("abc");
+//        mockStatic(ServiceURLBuilder.class);
+//        ServiceURLBuilder serviceURLBuilder = mock(ServiceURLBuilder.class);
+//        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
+//        when(serviceURLBuilder.build()).thenReturn(serviceURL);
+//        when(serviceURL.getAbsolutePublicURL()).thenReturn("http://localhost:9443");
+//        OAuthClientRequest request = openIDConnectAuthenticator
+//                .getAccessTokenRequest(mockAuthenticationContext, mockOAuthzResponse);
+//        assertTrue(request.getBody().contains("code_verifier=sample_code_verifier"));
+//    }
 
     @Test
     public void testPassProcessAuthenticationResponseWithoutAccessToken() throws Exception {

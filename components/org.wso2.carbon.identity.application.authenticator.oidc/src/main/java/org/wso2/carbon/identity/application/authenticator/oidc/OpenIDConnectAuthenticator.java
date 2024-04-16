@@ -2089,6 +2089,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return code verifier
      */
     private String generateCodeVerifier() {
+
         SecureRandom secureRandom = new SecureRandom();
         byte[] codeVerifier = new byte[32];
         secureRandom.nextBytes(codeVerifier);
@@ -2103,6 +2104,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @throws AuthenticationFailedException
      */
     private String generateCodeChallenge(String codeVerifier) throws AuthenticationFailedException {
+
         try {
             byte[] bytes = codeVerifier.getBytes("US-ASCII");
             MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
