@@ -526,7 +526,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 if (Boolean.parseBoolean(authenticatorProperties.get(SHARE_FEDERATED_TOKEN_CONFIG)) &&
                         requestedToShareFederatedToken(context)) {
                     // Adding the scopes requested by the application side for token sharing.
-                    scopes = addValidScopesForFederatedTokenSharing(context, authenticatorProperties, scopes);
+                    scopes = addApplicationRequestedScopesForFederatedTokenSharing(context, scopes);
                 }
 
                 String queryString = getQueryString(authenticatorProperties);
@@ -619,7 +619,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
-     * This method is used to append the application side requested scopes after validating.
+     * This method is used to append the application side requested scopes.
      * The application can request the scopes for federated token sharing either via adaptive scripts
      * or via the authorize request query parameters. The adaptive script has the first priority
      * while the request query parameters will be evaluated later.
@@ -637,23 +637,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * &scope=email profile openid
      * &federated_token_scope=Google Calender;read write,Microsoft Authenticator;https://googleapis.calender
      *
-     * @param context                 The authentication context.
-     * @param authenticatorProperties The authenticator properties.
-     * @param scopes                  The scopes defined in the authenticator properties.
-     * @return The IDP defined scope and the validated scopes requested by the application.
+     * @param context The authentication context.
+     * @param scopes  The scopes defined in the authenticator properties.
+     * @return The IDP defined scope and the scopes requested by the application.
      */
-    private String addValidScopesForFederatedTokenSharing(AuthenticationContext context,
-                                                          Map<String, String> authenticatorProperties, String scopes) {
+    private String addApplicationRequestedScopesForFederatedTokenSharing(AuthenticationContext context, String scopes) {
 
         // Get the application requested scopes for the federated tokens.
-        String requestedScopesForTokenSharing = getRequestedScopesForTokenSharing(context);
+        Set<String> requestedScopesForTokenSharing = getRequestedScopesForTokenSharing(context);
 
-        // Validating the application requested scopes by the authenticator allowed scopes for federated token sharing.
-        Set<String> validScopesForTokenSharing = validateScopeForTokenSharing(
-                authenticatorProperties.get(OIDCAuthenticatorConstants.FEDERATED_TOKEN_ALLOWED_SCOPE),
-                requestedScopesForTokenSharing);
-
-        if (CollectionUtils.isEmpty(validScopesForTokenSharing)) {
+        if (CollectionUtils.isEmpty(requestedScopesForTokenSharing)) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("No matching scopes found for federated token sharing.");
             }
@@ -661,14 +654,14 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Valid scopes found for the IDP" + getFederatedAuthenticatorName(context) +
-                    " in federated token sharing: " + validScopesForTokenSharing);
+            LOG.debug("Requested scopes found for the IDP" + getFederatedAuthenticatorName(context) +
+                    " in federated token sharing: " + requestedScopesForTokenSharing);
         }
         /*
         Remove the duplicate scopes among the validated scopes for federated token sharing and the existing scopes
         of the authenticators.
          */
-        scopes = removeDuplicateScopes(scopes, validScopesForTokenSharing);
+        scopes = removeDuplicateScopes(scopes, requestedScopesForTokenSharing);
         if (LOG.isDebugEnabled()) {
             LOG.debug("The scopes for the IDP: " + getFederatedAuthenticatorName(context) + " : " + scopes +
                     " after considering federated token sharing.");
@@ -701,10 +694,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * This method returns the scopes requested by the application for the federated tokens.
      *
      * @param context The authentication context.
-     * @return The scopes requested by the application for token sharing.
+     * @return The set of scopes requested by the application for token sharing.
      */
-    private String getRequestedScopesForTokenSharing(AuthenticationContext context) {
+    private HashSet<String> getRequestedScopesForTokenSharing(AuthenticationContext context) {
 
+        String requestedScopes;
         // The first priority is given to the parameters passed from the adaptive script. Then the query parameters.
         String requestedScopesViaAdaptiveScript =
                 getAdaptiveScriptValues(context, OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE);
@@ -712,9 +706,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isNotBlank(requestedScopesViaAdaptiveScript)) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Adaptive script parameter found for " + OIDCAuthenticatorConstants.FEDERATED_TOKEN_SCOPE
-                        + " in federated token sharing, IDP: " + getFederatedAuthenticatorName(context));
+                        + " in federated token sharing, IDP: " + getFederatedAuthenticatorName(context)
+                        + "value: " + requestedScopesViaAdaptiveScript);
             }
-            return requestedScopesViaAdaptiveScript;
+            requestedScopes = requestedScopesViaAdaptiveScript;
         } else {
             String requestedScopesViaQueryParams = getRequestedScopesViaQueryParams(context);
             if (LOG.isDebugEnabled() && StringUtils.isNotBlank(requestedScopesViaQueryParams)) {
@@ -723,8 +718,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         " value: " + requestedScopesViaQueryParams + " found for federated token sharing, IDP: "
                         + getFederatedAuthenticatorName(context));
             }
-            return requestedScopesViaQueryParams;
+            requestedScopes = requestedScopesViaQueryParams;
         }
+        if (StringUtils.isNotBlank(requestedScopes)) {
+            return new HashSet<>(Arrays.asList(requestedScopes.split(SPACE_REGEX)));
+        }
+        return null;
     }
 
     /**
@@ -1117,37 +1116,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (LOG.isDebugEnabled()) {
             LOG.debug("Federated tokens added to the authentication context, IDP: " + identityProviderName);
         }
-    }
-
-    /**
-     * This returns the intersection of the allowed scopes defined at the IDP configuration and the requested scopes
-     * from the application side for federated token sharing.
-     *
-     * @param allowedScope   The administrator defined scopes in the IDP configuration for federated token sharing.
-     * @param requestedScope The application side requested scopes for federated token sharing.
-     * @return The intersection of the allowed and the requested scopes for federated token sharing as a set of list.
-     */
-    private Set<String> validateScopeForTokenSharing(String allowedScope, String requestedScope) {
-
-        if (StringUtils.isBlank(allowedScope)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("No scopes are allowed for federated token sharing.");
-            }
-            return null;
-        }
-        if (StringUtils.isBlank(requestedScope)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("No scopes are requested for federated token sharing.");
-            }
-            return null;
-        }
-        Set<String> allowedScopesSet = new HashSet<>(Arrays.asList(allowedScope.split(SPACE_REGEX)));
-        Set<String> requestedScopesSet = new HashSet<>(Arrays.asList(requestedScope.split(SPACE_REGEX)));
-
-        Set<String> subset = new HashSet<>(requestedScopesSet);
-        subset.retainAll(allowedScopesSet);
-
-        return subset;
     }
 
     /**
