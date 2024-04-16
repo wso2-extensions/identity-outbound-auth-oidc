@@ -124,7 +124,6 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
         LoggerUtils.class, OIDCTokenValidationUtil.class, IdentityProviderManager.class})
 @SuppressStaticInitializationFor({"org.wso2.carbon.idp.mgt.IdentityProviderManager",
         "org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException"})
-        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     private static final String OIDC_PARAM_MAP_STRING = "oidc:param.map";
@@ -499,6 +498,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockOAuthClient.accessToken(Matchers.<OAuthClientRequest>anyObject()))
                 .thenReturn(mockOAuthJSONAccessTokenResponse);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "false");
         openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest,
                 mockServletResponse, mockAuthenticationContext);
 
