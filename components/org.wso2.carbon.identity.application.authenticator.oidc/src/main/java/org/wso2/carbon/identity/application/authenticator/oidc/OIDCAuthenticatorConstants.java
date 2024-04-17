@@ -88,6 +88,10 @@ public class OIDCAuthenticatorConstants {
     /**
      * This class holds the constants related to authenticator configuration parameters.
      */
+    
+    public static final String PKCE_CODE_VERIFIER = "PKCE_CODE_VERIFIER";
+    public static final String IS_PKCE_ENABLED = "IsPKCEEnabled";
+
     public class AuthenticatorConfParams {
 
         private AuthenticatorConfParams() {

@@ -33,6 +33,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.mockito.Matchers;
 import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.core.classloader.annotations.SuppressStaticInitializationFor;
 import org.powermock.modules.testng.PowerMockTestCase;
@@ -123,6 +124,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
         LoggerUtils.class, OIDCTokenValidationUtil.class, IdentityProviderManager.class})
 @SuppressStaticInitializationFor({"org.wso2.carbon.idp.mgt.IdentityProviderManager",
         "org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException"})
+@PowerMockIgnore("jdk.internal.reflect.*")
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     private static final String OIDC_PARAM_MAP_STRING = "oidc:param.map";
@@ -480,7 +482,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     public void testPassProcessAuthenticationResponse() throws Exception {
 
         setupTest();
-
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "false");
         IdentityProviderProperty property = new IdentityProviderProperty();
         property.setName(IdPManagementConstants.IS_TRUSTED_TOKEN_ISSUER);
         property.setValue("false");
@@ -521,6 +523,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
         when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
         when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "false");
         when(openIDConnectAuthenticatorDataHolder.getClaimMetadataManagementService()).thenReturn
                 (claimMetadataManagementService);
         when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
@@ -537,6 +540,29 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         assertEquals(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.ID_TOKEN), idToken,
                 "Invalid Id token in the authentication context.");
+    }
+
+    /**
+     * Test whether the token request contains the code verifier when PKCE is enabled.
+     *
+     * @throws URLBuilderException
+     * @throws AuthenticationFailedException
+     */
+    @Test()
+    public void testGetAccessTokenRequestWithPKCE() throws URLBuilderException, AuthenticationFailedException {
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
+        when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER))
+                .thenReturn("sample_code_verifier");
+        when(mockOAuthzResponse.getCode()).thenReturn("abc");
+        mockStatic(ServiceURLBuilder.class);
+        ServiceURLBuilder serviceURLBuilder = mock(ServiceURLBuilder.class);
+        when(ServiceURLBuilder.create()).thenReturn(serviceURLBuilder);
+        when(serviceURLBuilder.build()).thenReturn(serviceURL);
+        when(serviceURL.getAbsolutePublicURL()).thenReturn("http://localhost:9443");
+        OAuthClientRequest request = openIDConnectAuthenticator
+                .getAccessTokenRequest(mockAuthenticationContext, mockOAuthzResponse);
+        assertTrue(request.getBody().contains("code_verifier=sample_code_verifier"));
     }
 
     @Test
@@ -558,6 +584,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
         setupTest();
         authenticatorProperties.put("callbackUrl", " ");
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "false");
         mockStatic(IdentityUtil.class);
         when(IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true))
                 .thenReturn("http:/localhost:9443/oauth2/callback");
@@ -618,6 +645,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         setupTest();
         when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
         authenticatorProperties.put("callbackUrl", "http://localhost:8080/playground2/oauth2client");
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "false");
         Map<String, String> paramMap = new HashMap<>();
         paramMap.put("redirect_uri", "http:/localhost:9443/oauth2/redirect");
         when(mockAuthenticationContext.getProperty(OIDC_PARAM_MAP_STRING)).thenReturn(paramMap);
