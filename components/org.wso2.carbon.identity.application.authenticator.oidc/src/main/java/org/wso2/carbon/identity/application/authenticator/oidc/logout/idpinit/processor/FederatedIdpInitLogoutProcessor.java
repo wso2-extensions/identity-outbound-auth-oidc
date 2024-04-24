@@ -369,11 +369,12 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
      */
     protected void validateAudience(List<String> aud, IdentityProvider idp) throws LogoutClientException {
 
-        String clientId = null;
-        // Get the client id from the authenticator config.
+        // Validate audience is skipped for the resident IDP.
         if (RESIDENT_IDP_RESERVED_NAME.equals(idp.getIdentityProviderName())) {
             return;
         }
+        String clientId = null;
+        // Get the client id from the authenticator config.
         for (Property property : idp.getDefaultAuthenticatorConfig().getProperties()) {
             String propertyName = property.getName();
             if (OIDCAuthenticatorConstants.IdPConfParams.CLIENT_ID.equals(propertyName)) {
