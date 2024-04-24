@@ -175,21 +175,24 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         if (log.isDebugEnabled()) {
             log.debug(String.format("Trying federated IdP initiated logout using sid: %s.", sid));
         }
-        FederatedUserSession federatedUserSession = getFederatedUserSessionFromSid(sid);
+        List<FederatedUserSession> federatedUserSessionList = getFederatedUserSessionsFromSid(sid);
         String sessionId = null;
-        if (federatedUserSession != null) {
-            sessionId = federatedUserSession.getSessionId();
-        }
-        if (StringUtils.isBlank(sessionId)) {
-            return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK, StringUtils.EMPTY);
+        for (FederatedUserSession federatedUserSession: federatedUserSessionList) {
+            if (federatedUserSession != null) {
+                sessionId = federatedUserSession.getSessionId();
+            }
+            if (StringUtils.isBlank(sessionId)) {
+                return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK, StringUtils.EMPTY);
+            }
+
+            ServerSessionManagementService serverSessionManagementService =
+                    OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
+            serverSessionManagementService.removeSession(sessionId);
+            if (log.isDebugEnabled()) {
+                log.debug("Session terminated for session Id: " + sessionId);
+            }
         }
 
-        ServerSessionManagementService serverSessionManagementService =
-                OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
-        serverSessionManagementService.removeSession(sessionId);
-        if (log.isDebugEnabled()) {
-            log.debug("Session terminated for session Id: " + sessionId);
-        }
 
         return new LogoutResponse.LogoutResponseBuilder(HttpServletResponse.SC_OK,
                 OIDCAuthenticatorConstants.BackchannelLogout.LOGOUT_SUCCESS);
@@ -207,6 +210,24 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         try {
             UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
             FederatedUserSession federatedUserSession = userSessionDAO.getFederatedAuthSessionDetails(sid);
+            if (federatedUserSession == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug(String.format("No session information found for the sid: %s. ", sid) + "Probably the " +
+                            "session was cleared by another mechanism.");
+                }
+                return null;
+            }
+            return federatedUserSession;
+        } catch (SessionManagementServerException e) {
+            throw handleLogoutServerException(ErrorMessages.RETRIEVING_SESSION_ID_MAPPING_FAILED, e, sid);
+        }
+    }
+
+    protected List<FederatedUserSession> getFederatedUserSessionsFromSid(String sid) throws LogoutServerException {
+
+        try {
+            UserSessionDAO userSessionDAO = new UserSessionDAOImpl();
+            List<FederatedUserSession> federatedUserSession = userSessionDAO.getFederatedAuthSessionsDetails(sid);
             if (federatedUserSession == null) {
                 if (log.isDebugEnabled()) {
                     log.debug(String.format("No session information found for the sid: %s. ", sid) + "Probably the " +
