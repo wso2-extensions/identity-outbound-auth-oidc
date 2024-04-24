@@ -70,6 +70,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.BackchannelLogout.DEFAULT_IAT_VALIDITY_PERIOD;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
+import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.RESIDENT_IDP_RESERVED_NAME;
 
 /**
  * Processes the OIDC federated idp initiated logout requests.
@@ -188,6 +189,11 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             ServerSessionManagementService serverSessionManagementService =
                     OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
             serverSessionManagementService.removeSession(sessionId);
+            try {
+                UserSessionStore.getInstance().removeFederatedAuthSessionInfo(sessionId);
+            } catch (UserSessionException e) {
+                throw new LogoutServerException("Exception occurred while removing federated IDP session mapping.");
+            }
             if (log.isDebugEnabled()) {
                 log.debug("Session terminated for session Id: " + sessionId);
             }
@@ -369,6 +375,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
 
         String clientId = null;
         // Get the client id from the authenticator config.
+        if (RESIDENT_IDP_RESERVED_NAME.equals(idp.getIdentityProviderName())) {
+            return;
+        }
         for (Property property : idp.getDefaultAuthenticatorConfig().getProperties()) {
             String propertyName = property.getName();
             if (OIDCAuthenticatorConstants.IdPConfParams.CLIENT_ID.equals(propertyName)) {
