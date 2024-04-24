@@ -189,11 +189,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             ServerSessionManagementService serverSessionManagementService =
                     OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
             serverSessionManagementService.removeSession(sessionId);
-            try {
-                UserSessionStore.getInstance().removeFederatedAuthSessionInfo(sessionId);
-            } catch (UserSessionException e) {
-                throw new LogoutServerException("Exception occurred while removing federated IDP session mapping.");
-            }
+            removeFederatedIDPSessionMapping(sessionId);
             if (log.isDebugEnabled()) {
                 log.debug("Session terminated for session Id: " + sessionId);
             }
@@ -720,5 +716,14 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                     OIDCAuthenticatorConstants.BackchannelLogout.OIDC_IDP_ENTITY_ID).getValue();
         }
         return jwtIssuer.equals(issuer) ? residentIdentityProvider : null;
+    }
+
+    private void removeFederatedIDPSessionMapping(String sessionID) throws LogoutServerException {
+
+        try {
+            UserSessionStore.getInstance().removeFederatedAuthSessionInfo(sessionID);
+        } catch (UserSessionException e) {
+            throw new LogoutServerException("Exception occurred while removing federated IDP session mapping.");
+        }
     }
 }
