@@ -72,6 +72,7 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
@@ -485,7 +486,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         DataSource dataSource = mock(DataSource.class);
         mockStatic(IdentityDatabaseUtil.class);
         when(IdentityDatabaseUtil.getDataSource()).thenReturn(dataSource);
-        when(IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
+        when(IdentityDatabaseUtil.getDBConnection(anyBoolean())).thenReturn(getConnection(DB_NAME));
         when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
 
         // Mock the server session management service.
