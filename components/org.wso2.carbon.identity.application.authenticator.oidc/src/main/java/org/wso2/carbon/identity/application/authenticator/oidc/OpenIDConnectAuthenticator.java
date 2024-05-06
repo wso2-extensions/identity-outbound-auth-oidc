@@ -280,9 +280,38 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      *                                configuration.
      * @return Callback URL configured in OIDC federated authenticator configuration. If it is empty returns
      * /commonauth endpoint URL path as the default value.
+     * @deprecated use {@link #getCallbackUrl(Map, AuthenticationContext)}.
      */
+    @Deprecated
     protected String getCallbackUrl(Map<String, String> authenticatorProperties) {
 
+        String callbackUrl = authenticatorProperties.get(IdentityApplicationConstants.OAuth2.CALLBACK_URL);
+        if (StringUtils.isBlank(callbackUrl)) {
+            try {
+                callbackUrl = ServiceURLBuilder.create().addPath(FrameworkConstants.COMMONAUTH).build()
+                        .getAbsolutePublicURL();
+            } catch (URLBuilderException e) {
+                throw new RuntimeException("Error occurred while building URL in tenant qualified mode.", e);
+            }
+        }
+        return callbackUrl;
+    }
+
+    /**
+     * Returns the callback URL of the IdP Hub.
+     *
+     * @param authenticatorProperties Authentication properties configured in OIDC federated authenticator
+     *                                configuration.
+     * @param context                 Authentication context.
+     * @return If API based authn flow, returns the redirect URL from the authentication context. If not returns the
+     * callback URL configured in OIDC federated authenticator configuration and if it is empty returns
+     * /commonauth endpoint URL path as the default value.
+     */
+    protected String getCallbackUrl(Map<String, String> authenticatorProperties, AuthenticationContext context) {
+
+        if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
+            return resolveCallBackURLForAPIBasedAuthFlow(context);
+        }
         String callbackUrl = authenticatorProperties.get(IdentityApplicationConstants.OAuth2.CALLBACK_URL);
         if (StringUtils.isBlank(callbackUrl)) {
             try {
@@ -379,6 +408,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
 
+    /**
+     * @deprecated use {@link #getCallbackUrl(Map, AuthenticationContext)} instead.
+     */
+    @Deprecated
     protected String getCallBackURL(Map<String, String> authenticatorProperties) {
 
         return getCallbackUrl(authenticatorProperties);
@@ -514,11 +547,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             if (authenticatorProperties != null) {
                 String clientId = authenticatorProperties.get(OIDCAuthenticatorConstants.CLIENT_ID);
                 String authorizationEP = getOIDCAuthzEndpoint(authenticatorProperties);
-                String callbackurl = getCallbackUrl(authenticatorProperties);
+                String callbackurl = getCallbackUrl(authenticatorProperties, context);
 
-                if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
-                    callbackurl = resolveCallBackURLForAPIBasedAuthFlow(context);
-                }
                 String state = getStateParameter(request, context, authenticatorProperties);
                 context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
                 String nonce = UUID.randomUUID().toString();
@@ -1321,7 +1351,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 paramMap.put(OIDCAuthenticatorConstants.ID_TOKEN_HINT, idTokenHint);
             }
 
-            String callback = getCallbackUrl(context.getAuthenticatorProperties());
+            String callback = getCallbackUrl(context.getAuthenticatorProperties(), context);
             paramMap.put(OIDCAuthenticatorConstants.POST_LOGOUT_REDIRECT_URI, callback);
 
             String sessionID = getStateParameter(request, context, context.getAuthenticatorProperties());
@@ -1493,11 +1523,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         String callbackUrl = getCallbackUrlFromInitialRequestParamMap(context);
         if (StringUtils.isBlank(callbackUrl)) {
-            if (Boolean.parseBoolean((String) context.getProperty(IS_API_BASED))) {
-                callbackUrl = resolveCallBackURLForAPIBasedAuthFlow(context);
-            } else {
-                callbackUrl = getCallbackUrl(authenticatorProperties);
-            }
+            callbackUrl = getCallbackUrl(authenticatorProperties, context);
         }
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(OIDCAuthenticatorConstants
