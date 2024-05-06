@@ -316,7 +316,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test
     public void testGetCallbackUrl() throws IOException {
 
-        assertEquals(openIDConnectAuthenticator.getCallBackURL(authenticatorProperties),
+        assertEquals(openIDConnectAuthenticator.getCallbackUrl(authenticatorProperties, mockAuthenticationContext),
                 "http://localhost:8080/playground2/oauth2client",
                 "Callback URL is not valid.");
     }
@@ -359,7 +359,7 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
     @Test
     public void testGetCallBackURL() throws IOException {
 
-        assertEquals(openIDConnectAuthenticator.getCallBackURL(authenticatorProperties),
+        assertEquals(openIDConnectAuthenticator.getCallbackUrl(authenticatorProperties, mockAuthenticationContext),
                 "http://localhost:8080/playground2/oauth2client",
                 "Callback URL is not valid.");
     }
