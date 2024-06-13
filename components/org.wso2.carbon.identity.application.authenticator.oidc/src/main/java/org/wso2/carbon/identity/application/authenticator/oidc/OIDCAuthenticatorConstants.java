@@ -35,7 +35,6 @@ public class OIDCAuthenticatorConstants {
     public static final String EXPIRES_IN = "expires_in";
     public static final String SHARE_FEDERATED_TOKEN_CONFIG = "ShareFederatedToken";
     public static final String SHARE_FEDERATED_TOKEN_PARAM = "share_federated_token";
-    public static final String FEDERATED_TOKEN_ALLOWED_SCOPE = "FederatedTokenAllowedScope";
     public static final String FEDERATED_TOKEN_SCOPE = "federated_token_scope";
 
     private OIDCAuthenticatorConstants() {
