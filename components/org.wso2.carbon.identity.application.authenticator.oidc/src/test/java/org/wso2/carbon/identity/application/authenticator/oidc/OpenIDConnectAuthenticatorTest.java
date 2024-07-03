@@ -629,7 +629,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(mockOAuthClient);
         when(mockOAuthClient.accessToken(any())).thenReturn(mockOAuthJSONAccessTokenResponse);
-        when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(invalidNonce);
+        String nonceKey = openIDConnectAuthenticator.getName() + OIDC_FEDERATION_NONCE;
+        when(mockAuthenticationContext.getProperty(nonceKey)).thenReturn(invalidNonce);
         when(mockOAuthJSONAccessTokenResponse.getParam(anyString())).thenReturn(idToken);
 
         Assert.assertThrows(
@@ -1082,7 +1083,8 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
         when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
         when(mockAuthenticationContext.getAuthenticationRequest()).thenReturn(mockAuthenticationRequest);
-        when(mockAuthenticationContext.getProperty(OIDC_FEDERATION_NONCE)).thenReturn(nonce);
+        String nonceKey = openIDConnectAuthenticator.getName() + OIDC_FEDERATION_NONCE;
+        when(mockAuthenticationContext.getProperty(nonceKey)).thenReturn(nonce);
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
         authenticatorProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, clientId);
 

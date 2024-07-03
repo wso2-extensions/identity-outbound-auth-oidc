@@ -550,9 +550,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String callbackurl = getCallbackUrl(authenticatorProperties, context);
 
                 String state = getStateParameter(request, context, authenticatorProperties);
-                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + STATE_PARAM_SUFFIX, state);
+                context.setProperty(getName() + STATE_PARAM_SUFFIX, state);
                 String nonce = UUID.randomUUID().toString();
-                context.setProperty(OIDC_FEDERATION_NONCE, nonce);
+                context.setProperty(getName() + OIDC_FEDERATION_NONCE, nonce);
                 boolean isPKCEEnabled = Boolean.parseBoolean(
                         authenticatorProperties.get(OIDCAuthenticatorConstants.IS_PKCE_ENABLED));
 
@@ -591,7 +591,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
                 String scope = paramValueMap.get(OAuthConstants.OAuth20Params.SCOPE);
                 scope = getScope(scope, authenticatorProperties);
-                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + SCOPE_PARAM_SUFFIX, scope);
+                context.setProperty(getName() + SCOPE_PARAM_SUFFIX, scope);
 
                 if (StringUtils.isNotBlank(queryString) && queryString.toLowerCase().contains("scope=") && queryString
                         .toLowerCase().contains("redirect_uri=")) {
@@ -642,7 +642,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                         loginPage = loginPage + queryString;
                     }
                 }
-                context.setProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME + REDIRECT_URL_SUFFIX, loginPage);
+                context.setProperty(getName() + REDIRECT_URL_SUFFIX, loginPage);
                 return loginPage;
             } else {
                 if (LOG.isDebugEnabled()) {
@@ -666,6 +666,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throw new AuthenticationFailedException(ErrorMessages.BUILDING_AUTHORIZATION_CODE_REQUEST_FAILED.getCode(),
                     e.getMessage(), e);
         }
+    }
+
+    protected static void setAuthenticatorMessageToContext(ErrorMessages errorMessage,
+                                                           AuthenticationContext context) {
+
+        AuthenticatorMessage authenticatorMessage = new AuthenticatorMessage(FrameworkConstants.
+                AuthenticatorMessageType.ERROR, errorMessage.
+                getCode(), errorMessage.getMessage(), null);
+        context.setProperty(AUTHENTICATOR_MESSAGE, authenticatorMessage);
     }
 
     /**
@@ -925,15 +934,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         return null;
     }
 
-    private static void setAuthenticatorMessageToContext(ErrorMessages errorMessage,
-                                                         AuthenticationContext context) {
-
-        AuthenticatorMessage authenticatorMessage = new AuthenticatorMessage(FrameworkConstants.
-                AuthenticatorMessageType.ERROR, errorMessage.
-                getCode(), errorMessage.getMessage(), null);
-        context.setProperty(AUTHENTICATOR_MESSAGE, authenticatorMessage);
-    }
-
     private String getStateParameter(HttpServletRequest request, AuthenticationContext context,
                                      Map<String, String> authenticatorProperties) {
 
@@ -1047,12 +1047,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 LOG.debug("Retrieved the User Information:" + jwtAttributeMap);
             }
 
-            if (StringUtils.isNotBlank((String) context.getProperty(OIDC_FEDERATION_NONCE))) {
+            String nonceKey = getName() + OIDC_FEDERATION_NONCE;
+            if (StringUtils.isNotBlank((String) context.getProperty(nonceKey))) {
                 String nonce = (String) jwtAttributeMap.get(NONCE);
                 if (nonce == null) {
                     LOG.debug("OIDC provider does not support nonce claim in id_token.");
                 }
-                if (nonce != null && !nonce.equals(context.getProperty(OIDC_FEDERATION_NONCE))) {
+                if (nonce != null && !nonce.equals(context.getProperty(nonceKey))) {
                     setAuthenticatorMessageToContext(ErrorMessages.NONCE_MISMATCH, context);
 
                     throw new AuthenticationFailedException(ErrorMessages.NONCE_MISMATCH.getCode(),
@@ -1829,26 +1830,25 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             AuthenticationContext context, boolean isNativeSDKBasedFederationCall) {
 
         AdditionalData additionalData = new AdditionalData();
+        String currentAuthenticator = StringUtils.isNotBlank(context.getCurrentAuthenticator()) ?
+                context.getCurrentAuthenticator() : OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 
         if (isNativeSDKBasedFederationCall) {
             Map<String, String> additionalAuthenticationParams = new HashMap<>();
 
-            String nonce = (String) context.getProperty(OIDC_FEDERATION_NONCE);
+            String nonce = (String) context.getProperty(currentAuthenticator + OIDC_FEDERATION_NONCE);
             if (StringUtils.isNotBlank(nonce)) {
                 additionalAuthenticationParams.put(NONCE, nonce);
             }
             additionalAuthenticationParams.put(OIDCAuthenticatorConstants.CLIENT_ID_PARAM,
                     context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.CLIENT_ID));
-            String scope = (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
-                    SCOPE_PARAM_SUFFIX);
+            String scope = (String) context.getProperty(currentAuthenticator + SCOPE_PARAM_SUFFIX);
             additionalAuthenticationParams.put(OIDCAuthenticatorConstants.SCOPE, scope);
             additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
         } else {
-            additionalData.setRedirectUrl((String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
-                    REDIRECT_URL_SUFFIX));
+            additionalData.setRedirectUrl((String) context.getProperty(currentAuthenticator + REDIRECT_URL_SUFFIX));
             Map<String, String> additionalAuthenticationParams = new HashMap<>();
-            String state = (String) context.getProperty(OIDCAuthenticatorConstants.AUTHENTICATOR_NAME +
-                    STATE_PARAM_SUFFIX);
+            String state = (String) context.getProperty(currentAuthenticator + STATE_PARAM_SUFFIX);
             additionalAuthenticationParams.put(OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE, state);
             additionalData.setAdditionalAuthenticationParams(additionalAuthenticationParams);
         }
