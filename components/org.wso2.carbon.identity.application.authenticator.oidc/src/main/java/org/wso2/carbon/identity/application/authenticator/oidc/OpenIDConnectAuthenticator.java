@@ -668,6 +668,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
     }
 
+    /**
+     * This method can be used to add the authentication error message content into the context.
+     *
+     * @param errorMessage  ErrorMessage object.
+     * @param context       AuthenticationContext.
+     */
     protected static void setAuthenticatorMessageToContext(ErrorMessages errorMessage,
                                                            AuthenticationContext context) {
 
