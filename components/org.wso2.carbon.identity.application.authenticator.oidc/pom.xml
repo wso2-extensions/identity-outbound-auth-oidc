@@ -155,6 +155,7 @@
                             org.apache.oltu.oauth2.common.exception; version="${oltu.package.import.version.range}",
                             org.apache.oltu.oauth2.common.message.types;
                             version="${oltu.package.import.version.range}",
+                            org.apache.http.*; version="${http.package.import.version.range}",
                             org.apache.oltu.oauth2.common.utils; version="${oltu.package.import.version.range}",
                             org.wso2.carbon.utils.*; version="${carbon.kernel.package.import.version.range}",
                             org.wso2.carbon.identity.oauth.common.*;
@@ -187,6 +188,7 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.central.log.mgt.utils;
                             version="${identity.framework.package.import.version.range}",
+                            org.wso2.carbon.base;
                         </Import-Package>
                         <Export-Package>
                             !org.wso2.carbon.identity.application.authenticator.oidc.internal,
