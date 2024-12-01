@@ -193,4 +193,25 @@ public class OIDCAuthenticatorConstants {
             public static final String INITIATE_OUTBOUND_AUTH_REQUEST = "initiate-outbound-auth-oidc-request";
         }
     }
+
+    public class Proxy {
+        private Proxy() {
+
+        }
+        public static final String proxyEnable = "ProxyConfig.Enable";
+        public static final String proxyHost = "ProxyConfig.Host";
+        public static final String proxyUsername = "ProxyConfig.Username" ;
+        public static final String proxyPassword = "ProxyConfig.Password";
+        public static final String proxyPort = "ProxyConfig.Port";
+        public static final String proxyProtocol = "ProxyConfig.Protocol";
+        public static final String nonProxyHosts = "ProxyConfig.NonProxyHosts";
+
+        public static final String HTTPS = "https";
+        public static final String trustStoreLocation = "Security.TrustStore.Location";
+        public static final String trustStorePassword = "Security.TrustStore.Password";
+        public static final String hostNameVerifierSysEnv = "httpclient.hostnameVerifier";
+        public static final String ALLOW_ALL_HOSTNAME_VERIFIER = "AllowAll";
+        public static final String STRICT_HOSTNAME_VERIFIER = "Strict";
+        public static final String DEFAULT_HOSTNAME_VERIFIER = "DefaultAndLocalhost";
+    }
 }

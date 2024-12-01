@@ -25,7 +25,6 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -47,7 +46,7 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponseFactory;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
-import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCConstants;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.ExtendedProxyRoutePlanner;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.utils.CarbonUtils;
 
@@ -95,10 +94,9 @@ public class CustomURLConnectionClient implements HttpClient {
                         .createCustomResponse(responseString, requestEntity.getContentType().toString(),
                                 response.getStatusLine().getStatusCode(), responseClass);
             } else {
-                throw new OAuthSystemException("Error while obtaining the access token through the proxy");
+                throw new OAuthSystemException("Error while obtaining the access token through the proxy " +
+                        EntityUtils.toString(response.getEntity()));
             }
-        } catch (MalformedURLException e) {
-            throw new OAuthSystemException(e);
         } catch (IOException e) {
             throw new OAuthSystemException(e);
         }
@@ -110,21 +108,18 @@ public class CustomURLConnectionClient implements HttpClient {
     }
 
     public static org.apache.http.client.HttpClient getHttpClient() throws OAuthSystemException {
-        Boolean proxyEnabled = Boolean.parseBoolean(IdentityUtil.getProperty(OIDCConstants.proxyEnable));
-        String proxyProtocol = IdentityUtil.getProperty(OIDCConstants.proxyProtocol);
-        String proxyUsername = IdentityUtil.getProperty(OIDCConstants.proxyUsername);
-        String proxyPassword = IdentityUtil.getProperty(OIDCConstants.proxyPassword);
-        String proxyHost = IdentityUtil.getProperty(OIDCConstants.proxyHost);
-        String proxyPort = IdentityUtil.getProperty(OIDCConstants.proxyPort);
-
-        String protocol = null;
-        if (proxyProtocol != null) {
-            protocol = proxyProtocol;
-        }
+        Boolean proxyEnabled = Boolean.parseBoolean(IdentityUtil.getProperty(
+                OIDCAuthenticatorConstants.Proxy.proxyEnable));
+        String proxyProtocol = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyProtocol);
+        String proxyUsername = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyUsername);
+        String proxyPassword = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyPassword);
+        String proxyHost = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyHost);
+        String proxyPort = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyPort);
+        String nonProxyHosts = IdentityUtil.getProperty(OIDCAuthenticatorConstants.Proxy.proxyPort);
 
         PoolingHttpClientConnectionManager pool = null;
         try {
-            pool = getPoolingHttpClientConnectionManager(protocol);
+            pool = getPoolingHttpClientConnectionManager(proxyProtocol);
         } catch (Exception e) {
             throw new OAuthSystemException(e);
         }
@@ -135,9 +130,14 @@ public class CustomURLConnectionClient implements HttpClient {
 
         HttpHost host = null;
         if (proxyEnabled) {
-            host = new HttpHost(proxyHost, Integer.parseInt(proxyPort), protocol);
+            host = new HttpHost(proxyHost, Integer.parseInt(proxyPort), proxyProtocol);
             clientBuilder.setDefaultRequestConfig(RequestConfig.custom().setProxy(host).build());
-            DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(host);
+            DefaultProxyRoutePlanner routePlanner;
+            if (!StringUtils.isBlank(nonProxyHosts)) {
+                routePlanner = new ExtendedProxyRoutePlanner(host, nonProxyHosts, proxyHost, proxyPort, proxyProtocol);
+            } else {
+                routePlanner = new DefaultProxyRoutePlanner(host);
+            }
             clientBuilder = clientBuilder.setRoutePlanner(routePlanner);
             if (!StringUtils.isBlank(proxyUsername) && !StringUtils.isBlank(proxyPassword)) {
                 CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -158,11 +158,11 @@ public class CustomURLConnectionClient implements HttpClient {
     private static PoolingHttpClientConnectionManager getPoolingHttpClientConnectionManager(String protocol) throws Exception {
 
         PoolingHttpClientConnectionManager poolManager;
-        if (OIDCConstants.HTTPS.equals(protocol)) {
+        if (OIDCAuthenticatorConstants.Proxy.HTTPS.equals(protocol)) {
             SSLConnectionSocketFactory socketFactory = createSocketFactory();
             org.apache.http.config.Registry<ConnectionSocketFactory> socketFactoryRegistry =
                     RegistryBuilder.<ConnectionSocketFactory>create()
-                            .register(OIDCConstants.HTTPS, socketFactory).build();
+                            .register(OIDCAuthenticatorConstants.Proxy.HTTPS, socketFactory).build();
             poolManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
         } else {
             poolManager = new PoolingHttpClientConnectionManager();
@@ -174,21 +174,21 @@ public class CustomURLConnectionClient implements HttpClient {
         SSLContext sslContext = null;
         HostnameVerifier hostnameVerifier = null;
         String keyStorePath = CarbonUtils.getServerConfiguration()
-                .getFirstProperty(OIDCConstants.trustStoreLocation);
+                .getFirstProperty(OIDCAuthenticatorConstants.Proxy.trustStoreLocation);
         String keyStorePassword = CarbonUtils.getServerConfiguration()
-                .getFirstProperty(OIDCConstants.trustStorePassword);
+                .getFirstProperty(OIDCAuthenticatorConstants.Proxy.trustStorePassword);
         try {
             KeyStore trustStore = KeyStore.getInstance("JKS");
             trustStore.load(new FileInputStream(keyStorePath), keyStorePassword.toCharArray());
             sslContext = SSLContexts.custom().loadTrustMaterial(trustStore).build();
 
-            String hostnameVerifierOption = System.getProperty(OIDCConstants.hostNameVerifierSysEnv);
+            String hostnameVerifierOption = System.getProperty(OIDCAuthenticatorConstants.Proxy.hostNameVerifierSysEnv);
 
-            if (OIDCConstants.ALLOW_ALL_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
+            if (OIDCAuthenticatorConstants.Proxy.ALLOW_ALL_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
                 hostnameVerifier = SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
-            } else if (OIDCConstants.STRICT_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
+            } else if (OIDCAuthenticatorConstants.Proxy.STRICT_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
                 hostnameVerifier = SSLSocketFactory.STRICT_HOSTNAME_VERIFIER;
-            } else if (OIDCConstants.DEFAULT_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
+            } else if (OIDCAuthenticatorConstants.Proxy.DEFAULT_HOSTNAME_VERIFIER.equalsIgnoreCase(hostnameVerifierOption)) {
                 hostnameVerifier = new HostnameVerifier() {
                     final String[] localhosts = {"::1", "127.0.0.1", "localhost", "localhost.localdomain"};
 
