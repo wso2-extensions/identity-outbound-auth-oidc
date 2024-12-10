@@ -763,10 +763,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isBlank(separator)) {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
-        if (entry.getValue() instanceof JSONArray) {
-            JSONArray jsonArray = (JSONArray) entry.getValue();
-            if (jsonArray != null && !jsonArray.isEmpty()) {
-                Iterator attributeIterator = jsonArray.iterator();
+        if (entry.getValue() instanceof ArrayList) {
+            ArrayList<?> arrayList = (ArrayList<?>) entry.getValue();
+            if (!arrayList.isEmpty()) {
+                Iterator<?> attributeIterator = arrayList.iterator();
                 while (attributeIterator.hasNext()) {
                     if (claimValue == null) {
                         claimValue = new StringBuilder(attributeIterator.next().toString());
