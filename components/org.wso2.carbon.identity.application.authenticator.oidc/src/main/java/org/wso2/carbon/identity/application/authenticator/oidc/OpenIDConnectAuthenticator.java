@@ -1245,7 +1245,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
             // Create OAuth client that uses custom http client under the hood.
-            OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
+            OAuthClient oAuthClient;
+            if (StringUtils.isEmpty(System.getProperty(OIDCAuthenticatorConstants.Proxy.HTTP.PROXY_USERRNAME)) &&
+                    StringUtils.isEmpty(System.getProperty(OIDCAuthenticatorConstants.Proxy.HTTPS.PROXY_USERRNAME))) {
+                oAuthClient = new OAuthClient(new URLConnectionClient());
+            } else {
+                oAuthClient = new OAuthClient(new ProxyURLConnectionClient());
+            }
             oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
             if (oAuthResponse != null) {
                 processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));

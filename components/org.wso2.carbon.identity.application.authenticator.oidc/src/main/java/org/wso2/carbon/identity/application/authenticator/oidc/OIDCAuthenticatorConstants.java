@@ -193,4 +193,40 @@ public class OIDCAuthenticatorConstants {
             public static final String INITIATE_OUTBOUND_AUTH_REQUEST = "initiate-outbound-auth-oidc-request";
         }
     }
+
+    public class Proxy {
+
+        private Proxy() {
+
+        }
+
+        public class HTTP {
+
+            public static final String PROXY_HOST = "http.proxyHost";
+            public static final String PROXY_USERRNAME = "http.proxyUsername";
+            public static final String PROXY_PASSWORD = "http.proxyPassword";
+            public static final String PROXY_PORT = "http.proxyPort";
+            public static final String DEFAULT_PROXY_PORT = "80";
+            public static final String NON_PROXY_HOSTS = "http.nonProxyHosts";
+            public static final String PROTOCOL = "http";
+        }
+
+        public class HTTPS {
+
+            public static final String PROXY_HOST = "https.proxyHost";
+            public static final String PROXY_USERRNAME = "https.proxyUsername";
+            public static final String PROXY_PASSWORD = "https.proxyPassword";
+            public static final String PROXY_PORT = "https.proxyPort";
+            public static final String DEFAULT_PROXY_PORT = "443";
+            public static final String NON_PROXY_HOSTS = "https.nonProxyHosts";
+            public static final String PROTOCOL = "https";
+        }
+
+        public static final String trustStoreLocation = "Security.TrustStore.Location";
+        public static final String trustStorePassword = "Security.TrustStore.Password";
+        public static final String hostNameVerifierSysEnv = "httpclient.hostnameVerifier";
+        public static final String ALLOW_ALL_HOSTNAME_VERIFIER = "AllowAll";
+        public static final String STRICT_HOSTNAME_VERIFIER = "Strict";
+        public static final String DEFAULT_HOSTNAME_VERIFIER = "DefaultAndLocalhost";
+    }
 }
