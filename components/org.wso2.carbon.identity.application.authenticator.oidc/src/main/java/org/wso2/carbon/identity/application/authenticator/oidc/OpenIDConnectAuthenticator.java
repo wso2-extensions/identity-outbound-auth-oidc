@@ -125,10 +125,13 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INITIATE_OUTBOUND_AUTH_REQUEST;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.PROCESS_AUTHENTICATION_RESPONSE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.MULTI_OPTION_URI;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.QUERY_PARAM_KEY_VALUE_DELIMITER;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.REDIRECT_URL_SUFFIX;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SCOPE_PARAM_SUFFIX;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.STATE_PARAM_SUFFIX;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.URI_QUERY_PARAM_DELIMITER;
 import static org.wso2.carbon.identity.base.IdentityConstants.FEDERATED_IDP_SESSION_ID;
 
 /**
@@ -2033,10 +2036,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         Matcher matcher = pattern.matcher(queryString);
         while (matcher.find()) {
             String name = matcher.group(1);
-            String[] values = parameters.get(name);
-            String value = "";
-            if (values != null && values.length > 0) {
-                value = values[0];
+            String value = getParameterFromParamMap(parameters, name);
+            if (StringUtils.isBlank(value)) {
+                String multiOptionURI = getParameterFromParamMap(parameters, MULTI_OPTION_URI);
+                value = getParameterFromURIString(multiOptionURI, name);
             }
             if (LOG.isDebugEnabled()) {
                 LOG.debug("InterpretQueryString name: " + name + ", value: " + value);
@@ -2048,6 +2051,48 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
         return queryString;
     }
+
+    /**
+     * Gets the value of the parameter corresponding to the given parameter
+     * name from the request's parameter map.
+     *
+     * @param parameters    The parameter map of the request.
+     * @param parameterName The name of the parameter to be retrieved.
+     * @return The value of the parameter if it is present in the parameter map.
+     * If it is not present, an empty String is returned instead.
+     */
+    private String getParameterFromParamMap(Map<String, String[]> parameters, String parameterName) {
+
+        String[] parameterValueMap = parameters.get(parameterName);
+        if (parameterValueMap != null && parameterValueMap.length > 0) {
+            return parameterValueMap[0];
+        }
+        return StringUtils.EMPTY;
+    }
+
+    /**
+     * Parses the given URI String to get the parameter value corresponding to the
+     * given parameter name.
+     *
+     * @param uriString     The URI String to be parsed.
+     * @param parameterName The name of the parameter to be retrieved.
+     * @return The value of the parameter if it is present in the URI String.
+     * If it is not present, an empty String is returned instead.
+     */
+    private String getParameterFromURIString(String uriString, String parameterName) {
+
+        if (StringUtils.isNotBlank(uriString)) {
+            String[] queryParams = uriString.split(URI_QUERY_PARAM_DELIMITER, -1);
+            for (String queryParam: queryParams) {
+                String[] queryParamComponents = queryParam.split(QUERY_PARAM_KEY_VALUE_DELIMITER);
+                if (queryParamComponents.length == 2 && queryParamComponents[0].equalsIgnoreCase(parameterName)) {
+                    return queryParamComponents[1];
+                }
+            }
+        }
+        return StringUtils.EMPTY;
+    }
+
 
     /**
      * Evaluate the query string for additional query params with actual key and value.
