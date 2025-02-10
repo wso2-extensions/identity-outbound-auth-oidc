@@ -94,7 +94,7 @@ public class OIDCAuthenticatorConstants {
      */
     
     public static final String PKCE_CODE_VERIFIER = "PKCE_CODE_VERIFIER";
-    public static final String IS_PKCE_ENABLED = "isPKCEEnabled";
+    public static final String IS_PKCE_ENABLED = "IsPKCEEnabled";
 
     public class AuthenticatorConfParams {
 
