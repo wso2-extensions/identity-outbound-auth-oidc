@@ -157,7 +157,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp"};
     private static final String AUTHENTICATOR_MESSAGE = "authenticatorMessage";
 
-    private static final String IS_PKCE_ENABLED_NAME = "isPKCEEnabled";
+    private static final String IS_PKCE_ENABLED_NAME = "IsPKCEEnabled";
     private static final String IS_PKCE_ENABLED_DISPLAY_NAME = "Enable PKCE";
     private static final String IS_PKCE_ENABLED_DESCRIPTION = "Specifies that PKCE should be used for client authentication";
     private static final String TYPE_BOOLEAN = "boolean";
