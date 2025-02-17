@@ -73,8 +73,12 @@ import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.powermock.api.mockito.PowerMockito.when;
 import static org.testng.Assert.assertEquals;
@@ -501,11 +505,17 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         // Mock removeSession method.
         when(serverSessionManagementService.removeSession(SESSION_CONTEXT_KEY)).thenReturn(true);
 
+        mockStatic(UserSessionStore.class);
+        UserSessionStore userSessionStore = mock(UserSessionStore.class);
+        when(UserSessionStore.getInstance()).thenReturn(userSessionStore);
+        doNothing().when(userSessionStore).removeTerminatedSessionRecords(anyList());
+
         // Mock tenantID.
         mockStatic(IdentityTenantUtil.class);
         when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
 
         assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
+        verify(userSessionStore, times(1)).removeTerminatedSessionRecords(anyList());
     }
 
     @Test
