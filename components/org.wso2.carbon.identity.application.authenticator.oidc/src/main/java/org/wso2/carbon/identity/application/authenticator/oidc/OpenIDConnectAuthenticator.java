@@ -2086,7 +2086,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             for (String queryParam: queryParams) {
                 String[] queryParamComponents = queryParam.split(QUERY_PARAM_KEY_VALUE_DELIMITER);
                 if (queryParamComponents.length == 2 && queryParamComponents[0].equalsIgnoreCase(parameterName)) {
-                    return queryParamComponents[1];
+                    return URLDecoder.decode(queryParamComponents[1], StandardCharsets.UTF_8);
                 }
             }
         }
