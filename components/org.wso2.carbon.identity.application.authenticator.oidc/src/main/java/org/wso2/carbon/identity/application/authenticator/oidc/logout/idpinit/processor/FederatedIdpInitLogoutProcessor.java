@@ -59,6 +59,7 @@ import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
 import java.text.ParseException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -190,6 +191,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                     OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService();
             serverSessionManagementService.removeSession(sessionId);
             removeFederatedIDPSessionMapping(sessionId);
+            removeTerminatedSessionRecords(sessionId);
             if (log.isDebugEnabled()) {
                 log.debug("Session terminated for session Id: " + sessionId);
             }
@@ -726,5 +728,10 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
         } catch (UserSessionException e) {
             throw new LogoutServerException("Exception occurred while removing federated IDP session mapping.");
         }
+    }
+
+    private void removeTerminatedSessionRecords(String sessionId) {
+
+        UserSessionStore.getInstance().removeTerminatedSessionRecords(Collections.singletonList(sessionId));
     }
 }
