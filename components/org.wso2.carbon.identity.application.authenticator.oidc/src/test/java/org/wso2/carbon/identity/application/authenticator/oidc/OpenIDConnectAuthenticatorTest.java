@@ -39,7 +39,7 @@ import org.powermock.core.classloader.annotations.SuppressStaticInitializationFo
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.Whitebox;
 import org.testng.Assert;
-import org.testng.IObjectFactory;
+import org.testng.ITestObjectFactory;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.ObjectFactory;
@@ -967,11 +967,11 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         );
     }
 
-    @ObjectFactory
-    public IObjectFactory getObjectFactory() {
-
-        return new org.powermock.modules.testng.PowerMockObjectFactory();
-    }
+//    @ObjectFactory
+//    public ITestObjectFactory getObjectFactory() {
+//
+//        return new org.powermock.modules.testng.PowerMockObjectFactory();
+//    }
 
     /***
      *  Method which set up background for the process authentication method.
