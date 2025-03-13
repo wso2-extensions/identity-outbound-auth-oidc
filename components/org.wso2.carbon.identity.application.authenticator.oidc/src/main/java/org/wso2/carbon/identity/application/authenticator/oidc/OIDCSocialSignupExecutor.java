@@ -91,7 +91,7 @@ public class OIDCSocialSignupExecutor implements Executor {
 
     private static final Log LOG = LogFactory.getLog(OIDCSocialSignupExecutor.class);
     private static final String OIDC_SIGNUP_EXECUTOR = "OIDCSignupExecutor";
-    private static final String REGISTRATION_PORTAL_PATH = "/authenticationendpoint/registration.do";
+    private static final String REGISTRATION_PORTAL_PATH = "/authenticationendpoint/register.do";
     private static final String[] NON_USER_ATTRIBUTES = new String[] {"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
