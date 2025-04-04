@@ -1023,7 +1023,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     private String interpretQueryString(AuthenticationContext context, String queryString,
-                                        Map<String, String[]> parameters) {
+                                        Map<String, String[]> parameters) throws UnsupportedEncodingException {
 
         if (StringUtils.isBlank(queryString)) {
             return null;
@@ -1082,14 +1082,15 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
      * @return The value of the parameter if it is present in the URI String.
      * If it is not present, an empty String is returned instead.
      */
-    private String getParameterFromURIString(String uriString, String parameterName) {
+    private String getParameterFromURIString(String uriString, String parameterName)
+            throws UnsupportedEncodingException {
 
         if (StringUtils.isNotBlank(uriString)) {
             String[] queryParams = uriString.split(URI_QUERY_PARAM_DELIMITER, -1);
             for (String queryParam: queryParams) {
                 String[] queryParamComponents = queryParam.split(QUERY_PARAM_KEY_VALUE_DELIMITER);
                 if (queryParamComponents.length == 2 && queryParamComponents[0].equalsIgnoreCase(parameterName)) {
-                    return URLDecoder.decode(queryParamComponents[1], StandardCharsets.UTF_8);
+                    return URLDecoder.decode(queryParamComponents[1], StandardCharsets.UTF_8.name());
                 }
             }
         }
