@@ -2126,8 +2126,8 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
         Matcher matcher = Pattern.compile(OIDCAuthenticatorConstants.DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX)
                 .matcher(queryString);
-        String value = "";
         while (matcher.find()) {
+            String value = "";
             String paramName = matcher.group(1);
             if (StringUtils.isNotEmpty(getRuntimeParams(context).get(paramName))) {
                 value = getRuntimeParams(context).get(paramName);
