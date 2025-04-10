@@ -246,6 +246,9 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         authenticatorParamProperties = new HashMap<>();
         authenticatorParamProperties.put("username", "testUser");
         authenticatorParamProperties.put("fidp", "google");
+        authenticatorParamProperties.put("param01", "value1");
+        authenticatorParamProperties.put("param02", "");
+        authenticatorParamProperties.put("param03", "value3");
         token = null;
     }
 
@@ -460,6 +463,18 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         assertEquals(Whitebox.invokeMethod(openIDConnectAuthenticator,
                 "getQueryStringWithAuthenticatorParam", mockAuthenticationContext,
                 "login_hint=$authparam{username}&domain=$authparam{fidp}"), "login_hint=testUser&domain=google");
+    }
+
+    @Test
+    public void testGetQueryStringWithMultipleAuthenticatorParamsIncludingEmptyValue() throws Exception {
+
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        when(openIDConnectAuthenticator.getRuntimeParams(mockAuthenticationContext)).
+                thenReturn(authenticatorParamProperties);
+        assertEquals(Whitebox.invokeMethod(openIDConnectAuthenticator,
+                        "getQueryStringWithAuthenticatorParam", mockAuthenticationContext,
+                        "param01=$authparam{param01}&param02=$authparam{param02}&param03=$authparam{param03}"),
+                "param01=value1&param02=&param03=value3");
     }
 
     @Test
