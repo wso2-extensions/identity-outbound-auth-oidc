@@ -24,6 +24,7 @@
     <test name="oidc-connect-authenticator-tests" preserve-order="true" parallel="false">
         <classes>
             <class name="org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticatorTest"/>
+            <class name="org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutorTest"/>
         </classes>
     </test>
     <test name="oidc-connect-util-tests" preserve-order="true" parallel="false">
