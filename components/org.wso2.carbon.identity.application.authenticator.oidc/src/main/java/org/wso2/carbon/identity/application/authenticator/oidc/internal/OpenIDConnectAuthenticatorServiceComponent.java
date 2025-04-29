@@ -26,7 +26,7 @@ import org.wso2.carbon.identity.application.authentication.framework.UserSession
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityRequestFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponseFactory;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
-import org.wso2.carbon.identity.application.authenticator.oidc.OIDCSocialSignupExecutor;
+import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
@@ -61,7 +61,7 @@ public class OpenIDConnectAuthenticatorServiceComponent {
                     new FederatedIdpInitLogoutProcessor(), null);
             ctxt.getBundleContext().registerService(HttpIdentityResponseFactory.class.getName(),
                     new LogoutResponseFactory(), null);
-            ctxt.getBundleContext().registerService(Executor.class.getName(), new OIDCSocialSignupExecutor(), null);
+            ctxt.getBundleContext().registerService(Executor.class.getName(), new OpenIDConnectExecutor(), null);
             if (log.isDebugEnabled()) {
                 log.debug("OpenID Connect Authenticator bundle is activated");
             }

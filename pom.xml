@@ -271,6 +271,26 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>install</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
             </plugins>
         </pluginManagement>
         <plugins>
@@ -309,7 +329,7 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>7.8.59</carbon.identity.framework.version>
+        <carbon.identity.framework.version>7.8.111</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
         <json-smart.version>2.4.11</json-smart.version>
         <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
