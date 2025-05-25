@@ -34,6 +34,7 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
+import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
@@ -44,6 +45,7 @@ import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.user.api.UserStoreException;
+import org.wso2.carbon.utils.DiagnosticLog;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -62,14 +64,19 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.CLIENT_SECRET;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.IS_BASIC_AUTH_ENABLED;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INVOKE_TOKEN_ENDPOINT;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INVOKE_USER_INFO_ENDPOINT;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil.isUserIdFoundAmongClaims;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ErrorMessages.ERROR_CODE_EXECUTOR_FAILURE;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
-import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_ERROR;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
+import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.FAILED;
+import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.SUCCESS;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_ERROR;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
 
@@ -279,9 +286,13 @@ public class OpenIDConnectExecutor implements Executor {
                                                        String callbackUrl)
             throws FlowEngineException {
 
+        Map<String, Object> loggerInputs = new HashMap<>();
         String clientId = authenticatorProperties.get(CLIENT_ID);
         String clientSecret = authenticatorProperties.get(CLIENT_SECRET);
         String tokenEndPoint = getTokenEndpoint(authenticatorProperties);
+        loggerInputs.put("clientId", clientId);
+        loggerInputs.put("endpoint", tokenEndPoint);
+        loggerInputs.put("redirect url", callbackUrl);
 
         boolean isHTTPBasicAuth = Boolean.parseBoolean(authenticatorProperties.get(IS_BASIC_AUTH_ENABLED));
         OAuthClientRequest accessTokenRequest;
@@ -320,10 +331,12 @@ public class OpenIDConnectExecutor implements Executor {
                 // fetch the 'Hostname' configured in carbon.xml
                 String serverURL = ServiceURLBuilder.create().build().getAbsolutePublicURL();
                 accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HTTP_ORIGIN_HEADER, serverURL);
+                loggerInputs.put("origin", serverURL);
             }
         } catch (OAuthSystemException | URLBuilderException exception) {
             throw handleFlowEngineServerException("Error while building the access token request.", exception);
         }
+        logDiagnostic("Building the access token request", SUCCESS, INVOKE_TOKEN_ENDPOINT, loggerInputs);
         return accessTokenRequest;
     }
 
@@ -347,7 +360,7 @@ public class OpenIDConnectExecutor implements Executor {
         return idToken;
     }
 
-    private Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
+    public Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
             throws FlowEngineException {
 
         OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
@@ -355,7 +368,9 @@ public class OpenIDConnectExecutor implements Executor {
         String idToken = resolveIDToken(oAuthResponse);
         Map<ClaimMapping, String> remoteClaimsMap = new HashMap<>();
         Map<String, Object> jwtAttributeMap = new HashMap<>();
-        jwtAttributeMap.putAll(getIdTokenClaims(idToken));
+        if (idToken != null) {
+            jwtAttributeMap.putAll(getIdTokenClaims(idToken));
+        }
         jwtAttributeMap.putAll(getClaimsViaUserInfo(accessToken, flowExecutionContext.getAuthenticatorProperties()));
 
         String attributeSeparator = getMultiAttributeSeparator(flowExecutionContext.getTenantDomain());
@@ -402,12 +417,13 @@ public class OpenIDConnectExecutor implements Executor {
         try {
             oAuthResponse = oAuthClient.accessToken(accessRequest);
         } catch (OAuthSystemException | OAuthProblemException e) {
+            logDiagnostic("Error occurred while requesting access token.", FAILED, INVOKE_TOKEN_ENDPOINT, Collections.emptyMap());
             throw handleFlowEngineServerException("Error while getting the access token.", e);
         }
         return oAuthResponse;
     }
 
-    private Map<String, Object> getIdTokenClaims(String idToken) {
+    protected Map<String, Object> getIdTokenClaims(String idToken) {
 
         Set<Map.Entry<String, Object>> jwtAttributeSet = new HashSet<>();
         try {
@@ -462,12 +478,14 @@ public class OpenIDConnectExecutor implements Executor {
         }
     }
 
-    private Map<String, String> getClaimsViaUserInfo(String accessToken,
+    protected Map<String, String> getClaimsViaUserInfo(String accessToken,
                                                      Map<String, String> authenticatorProperties) {
 
         Map<String, String> claims = new HashMap<>();
+        String url = getUserInfoEndpoint(authenticatorProperties);
+        Map<String, Object> inputsForLogger = new HashMap<>();
+        inputsForLogger.put("endpoint", url);
         try {
-            String url = getUserInfoEndpoint(authenticatorProperties);
             String json = OIDCCommonUtil.triggerRequest(url, accessToken);
             Map<ClaimMapping, String> claimMappings = OIDCCommonUtil.extractUserClaimsFromJsonPayload(json);
             if (!claimMappings.isEmpty()) {
@@ -477,9 +495,43 @@ public class OpenIDConnectExecutor implements Executor {
                                 Map.Entry::getValue
                         ));
             }
+            logDiagnostic("User claims retrieved successfully from user info endpoint.", SUCCESS,
+                          INVOKE_USER_INFO_ENDPOINT, inputsForLogger);
         } catch (IOException e) {
-            LOG.error("Communication error occurred while accessing user info endpoint", e);
+            logDiagnostic("Error occurred while accessing user info endpoint.", FAILED, INVOKE_USER_INFO_ENDPOINT,
+                          inputsForLogger);
         }
         return claims;
+    }
+
+    /**
+     * This method is used to log the diagnostic information.
+     *
+     * @param message  Message to be logged.
+     * @param status   Status of the log.
+     * @param actionId Action ID.
+     */
+    protected void logDiagnostic(String message, DiagnosticLog.ResultStatus status, String actionId,
+                               Map<String, Object> inputParams) {
+
+        if (LoggerUtils.isDiagnosticLogsEnabled()) {
+            LoggerUtils.triggerDiagnosticLogEvent(
+                    new DiagnosticLog.DiagnosticLogBuilder(getDiagnosticLogComponentId(), actionId)
+                            .resultMessage(message)
+                            .logDetailLevel(DiagnosticLog.LogDetailLevel.APPLICATION)
+                            .inputParams(inputParams)
+                            .resultStatus(status)
+            );
+        }
+    }
+
+    /**
+     * Get the component ID for the diagnostic log.
+     *
+     * @return Component ID.
+     */
+    protected String getDiagnosticLogComponentId() {
+
+        return OUTBOUND_AUTH_OIDC_SERVICE;
     }
 }
