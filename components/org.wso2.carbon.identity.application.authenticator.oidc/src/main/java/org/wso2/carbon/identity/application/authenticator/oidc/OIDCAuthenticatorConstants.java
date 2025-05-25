@@ -195,6 +195,9 @@ public class OIDCAuthenticatorConstants {
 
             public static final String PROCESS_AUTHENTICATION_RESPONSE = "process-outbound-auth-oidc-response";
             public static final String INITIATE_OUTBOUND_AUTH_REQUEST = "initiate-outbound-auth-oidc-request";
+            public static final String INVOKE_USER_INFO_ENDPOINT = "invoke-user-info-endpoint";
+            public static final String INVOKE_TOKEN_ENDPOINT = "invoke-token-endpoint";
+
         }
     }
 }
