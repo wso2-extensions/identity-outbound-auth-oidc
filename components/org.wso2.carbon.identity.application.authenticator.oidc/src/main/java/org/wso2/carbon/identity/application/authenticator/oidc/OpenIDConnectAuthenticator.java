@@ -1666,13 +1666,22 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         userInfoUrl.setDisplayOrder(6);
         configProperties.add(userInfoUrl);
 
+        Property logoutUrl = new Property();
+        logoutUrl.setName(IdentityApplicationConstants.Authenticator.OIDC.OIDC_LOGOUT_URL);
+        logoutUrl.setDisplayName("Logout Endpoint URL");
+        logoutUrl.setRequired(false);
+        logoutUrl.setDescription("Enter OpenID Connect logout endpoint URL value");
+        logoutUrl.setType("string");
+        logoutUrl.setDisplayOrder(7);
+        configProperties.add(logoutUrl);
+
         Property userIdLocation = new Property();
         userIdLocation.setName(IdentityApplicationConstants.Authenticator.OIDC.IS_USER_ID_IN_CLAIMS);
         userIdLocation.setDisplayName("OpenID Connect User ID Location");
         userIdLocation.setRequired(false);
         userIdLocation.setDescription("Specifies the location to find the user identifier in the ID token assertion");
         userIdLocation.setType("boolean");
-        userIdLocation.setDisplayOrder(7);
+        userIdLocation.setDisplayOrder(8);
         configProperties.add(userIdLocation);
 
         Property scopes = new Property();
@@ -1682,7 +1691,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         scopes.setDescription("A list of scopes");
         scopes.setDefaultValue(OIDCAuthenticatorConstants.OAUTH_OIDC_SCOPE);
         scopes.setType("string");
-        scopes.setDisplayOrder(8);
+        scopes.setDisplayOrder(9);
         configProperties.add(scopes);
 
         Property additionalParams = new Property();
@@ -1691,7 +1700,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         additionalParams.setRequired(false);
         additionalParams.setDescription("Additional query parameters. e.g: paramName1=value1");
         additionalParams.setType("string");
-        additionalParams.setDisplayOrder(9);
+        additionalParams.setDisplayOrder(10);
         configProperties.add(additionalParams);
 
         Property enableBasicAuth = new Property();
@@ -1702,7 +1711,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 "Specifies that HTTP basic authentication should be used for client authentication, " +
                         "else client credentials will be included in the request body");
         enableBasicAuth.setType("boolean");
-        enableBasicAuth.setDisplayOrder(10);
+        enableBasicAuth.setDisplayOrder(11);
         configProperties.add(enableBasicAuth);
 
         Property enablePKCE = new Property();
