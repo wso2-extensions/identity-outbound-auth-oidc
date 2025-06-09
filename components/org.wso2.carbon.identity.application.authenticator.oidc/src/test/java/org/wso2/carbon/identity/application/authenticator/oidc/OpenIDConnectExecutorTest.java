@@ -19,7 +19,6 @@
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
@@ -40,11 +39,10 @@ import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
-import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
-import org.wso2.carbon.identity.user.registration.engine.exception.RegistrationEngineException;
-import org.wso2.carbon.identity.user.registration.engine.model.ExecutorResponse;
-import org.wso2.carbon.identity.user.registration.engine.model.RegistrationContext;
+import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
+import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
+import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,10 +66,10 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.REDIRECT_URL;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.USERNAME_CLAIM_URI;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
 
 @PrepareForTest({ServiceURLBuilder.class, LoggerUtils.class, OIDCCommonUtil.class,
         UUID.class, OAuthClientResponse.class, OAuthClient.class, ClaimMetadataHandler.class})
@@ -93,7 +91,7 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     private static final String USER_ID = "test-user-id";
 
     @Mock
-    private RegistrationContext registrationContext;
+    private FlowExecutionContext flowExecutionContext;
 
     @Mock
     private OAuthJSONAccessTokenResponse oAuthClientResponse;
@@ -111,6 +109,7 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     private OAuthClient oAuthClient;
 
     private OpenIDConnectExecutor executor;
+
     @BeforeMethod
     public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
@@ -121,7 +120,7 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         Log mockedLog = mock(Log.class);
         doReturn(mockedLog).when(LoggerUtils.class, "getLogger", anyString());
 
-        when(registrationContext.getTenantDomain()).thenReturn(TENANT_DOMAIN);
+        when(flowExecutionContext.getTenantDomain()).thenReturn(TENANT_DOMAIN);
 
         mockStatic(ClaimMetadataHandler.class);
         when(ClaimMetadataHandler.getInstance()).thenReturn(claimMetadataHandler);
@@ -137,17 +136,17 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         Map<String, String> userInputs = new HashMap<>();
         userInputs.put(OAUTH2_GRANT_TYPE_CODE, CODE);
         userInputs.put(OAUTH2_PARAM_STATE, STATE);
-        when(registrationContext.getUserInputData()).thenReturn(userInputs);
+        when(flowExecutionContext.getUserInputData()).thenReturn(userInputs);
 
-        when(registrationContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn(STATE);
+        when(flowExecutionContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn(STATE);
 
         Map<String, String> authProperties = new HashMap<>();
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
         authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(registrationContext.getAuthenticatorProperties()).thenReturn(authProperties);
+        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
 
-        when(registrationContext.getExternalIdPConfig()).thenReturn(externalIdPConfig);
+        when(flowExecutionContext.getExternalIdPConfig()).thenReturn(externalIdPConfig);
         when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
 
         doReturn(oAuthClientResponse).when(executor).requestAccessToken(any(), anyString());
@@ -168,7 +167,7 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
 
         doNothing().when(OIDCCommonUtil.class, "buildClaimMappings", any(Map.class), any(Map.Entry.class), anyString());
 
-        ExecutorResponse response = executor.execute(registrationContext);
+        ExecutorResponse response = executor.execute(flowExecutionContext);
 
         Assert.assertNotNull(response);
         Assert.assertEquals(response.getResult(), STATUS_COMPLETE);
@@ -177,16 +176,16 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testExecuteInitialRequest() throws RegistrationEngineException {
+    public void testExecuteInitialRequest() throws FlowEngineException {
 
-        when(registrationContext.getUserInputData()).thenReturn(null);
+        when(flowExecutionContext.getUserInputData()).thenReturn(null);
 
         mockStatic(UUID.class);
         UUID mockUUID = mock(UUID.class);
         when(UUID.randomUUID()).thenReturn(mockUUID);
         when(mockUUID.toString()).thenReturn("mocked-uuid");
 
-        ExecutorResponse response = executor.execute(registrationContext);
+        ExecutorResponse response = executor.execute(flowExecutionContext);
 
         Assert.assertNotNull(response);
         Assert.assertEquals(response.getResult(), STATUS_EXTERNAL_REDIRECTION);
@@ -197,15 +196,15 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         Assert.assertTrue(response.getAdditionalInfo().containsKey(REDIRECT_URL));
     }
 
-    @Test(expectedExceptions = RegistrationEngineException.class)
-    public void testExecuteStateMismatch() throws RegistrationEngineException {
+    @Test(expectedExceptions = FlowEngineException.class)
+    public void testExecuteStateMismatch() throws FlowEngineException {
 
         Map<String, String> userInputs = new HashMap<>();
         userInputs.put(OAUTH2_GRANT_TYPE_CODE, CODE);
         userInputs.put(OAUTH2_PARAM_STATE, STATE);
-        when(registrationContext.getUserInputData()).thenReturn(userInputs);
-        when(registrationContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn("different-state");
-        executor.execute(registrationContext);
+        when(flowExecutionContext.getUserInputData()).thenReturn(userInputs);
+        when(flowExecutionContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn("different-state");
+        executor.execute(flowExecutionContext);
     }
 
     @Test
@@ -232,15 +231,15 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testResolveAccessToken() throws RegistrationEngineException {
+    public void testResolveAccessToken() throws FlowEngineException {
 
         when(oAuthClientResponse.getParam(ACCESS_TOKEN)).thenReturn(ACCESS_TOKEN_VALUE);
         String accessToken = executor.resolveAccessToken(oAuthClientResponse);
         Assert.assertEquals(accessToken, ACCESS_TOKEN_VALUE);
     }
 
-    @Test(expectedExceptions = RegistrationEngineException.class)
-    public void testResolveAccessTokenWithBlankToken() throws RegistrationEngineException {
+    @Test(expectedExceptions = FlowEngineException.class)
+    public void testResolveAccessTokenWithBlankToken() throws FlowEngineException {
 
         when(oAuthClientResponse.getParam(ACCESS_TOKEN)).thenReturn("");
         executor.resolveAccessToken(oAuthClientResponse);
@@ -318,30 +317,30 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
         authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(registrationContext.getAuthenticatorProperties()).thenReturn(authProperties);
+        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
 
         whenNew(URLConnectionClient.class).withNoArguments().thenReturn(mock(URLConnectionClient.class));
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(oAuthClient);
         when(oAuthClient.accessToken(any(OAuthClientRequest.class))).thenReturn(oAuthClientResponse);
-        OAuthClientResponse response = executor.requestAccessToken(registrationContext, CODE);
+        OAuthClientResponse response = executor.requestAccessToken(flowExecutionContext, CODE);
         Assert.assertNotNull(response);
     }
 
-    @Test(expectedExceptions = RegistrationEngineException.class)
+    @Test(expectedExceptions = FlowEngineException.class)
     public void testRequestAccessTokenWithException() throws Exception {
 
         Map<String, String> authProperties = new HashMap<>();
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
         authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(registrationContext.getAuthenticatorProperties()).thenReturn(authProperties);
+        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
 
         whenNew(URLConnectionClient.class).withNoArguments().thenReturn(mock(URLConnectionClient.class));
         whenNew(OAuthClient.class).withAnyArguments().thenReturn(oAuthClient);
         when(oAuthClient.accessToken(any(OAuthClientRequest.class)))
                 .thenThrow(new OAuthSystemException("Test exception"));
 
-        executor.requestAccessToken(registrationContext, CODE);
+        executor.requestAccessToken(flowExecutionContext, CODE);
     }
 
     @Test

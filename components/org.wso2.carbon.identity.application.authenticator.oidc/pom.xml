@@ -74,7 +74,7 @@
         </dependency>
         <dependency>
             <groupId>org.wso2.carbon.identity.framework</groupId>
-            <artifactId>org.wso2.carbon.identity.user.registration.engine</artifactId>
+            <artifactId>org.wso2.carbon.identity.flow.execution.engine</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
@@ -191,13 +191,13 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.central.log.mgt.utils;
                             version="${identity.framework.package.import.version.range}",
-                            org.wso2.carbon.identity.user.registration.engine;
+                            org.wso2.carbon.identity.flow.execution.engine;
                             version="${identity.framework.package.import.version.range}",
-                            org.wso2.carbon.identity.user.registration.engine.exception;
+                            org.wso2.carbon.identity.flow.execution.engine.exception;
                             version="${identity.framework.package.import.version.range}",
-                            org.wso2.carbon.identity.user.registration.engine.graph;
+                            org.wso2.carbon.identity.flow.execution.engine.graph;
                             version="${identity.framework.package.import.version.range}",
-                            org.wso2.carbon.identity.user.registration.engine.model;
+                            org.wso2.carbon.identity.flow.execution.engine.graph.model;
                             version="${identity.framework.package.import.version.range}",
                         </Import-Package>
                         <Export-Package>
