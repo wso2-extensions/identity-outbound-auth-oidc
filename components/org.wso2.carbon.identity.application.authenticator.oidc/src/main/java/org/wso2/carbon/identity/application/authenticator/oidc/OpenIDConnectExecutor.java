@@ -18,17 +18,6 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
-import java.io.IOException;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -49,12 +38,25 @@ import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
 import org.wso2.carbon.identity.core.URLBuilderException;
-import org.wso2.carbon.identity.user.registration.engine.exception.RegistrationEngineException;
-import org.wso2.carbon.identity.user.registration.engine.exception.RegistrationEngineServerException;
-import org.wso2.carbon.identity.user.registration.engine.graph.Executor;
-import org.wso2.carbon.identity.user.registration.engine.model.ExecutorResponse;
-import org.wso2.carbon.identity.user.registration.engine.model.RegistrationContext;
+import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
+import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineServerException;
+import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
+import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
+import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.user.api.UserStoreException;
+
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import static org.apache.oltu.oauth2.common.message.types.GrantType.AUTHORIZATION_CODE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.CLIENT_ID;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.CLIENT_SECRET;
@@ -64,11 +66,11 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil.isUserIdFoundAmongClaims;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.ErrorMessages.ERROR_CODE_EXECUTOR_FAILURE;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.REDIRECT_URL;
-import static org.wso2.carbon.identity.user.registration.engine.Constants.USERNAME_CLAIM_URI;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ErrorMessages.ERROR_CODE_EXECUTOR_FAILURE;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
 
 /**
  * OIDC Social Signup Executor.
@@ -77,9 +79,44 @@ public class OpenIDConnectExecutor implements Executor {
 
     private static final Log LOG = LogFactory.getLog(OpenIDConnectExecutor.class);
     private static final String OIDC_SIGNUP_EXECUTOR = "OpenIDConnectExecutor";
-    private static final String[] NON_USER_ATTRIBUTES = new String[] {"at_hash", "iss", "iat", "exp", "aud", "azp",
+    private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+
+    private static String getSubjectFromUserIDClaimURI(ExternalIdPConfig idpConfig, Map<String, Object> idTokenClaims,
+                                                       String tenantDomain) {
+
+        String userIdClaimUri = idpConfig.getUserIdClaimUri();
+        try {
+            return OIDCCommonUtil.getSubjectFromUserIDClaimURI(idpConfig, idTokenClaims, tenantDomain);
+        } catch (ClaimMetadataException ex) {
+            LOG.error("Error while retrieving claim URI for user id claim: " + userIdClaimUri, ex);
+        }
+        return null;
+    }
+
+    /**
+     * This method is used to throw a Flow engine exception with the given error code and error message.
+     *
+     * @param errorDescription Error description to be set in the exception.
+     * @param exception        Exception
+     * @return FlowEngineServerException
+     */
+    private static FlowEngineServerException handleFlowEngineServerException(
+            String errorDescription, Exception exception) {
+
+        if (exception != null) {
+            return new FlowEngineServerException(
+                    ERROR_CODE_EXECUTOR_FAILURE.getCode(),
+                    ERROR_CODE_EXECUTOR_FAILURE.getMessage(),
+                    errorDescription,
+                    exception);
+        }
+        return new FlowEngineServerException(
+                ERROR_CODE_EXECUTOR_FAILURE.getCode(),
+                ERROR_CODE_EXECUTOR_FAILURE.getMessage(),
+                errorDescription);
+    }
 
     @Override
     public String getName() {
@@ -88,18 +125,24 @@ public class OpenIDConnectExecutor implements Executor {
     }
 
     @Override
-    public ExecutorResponse execute(RegistrationContext context) throws RegistrationEngineException {
+    public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) throws FlowEngineException {
 
-        if (isInitialRequest(context)) {
-            return initiateSocialSignup(context);
+        if (isInitialRequest(flowExecutionContext)) {
+            return initiateSocialSignup(flowExecutionContext);
         }
-        return processResponse(context);
+        return processResponse(flowExecutionContext);
     }
 
     @Override
     public List<String> getInitiationData() {
 
         return Collections.emptyList();
+    }
+
+    @Override
+    public ExecutorResponse rollback(FlowExecutionContext flowExecutionContext) throws FlowEngineException {
+
+        return null;
     }
 
     public String getUserInfoEndpoint(Map<String, String> authenticatorProperties) {
@@ -131,28 +174,29 @@ public class OpenIDConnectExecutor implements Executor {
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
 
-    private boolean isInitialRequest(RegistrationContext context) {
+    private boolean isInitialRequest(FlowExecutionContext flowExecutionContext) {
 
-        Map<String, String> userInputs = context.getUserInputData();
+        Map<String, String> userInputs = flowExecutionContext.getUserInputData();
         return userInputs == null || userInputs.isEmpty() || userInputs.get(OAUTH2_GRANT_TYPE_CODE) == null ||
                 userInputs.get(OAUTH2_PARAM_STATE) == null;
     }
 
-    private ExecutorResponse processResponse(RegistrationContext context) throws RegistrationEngineException {
+    private ExecutorResponse processResponse(FlowExecutionContext flowExecutionContext) throws FlowEngineException {
 
-        Map<String, String> userInputs = context.getUserInputData();
+        Map<String, String> userInputs = flowExecutionContext.getUserInputData();
 
         if (!StringUtils.equals(userInputs.get(OAUTH2_PARAM_STATE),
-                                context.getProperty(OAUTH2_PARAM_STATE).toString())) {
-            throw handleRegistrationServerException("State parameter mismatch.", null);
+                flowExecutionContext.getProperty(OAUTH2_PARAM_STATE).toString())) {
+            throw handleFlowEngineServerException("State parameter mismatch.", null);
         }
 
         ExecutorResponse response = new ExecutorResponse(STATUS_COMPLETE);
-        response.setUpdatedUserClaims(resolveUserAttributes(context, userInputs.get(OAUTH2_GRANT_TYPE_CODE)));
+        response.setUpdatedUserClaims(resolveUserAttributes(flowExecutionContext, userInputs.get(OAUTH2_GRANT_TYPE_CODE)));
         return response;
     }
 
-    private ExecutorResponse initiateSocialSignup(RegistrationContext context) throws RegistrationEngineException {
+    private ExecutorResponse initiateSocialSignup(FlowExecutionContext flowExecutionContext)
+            throws FlowEngineException {
 
         ExecutorResponse executorResponse = new ExecutorResponse();
         executorResponse.setResult(STATUS_EXTERNAL_REDIRECTION);
@@ -161,8 +205,8 @@ public class OpenIDConnectExecutor implements Executor {
         requiredData.add(OAUTH2_PARAM_STATE);
         String state = UUID.randomUUID() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
         executorResponse.setRequiredData(requiredData);
-        executorResponse.setAdditionalInfo(getAdditionalData(context.getAuthenticatorProperties(),
-                                                             context.getCallbackUrl(), state));
+        executorResponse.setAdditionalInfo(getAdditionalData(flowExecutionContext.getAuthenticatorProperties(),
+                flowExecutionContext.getCallbackUrl(), state));
 
         Map<String, Object> contextProperties = new HashMap<>();
         contextProperties.put(OAUTH2_PARAM_STATE, state);
@@ -172,7 +216,7 @@ public class OpenIDConnectExecutor implements Executor {
 
     private Map<String, String> getAdditionalData(Map<String, String> authenticatorProperties,
                                                   String callbackUrl, String state)
-            throws RegistrationEngineException {
+            throws FlowEngineException {
 
         Map<String, String> additionalData = new HashMap<>();
         additionalData.put(REDIRECT_URL, getRedirectUrl(authenticatorProperties, callbackUrl, state));
@@ -181,7 +225,7 @@ public class OpenIDConnectExecutor implements Executor {
     }
 
     private String getRedirectUrl(Map<String, String> authenticatorProperties, String callbackUrl, String state)
-            throws RegistrationEngineException {
+            throws FlowEngineException {
 
         OAuthClientRequest authzRequest;
         String scopes = getScope(authenticatorProperties);
@@ -198,15 +242,15 @@ public class OpenIDConnectExecutor implements Executor {
                     .setParameter(NONCE, nonce).buildQueryMessage();
             return authzRequest.getLocationUri();
         } catch (OAuthSystemException exception) {
-            throw handleRegistrationServerException("Error while building the authorization request.", exception);
+            throw handleFlowEngineServerException("Error while building the authorization request.", exception);
         }
     }
 
-    protected OAuthClientResponse requestAccessToken(RegistrationContext context, String code)
-            throws RegistrationEngineException {
+    protected OAuthClientResponse requestAccessToken(FlowExecutionContext flowExecutionContext, String code)
+            throws FlowEngineException {
 
-        OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context.getAuthenticatorProperties(), code,
-                                                                      context.getCallbackUrl());
+        OAuthClientRequest accessTokenRequest = getAccessTokenRequest(flowExecutionContext.getAuthenticatorProperties(), code,
+                flowExecutionContext.getCallbackUrl());
 
         // Create OAuth client that uses custom http client under the hood.
         OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
@@ -215,7 +259,7 @@ public class OpenIDConnectExecutor implements Executor {
 
     protected OAuthClientRequest getAccessTokenRequest(Map<String, String> authenticatorProperties, String code,
                                                        String callbackUrl)
-            throws RegistrationEngineException {
+            throws FlowEngineException {
 
         String clientId = authenticatorProperties.get(CLIENT_ID);
         String clientSecret = authenticatorProperties.get(CLIENT_SECRET);
@@ -227,7 +271,7 @@ public class OpenIDConnectExecutor implements Executor {
             if (isHTTPBasicAuth) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Authenticating to token endpoint: " + tokenEndPoint + " with HTTP basic " +
-                                      "authentication scheme.");
+                            "authentication scheme.");
                 }
                 OAuthClientRequest.TokenRequestBuilder tokenRequestBuilder = OAuthClientRequest
                         .tokenLocation(tokenEndPoint)
@@ -242,7 +286,7 @@ public class OpenIDConnectExecutor implements Executor {
             } else {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Authenticating to token endpoint: " + tokenEndPoint + " including client credentials "
-                                      + "in request body.");
+                            + "in request body.");
                 }
                 OAuthClientRequest.TokenRequestBuilder tokenRequestBuilder = OAuthClientRequest
                         .tokenLocation(tokenEndPoint)
@@ -260,56 +304,55 @@ public class OpenIDConnectExecutor implements Executor {
                 accessTokenRequest.addHeader(OIDCAuthenticatorConstants.HTTP_ORIGIN_HEADER, serverURL);
             }
         } catch (OAuthSystemException | URLBuilderException exception) {
-            throw handleRegistrationServerException("Error while building the access token request.", exception);
+            throw handleFlowEngineServerException("Error while building the access token request.", exception);
         }
         return accessTokenRequest;
     }
 
-    protected String resolveAccessToken(OAuthClientResponse oAuthResponse) throws RegistrationEngineException {
+    protected String resolveAccessToken(OAuthClientResponse oAuthResponse) throws FlowEngineException {
 
         String accessToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ACCESS_TOKEN);
 
         if (StringUtils.isBlank(accessToken)) {
-            throw handleRegistrationServerException("Access token is empty or null.", null);
+            throw handleFlowEngineServerException("Access token is empty or null.", null);
         }
         return accessToken;
     }
 
-    private String resolveIDToken(OAuthClientResponse oAuthResponse) throws RegistrationEngineException {
+    private String resolveIDToken(OAuthClientResponse oAuthResponse) throws FlowEngineException {
 
         String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
 
         if (StringUtils.isBlank(idToken)) {
-            throw handleRegistrationServerException("ID token is empty or null.", null);
+            throw handleFlowEngineServerException("ID token is empty or null.", null);
         }
         return idToken;
     }
 
-    private Map<String, Object> resolveUserAttributes(RegistrationContext context, String code)
-            throws RegistrationEngineException {
+    private Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
+            throws FlowEngineException {
 
-        OAuthClientResponse oAuthResponse = requestAccessToken(context, code);
+        OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
         String accessToken = resolveAccessToken(oAuthResponse);
         String idToken = resolveIDToken(oAuthResponse);
         Map<ClaimMapping, String> remoteClaimsMap = new HashMap<>();
         Map<String, Object> jwtAttributeMap = new HashMap<>();
         jwtAttributeMap.putAll(getIdTokenClaims(idToken));
-        jwtAttributeMap.putAll(getClaimsViaUserInfo(accessToken, context.getAuthenticatorProperties()));
+        jwtAttributeMap.putAll(getClaimsViaUserInfo(accessToken, flowExecutionContext.getAuthenticatorProperties()));
 
-        String attributeSeparator = getMultiAttributeSeparator(context.getTenantDomain());
+        String attributeSeparator = getMultiAttributeSeparator(flowExecutionContext.getTenantDomain());
 
         jwtAttributeMap.entrySet().stream()
                 .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
                 .forEach(entry -> OIDCCommonUtil.buildClaimMappings(remoteClaimsMap, entry, attributeSeparator));
 
 
-        return resolveLocalClaims(context, remoteClaimsMap, jwtAttributeMap);
+        return resolveLocalClaims(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
     }
 
-    private Map<String, Object> resolveLocalClaims(RegistrationContext context,
+    private Map<String, Object> resolveLocalClaims(FlowExecutionContext flowExecutionContext,
                                                    Map<ClaimMapping, String> remoteClaimMappings,
-                                                   Map<String, Object> jwtAttributeMap)
-            throws RegistrationEngineException {
+                                                   Map<String, Object> jwtAttributeMap) throws FlowEngineException {
 
         Map<String, Object> localClaimsMap = new HashMap<>();
         Map<String, String> remoteClaimsMap = remoteClaimMappings.entrySet().stream()
@@ -317,31 +360,31 @@ public class OpenIDConnectExecutor implements Executor {
         try {
             Map<String, String> localToIdPClaimMap =
                     ClaimMetadataHandler.getInstance().getMappingsMapFromOtherDialectToCarbon(OIDC_DIALECT,
-                                                                                              remoteClaimsMap.keySet(),
-                                                                                              context.getTenantDomain(),
-                                                                                              true);
+                            remoteClaimsMap.keySet(),
+                            flowExecutionContext.getTenantDomain(),
+                            true);
             remoteClaimsMap.forEach((remoteKey, remoteValue) ->
-                                            localToIdPClaimMap.entrySet().stream()
-                                                    .filter(entry -> entry.getValue().equals(remoteKey))
-                                                    .map(Map.Entry::getKey)
-                                                    .findFirst()
-                                                    .ifPresent(localKey -> localClaimsMap.put(localKey, remoteValue))
+                    localToIdPClaimMap.entrySet().stream()
+                            .filter(entry -> entry.getValue().equals(remoteKey))
+                            .map(Map.Entry::getKey)
+                            .findFirst()
+                            .ifPresent(localKey -> localClaimsMap.put(localKey, remoteValue))
             );
-            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, getAuthenticatedUserId(context, jwtAttributeMap));
+            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, getAuthenticatedUserId(flowExecutionContext, jwtAttributeMap));
             return localClaimsMap;
         } catch (ClaimMetadataException e) {
-            throw handleRegistrationServerException("Error while resolving local claims.", e);
+            throw handleFlowEngineServerException("Error while resolving local claims.", e);
         }
     }
 
     private OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)
-            throws RegistrationEngineException {
+            throws FlowEngineException {
 
         OAuthClientResponse oAuthResponse;
         try {
             oAuthResponse = oAuthClient.accessToken(accessRequest);
         } catch (OAuthSystemException | OAuthProblemException e) {
-            throw handleRegistrationServerException("Error while getting the access token.", e);
+            throw handleFlowEngineServerException("Error while getting the access token.", e);
         }
         return oAuthResponse;
     }
@@ -361,12 +404,12 @@ public class OpenIDConnectExecutor implements Executor {
         return jwtAttributeMap;
     }
 
-    private String getAuthenticatedUserId(RegistrationContext context, Map<String, Object> idTokenClaims)
-            throws RegistrationEngineException {
+    private String getAuthenticatedUserId(FlowExecutionContext flowExecutionContext, Map<String, Object> idTokenClaims)
+            throws FlowEngineException {
 
         String authenticatedUserId;
-        if (isUserIdFoundAmongClaims(context.getAuthenticatorProperties())) {
-            authenticatedUserId = getSubjectFromUserIDClaimURI(context.getExternalIdPConfig(), idTokenClaims, context
+        if (isUserIdFoundAmongClaims(flowExecutionContext.getAuthenticatorProperties())) {
+            authenticatedUserId = getSubjectFromUserIDClaimURI(flowExecutionContext.getExternalIdPConfig(), idTokenClaims, flowExecutionContext
                     .getTenantDomain());
             if (StringUtils.isNotBlank(authenticatedUserId)) {
                 if (LOG.isDebugEnabled()) {
@@ -375,7 +418,7 @@ public class OpenIDConnectExecutor implements Executor {
             } else {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Subject claim could not be found amongst id_token claims. Defaulting to the 'sub' "
-                                      + "attribute in id_token as authenticated user id.");
+                            + "attribute in id_token as authenticated user id.");
                 }
                 // Default to userId sent as the 'sub' claim.
                 authenticatedUserId = getAuthenticateUser(idTokenClaims);
@@ -387,29 +430,17 @@ public class OpenIDConnectExecutor implements Executor {
             }
         }
         if (authenticatedUserId == null) {
-            throw handleRegistrationServerException("Error while resolving user identifier.", null);
+            throw handleFlowEngineServerException("Error while resolving user identifier.", null);
         }
         return authenticatedUserId;
     }
 
-    private static String getSubjectFromUserIDClaimURI(ExternalIdPConfig idpConfig, Map<String, Object> idTokenClaims,
-                                                       String tenantDomain) {
-
-        String userIdClaimUri = idpConfig.getUserIdClaimUri();
-        try {
-            return OIDCCommonUtil.getSubjectFromUserIDClaimURI(idpConfig, idTokenClaims, tenantDomain);
-        } catch (ClaimMetadataException ex) {
-            LOG.error("Error while retrieving claim URI for user id claim: " + userIdClaimUri, ex);
-        }
-        return null;
-    }
-
-    private String getMultiAttributeSeparator(String tenantDomain) throws RegistrationEngineServerException {
+    private String getMultiAttributeSeparator(String tenantDomain) throws FlowEngineServerException {
 
         try {
             return OIDCCommonUtil.getMultiAttributeSeparator(tenantDomain);
         } catch (UserStoreException e) {
-            throw handleRegistrationServerException("Error while retrieving the attribute separator.", e);
+            throw handleFlowEngineServerException("Error while retrieving the attribute separator.", e);
         }
     }
 
@@ -432,28 +463,5 @@ public class OpenIDConnectExecutor implements Executor {
             LOG.error("Communication error occurred while accessing user info endpoint", e);
         }
         return claims;
-    }
-
-    /**
-     * This method is used to throw a Registration exception with the given error code and error message.
-     *
-     * @param errorDescription Error description to be set in the exception.
-     * @param exception        Exception
-     * @return RegistrationEngineServerException
-     */
-    private static RegistrationEngineServerException handleRegistrationServerException(
-            String errorDescription, Exception exception) {
-
-        if (exception != null) {
-            return new RegistrationEngineServerException(
-                    ERROR_CODE_EXECUTOR_FAILURE.getCode(),
-                    ERROR_CODE_EXECUTOR_FAILURE.getMessage(),
-                    errorDescription,
-                    exception);
-        }
-        return new RegistrationEngineServerException(
-                ERROR_CODE_EXECUTOR_FAILURE.getCode(),
-                ERROR_CODE_EXECUTOR_FAILURE.getMessage(),
-                errorDescription);
     }
 }
