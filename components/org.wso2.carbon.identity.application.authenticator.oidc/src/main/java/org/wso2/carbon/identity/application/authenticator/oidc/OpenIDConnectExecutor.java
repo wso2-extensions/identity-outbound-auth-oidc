@@ -206,7 +206,7 @@ public class OpenIDConnectExecutor implements Executor {
         String state = UUID.randomUUID() + "," + OIDCAuthenticatorConstants.LOGIN_TYPE;
         executorResponse.setRequiredData(requiredData);
         executorResponse.setAdditionalInfo(getAdditionalData(flowExecutionContext.getAuthenticatorProperties(),
-                flowExecutionContext.getCallbackUrl(), state));
+                flowExecutionContext.getPortalUrl(), state));
 
         Map<String, Object> contextProperties = new HashMap<>();
         contextProperties.put(OAUTH2_PARAM_STATE, state);
