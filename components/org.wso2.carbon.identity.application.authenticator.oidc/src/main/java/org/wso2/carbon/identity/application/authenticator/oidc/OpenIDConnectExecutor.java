@@ -250,7 +250,7 @@ public class OpenIDConnectExecutor implements Executor {
             throws FlowEngineException {
 
         OAuthClientRequest accessTokenRequest = getAccessTokenRequest(flowExecutionContext.getAuthenticatorProperties(), code,
-                flowExecutionContext.getCallbackUrl());
+                flowExecutionContext.getPortalUrl());
 
         // Create OAuth client that uses custom http client under the hood.
         OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
