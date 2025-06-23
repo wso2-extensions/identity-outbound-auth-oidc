@@ -212,7 +212,7 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
 
         Map<String, Object> oidcClaims = new HashMap<>();
         oidcClaims.put(OIDCAuthenticatorConstants.Claim.SUB, USER_ID);
-        String userId = executor.getAuthenticateUser(oidcClaims);
+        String userId = executor.getAuthenticatedUserIdentifier(oidcClaims);
         Assert.assertEquals(userId, USER_ID);
     }
 

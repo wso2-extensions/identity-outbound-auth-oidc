@@ -68,6 +68,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCC
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ErrorMessages.ERROR_CODE_EXECUTOR_FAILURE;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_ERROR;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
@@ -82,6 +83,41 @@ public class OpenIDConnectExecutor implements Executor {
     private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+
+    @Override
+    public String getName() {
+
+        return OIDC_SIGNUP_EXECUTOR;
+    }
+
+    @Override
+    public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) {
+
+        try {
+            if (isInitialRequest(flowExecutionContext)) {
+                return initiateSocialSignup(flowExecutionContext);
+            }
+            return processResponse(flowExecutionContext);
+        } catch (FlowEngineException e) {
+            LOG.error("Error while executing OpenID Connect executor.", e);
+            ExecutorResponse executorResponse = new ExecutorResponse();
+            executorResponse.setResult(STATUS_ERROR);
+            executorResponse.setErrorMessage("Error while executing "+ this.getName() + ": " + e.getDescription());
+            return executorResponse;
+        }
+    }
+
+    @Override
+    public List<String> getInitiationData() {
+
+        return Collections.emptyList();
+    }
+
+    @Override
+    public ExecutorResponse rollback(FlowExecutionContext flowExecutionContext) {
+
+        return null;
+    }
 
     private static String getSubjectFromUserIDClaimURI(ExternalIdPConfig idpConfig, Map<String, Object> idTokenClaims,
                                                        String tenantDomain) {
@@ -118,33 +154,6 @@ public class OpenIDConnectExecutor implements Executor {
                 errorDescription);
     }
 
-    @Override
-    public String getName() {
-
-        return OIDC_SIGNUP_EXECUTOR;
-    }
-
-    @Override
-    public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) throws FlowEngineException {
-
-        if (isInitialRequest(flowExecutionContext)) {
-            return initiateSocialSignup(flowExecutionContext);
-        }
-        return processResponse(flowExecutionContext);
-    }
-
-    @Override
-    public List<String> getInitiationData() {
-
-        return Collections.emptyList();
-    }
-
-    @Override
-    public ExecutorResponse rollback(FlowExecutionContext flowExecutionContext) throws FlowEngineException {
-
-        return null;
-    }
-
     public String getUserInfoEndpoint(Map<String, String> authenticatorProperties) {
 
         return authenticatorProperties.get(IdentityApplicationConstants.Authenticator.OIDC.USER_INFO_URL);
@@ -169,7 +178,7 @@ public class OpenIDConnectExecutor implements Executor {
         return scope;
     }
 
-    protected String getAuthenticateUser(Map<String, Object> oidcClaims) {
+    protected String getAuthenticatedUserIdentifier(Map<String, Object> oidcClaims) {
 
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
@@ -421,10 +430,10 @@ public class OpenIDConnectExecutor implements Executor {
                             + "attribute in id_token as authenticated user id.");
                 }
                 // Default to userId sent as the 'sub' claim.
-                authenticatedUserId = getAuthenticateUser(idTokenClaims);
+                authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
             }
         } else {
-            authenticatedUserId = getAuthenticateUser(idTokenClaims);
+            authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Authenticated user id: " + authenticatedUserId + " retrieved from the 'sub' claim.");
             }
