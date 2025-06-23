@@ -42,6 +42,7 @@ import org.wso2.carbon.identity.application.authentication.framework.config.mode
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.claim.metadata.mgt.model.ExternalClaim;
 import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
@@ -49,8 +50,11 @@ import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.user.api.UserRealm;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
+import org.wso2.carbon.utils.DiagnosticLog;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.ActionIDs.INVOKE_USER_INFO_ENDPOINT;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.Authenticator.OIDC.IS_USER_ID_IN_CLAIMS;
 import static org.wso2.carbon.identity.base.IdentityConstants.IdentityTokens.USER_CLAIMS;
+import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.SUCCESS;
 
 /**
  * This class holds the utils related to the OIDC authentication.
