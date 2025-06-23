@@ -169,7 +169,7 @@ public class OpenIDConnectExecutor implements Executor {
         return scope;
     }
 
-    protected String getAuthenticateUser(Map<String, Object> oidcClaims) {
+    protected String getAuthenticatedUserIdentifier(Map<String, Object> oidcClaims) {
 
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
@@ -421,10 +421,10 @@ public class OpenIDConnectExecutor implements Executor {
                             + "attribute in id_token as authenticated user id.");
                 }
                 // Default to userId sent as the 'sub' claim.
-                authenticatedUserId = getAuthenticateUser(idTokenClaims);
+                authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
             }
         } else {
-            authenticatedUserId = getAuthenticateUser(idTokenClaims);
+            authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Authenticated user id: " + authenticatedUserId + " retrieved from the 'sub' claim.");
             }
