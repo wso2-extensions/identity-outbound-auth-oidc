@@ -351,7 +351,7 @@ public class OpenIDConnectExecutor implements Executor {
         return idToken;
     }
 
-    public Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
+    protected Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
             throws FlowEngineException {
 
         OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
