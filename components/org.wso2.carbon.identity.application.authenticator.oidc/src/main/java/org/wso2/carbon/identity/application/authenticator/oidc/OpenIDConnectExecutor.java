@@ -183,6 +183,11 @@ public class OpenIDConnectExecutor implements Executor {
         return (String) oidcClaims.get(OIDCAuthenticatorConstants.Claim.SUB);
     }
 
+    protected Map<String, String> getAdditionalQueryParams(Map<String, String> authenticatorProperties) {
+
+        return new HashMap<>();
+    }
+
     private boolean isInitialRequest(FlowExecutionContext flowExecutionContext) {
 
         Map<String, String> userInputs = flowExecutionContext.getUserInputData();
@@ -236,20 +241,24 @@ public class OpenIDConnectExecutor implements Executor {
     private String getRedirectUrl(Map<String, String> authenticatorProperties, String callbackUrl, String state)
             throws FlowEngineException {
 
-        OAuthClientRequest authzRequest;
         String scopes = getScope(authenticatorProperties);
+        Map<String, String> additionalQueryParams = getAdditionalQueryParams(authenticatorProperties);
         String clientId = authenticatorProperties.get(CLIENT_ID);
         String authorizationEP = getAuthorizationServerEndpoint(authenticatorProperties);
         String nonce = UUID.randomUUID().toString();
 
         try {
-            authzRequest = OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
+            OAuthClientRequest.AuthenticationRequestBuilder authRequestBuilder =
+                    OAuthClientRequest.authorizationLocation(authorizationEP).setClientId(clientId)
                     .setRedirectURI(callbackUrl)
                     .setResponseType(OAUTH2_GRANT_TYPE_CODE)
                     .setScope(scopes)
                     .setState(state)
-                    .setParameter(NONCE, nonce).buildQueryMessage();
-            return authzRequest.getLocationUri();
+                    .setParameter(NONCE, nonce);
+            for (Map.Entry<String, String> entry : additionalQueryParams.entrySet()) {
+                authRequestBuilder.setParameter(entry.getKey(), entry.getValue());
+            }
+            return authRequestBuilder.buildQueryMessage().getLocationUri();
         } catch (OAuthSystemException exception) {
             throw handleFlowEngineServerException("Error while building the authorization request.", exception);
         }
