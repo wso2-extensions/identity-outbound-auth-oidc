@@ -87,7 +87,7 @@ public class OpenIDConnectExecutor implements Executor {
 
     private static final Log LOG = LogFactory.getLog(OpenIDConnectExecutor.class);
     private static final String OIDC_SIGNUP_EXECUTOR = "OpenIDConnectExecutor";
-    private static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
+    protected static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
 
@@ -145,7 +145,7 @@ public class OpenIDConnectExecutor implements Executor {
      * @param exception        Exception
      * @return FlowEngineServerException
      */
-    private static FlowEngineServerException handleFlowEngineServerException(
+    protected static FlowEngineServerException handleFlowEngineServerException(
             String errorDescription, Exception exception) {
 
         if (exception != null) {
@@ -360,7 +360,7 @@ public class OpenIDConnectExecutor implements Executor {
         return idToken;
     }
 
-    public Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
+    protected Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
             throws FlowEngineException {
 
         OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
@@ -383,7 +383,7 @@ public class OpenIDConnectExecutor implements Executor {
         return resolveLocalClaims(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
     }
 
-    private Map<String, Object> resolveLocalClaims(FlowExecutionContext flowExecutionContext,
+    protected Map<String, Object> resolveLocalClaims(FlowExecutionContext flowExecutionContext,
                                                    Map<ClaimMapping, String> remoteClaimMappings,
                                                    Map<String, Object> jwtAttributeMap) throws FlowEngineException {
 
@@ -469,7 +469,7 @@ public class OpenIDConnectExecutor implements Executor {
         return authenticatedUserId;
     }
 
-    private String getMultiAttributeSeparator(String tenantDomain) throws FlowEngineServerException {
+    protected String getMultiAttributeSeparator(String tenantDomain) throws FlowEngineServerException {
 
         try {
             return OIDCCommonUtil.getMultiAttributeSeparator(tenantDomain);
