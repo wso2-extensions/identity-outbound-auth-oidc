@@ -62,6 +62,7 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 import javax.servlet.http.HttpServletResponse;
@@ -272,7 +273,16 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             validateSignature(signedJWT, identityProvider);
             validateAudience(claimsSet.getAudience(), identityProvider);
             validateIat(claimsSet.getIssueTime());
-            validateEventClaim((JSONObject) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS));
+            Object eventsClaim = claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
+            if (eventsClaim instanceof JSONObject) {
+                validateEventClaim((JSONObject) eventsClaim);
+            } else if (eventsClaim instanceof com.nimbusds.jose.shaded.gson.internal.LinkedTreeMap) {
+                JSONObject jsonObject = new JSONObject((Map<String, ?>) eventsClaim);
+                validateEventClaim(jsonObject);
+            } else {
+                throw new ParseException(
+                        "Unexpected type for 'events' claim: " + eventsClaim.getClass().getName(), 0);
+            }
             validateNonce(claimsSet);
         } catch (ParseException e) {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
