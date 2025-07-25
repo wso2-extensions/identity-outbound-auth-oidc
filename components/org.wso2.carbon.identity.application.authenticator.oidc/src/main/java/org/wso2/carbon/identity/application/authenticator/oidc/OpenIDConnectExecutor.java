@@ -31,6 +31,8 @@ import org.apache.oltu.oauth2.common.OAuth;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
+import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
+import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
@@ -39,12 +41,14 @@ import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
 import org.wso2.carbon.identity.claim.metadata.mgt.exception.ClaimMetadataException;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
 import org.wso2.carbon.identity.core.URLBuilderException;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineServerException;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.user.api.UserStoreException;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.DiagnosticLog;
 
 import java.io.IOException;
@@ -69,16 +73,15 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.LogConstants.OUTBOUND_AUTH_OIDC_SERVICE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE;
-import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil.isUserIdFoundAmongClaims;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ErrorMessages.ERROR_CODE_EXECUTOR_FAILURE;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
-import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
-import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.FAILED;
-import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.SUCCESS;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_ERROR;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
+import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.FAILED;
+import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.SUCCESS;
 
 /**
  * OIDC Social Signup Executor.
@@ -90,6 +93,7 @@ public class OpenIDConnectExecutor implements Executor {
     protected static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+    private static final String USERNAME_PATTERN_VALIDATION_SKIPPED = "isUsernamePatternValidationSkipped";
 
     @Override
     public String getName() {
@@ -109,7 +113,7 @@ public class OpenIDConnectExecutor implements Executor {
             LOG.error("Error while executing OpenID Connect executor.", e);
             ExecutorResponse executorResponse = new ExecutorResponse();
             executorResponse.setResult(STATUS_ERROR);
-            executorResponse.setErrorMessage("Error while executing "+ this.getName() + ": " + e.getDescription());
+            executorResponse.setErrorMessage("Error while executing " + this.getName() + ": " + e.getDescription());
             return executorResponse;
         }
     }
@@ -123,18 +127,6 @@ public class OpenIDConnectExecutor implements Executor {
     @Override
     public ExecutorResponse rollback(FlowExecutionContext flowExecutionContext) {
 
-        return null;
-    }
-
-    private static String getSubjectFromUserIDClaimURI(ExternalIdPConfig idpConfig, Map<String, Object> idTokenClaims,
-                                                       String tenantDomain) {
-
-        String userIdClaimUri = idpConfig.getUserIdClaimUri();
-        try {
-            return OIDCCommonUtil.getSubjectFromUserIDClaimURI(idpConfig, idTokenClaims, tenantDomain);
-        } catch (ClaimMetadataException ex) {
-            LOG.error("Error while retrieving claim URI for user id claim: " + userIdClaimUri, ex);
-        }
         return null;
     }
 
@@ -403,7 +395,12 @@ public class OpenIDConnectExecutor implements Executor {
                             .findFirst()
                             .ifPresent(localKey -> localClaimsMap.put(localKey, remoteValue))
             );
-            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, getAuthenticatedUserId(flowExecutionContext, jwtAttributeMap));
+            String defaultSubject = getAuthenticatedUserIdentifier(jwtAttributeMap);
+            String subject = (String) localClaimsMap.getOrDefault(USERNAME_CLAIM_URI, defaultSubject);
+            flowExecutionContext.getFlowUser().addFederatedAssociation(flowExecutionContext.getExternalIdPConfig().getIdPName(),
+                    subject);
+            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, getFederatedUsername(flowExecutionContext, localClaimsMap,
+                    defaultSubject));
             return localClaimsMap;
         } catch (ClaimMetadataException e) {
             throw handleFlowEngineServerException("Error while resolving local claims.", e);
@@ -438,35 +435,54 @@ public class OpenIDConnectExecutor implements Executor {
         return jwtAttributeMap;
     }
 
-    private String getAuthenticatedUserId(FlowExecutionContext flowExecutionContext, Map<String, Object> idTokenClaims)
+    private String getFederatedUsername(FlowExecutionContext flowExecutionContext, Map<String, Object> localClaims,
+                                        String defaultSubject)
             throws FlowEngineException {
 
-        String authenticatedUserId;
-        if (isUserIdFoundAmongClaims(flowExecutionContext.getAuthenticatorProperties())) {
-            authenticatedUserId = getSubjectFromUserIDClaimURI(flowExecutionContext.getExternalIdPConfig(), idTokenClaims, flowExecutionContext
-                    .getTenantDomain());
-            if (StringUtils.isNotBlank(authenticatedUserId)) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Authenticated user id: " + authenticatedUserId + " was found among id_token claims.");
-                }
-            } else {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Subject claim could not be found amongst id_token claims. Defaulting to the 'sub' "
-                            + "attribute in id_token as authenticated user id.");
-                }
-                // Default to userId sent as the 'sub' claim.
-                authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
-            }
-        } else {
-            authenticatedUserId = getAuthenticatedUserIdentifier(idTokenClaims);
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Authenticated user id: " + authenticatedUserId + " retrieved from the 'sub' claim.");
-            }
+
+        String federatedUsername = null;
+        // Check if the user ID claim URI is configured in the IDP config. If it is configured, use that claim URI
+        // to get the federated user identifier.
+        ExternalIdPConfig idpConfig = flowExecutionContext.getExternalIdPConfig();
+        String userIdClaimUriInLocalDialect = getUserIdClaimUriInLocalDialect(idpConfig);
+        if (isUserNameFoundFromUserIDClaimURI(localClaims, userIdClaimUriInLocalDialect)) {
+            federatedUsername = (String) localClaims.get(userIdClaimUriInLocalDialect);
         }
-        if (authenticatedUserId == null) {
-            throw handleFlowEngineServerException("Error while resolving user identifier.", null);
+
+        String federatedUserId = getFederatedUserId(flowExecutionContext, defaultSubject);
+
+        // If the user ID claim URI is not configured or the claim value is not available, set the federated user ID
+        // as the federated username.
+        if (StringUtils.isBlank(federatedUsername) && StringUtils.isNotBlank(federatedUserId)) {
+            // Set the skip username pattern validation thread local to true to skip the username pattern validation
+            // for the federated user ID.
+            UserCoreUtil.setSkipUsernamePatternValidationThreadLocal(true);
+            flowExecutionContext.setProperty(USERNAME_PATTERN_VALIDATION_SKIPPED, true);
+            federatedUsername = federatedUserId;
         }
-        return authenticatedUserId;
+        return federatedUsername;
+    }
+
+    private static String getFederatedUserId(FlowExecutionContext flowExecutionContext, String defaultSubject)
+            throws FlowEngineServerException {
+
+        String federatedUserId;
+        ExternalIdPConfig idpConfig = flowExecutionContext.getExternalIdPConfig();
+        int tenantId = IdentityTenantUtil.getTenantId(flowExecutionContext.getTenantDomain());
+        try {
+            int idpId = Integer.parseInt(idpConfig.getIdentityProvider().getId());
+            federatedUserId = UserSessionStore.getInstance().getFederatedUserId(defaultSubject, tenantId,
+                    idpId);
+            if (StringUtils.isBlank(federatedUserId)) {
+                federatedUserId = UUID.randomUUID().toString();
+                UserSessionStore.getInstance().storeUserData(federatedUserId, defaultSubject, tenantId, idpId);
+            }
+        } catch (UserSessionException e) {
+            LOG.error("Error checking federated user ID existence for user in flow: "
+                    + flowExecutionContext.getContextIdentifier(), e);
+            throw handleFlowEngineServerException("Error checking federated user ID existence.", e);
+        }
+        return federatedUserId;
     }
 
     protected String getMultiAttributeSeparator(String tenantDomain) throws FlowEngineServerException {
@@ -533,5 +549,37 @@ public class OpenIDConnectExecutor implements Executor {
     protected String getDiagnosticLogComponentId() {
 
         return OUTBOUND_AUTH_OIDC_SERVICE;
+    }
+
+    private String getUserIdClaimUriInLocalDialect(ExternalIdPConfig idPConfig) {
+        // get external identity provider user id claim URI.
+        String userIdClaimUri = idPConfig.getUserIdClaimUri();
+
+        if (StringUtils.isBlank(userIdClaimUri)) {
+            return null;
+        }
+
+        boolean useDefaultLocalIdpDialect = idPConfig.useDefaultLocalIdpDialect();
+        if (useDefaultLocalIdpDialect) {
+            return userIdClaimUri;
+        } else {
+            ClaimMapping[] claimMappings = idPConfig.getClaimMappings();
+            if (!ArrayUtils.isEmpty(claimMappings)) {
+                for (ClaimMapping claimMapping : claimMappings) {
+                    if (userIdClaimUri.equals(claimMapping.getRemoteClaim().getClaimUri())) {
+                        return claimMapping.getLocalClaim().getClaimUri();
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isUserNameFoundFromUserIDClaimURI(Map<String, Object> localClaimValues, String
+            userIdClaimUriInLocalDialect) {
+
+        return StringUtils.isNotBlank(userIdClaimUriInLocalDialect) && StringUtils.isNotBlank
+                ((String) localClaimValues.get(userIdClaimUriInLocalDialect));
     }
 }
