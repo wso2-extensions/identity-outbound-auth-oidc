@@ -93,6 +93,7 @@ public class OpenIDConnectExecutor implements Executor {
     protected static final String[] NON_USER_ATTRIBUTES = new String[]{"at_hash", "iss", "iat", "exp", "aud", "azp",
             "nonce"};
     private static final String OIDC_DIALECT = "http://wso2.org/oidc/claim";
+    private static final String USERNAME_PATTERN_VALIDATION_SKIPPED = "isUsernamePatternValidationSkipped";
 
     @Override
     public String getName() {
@@ -456,7 +457,7 @@ public class OpenIDConnectExecutor implements Executor {
             // Set the skip username pattern validation thread local to true to skip the username pattern validation
             // for the federated user ID.
             UserCoreUtil.setSkipUsernamePatternValidationThreadLocal(true);
-            flowExecutionContext.setProperty("isUsernamePatternValidationSkipped", true);
+            flowExecutionContext.setProperty(USERNAME_PATTERN_VALIDATION_SKIPPED, true);
             federatedUsername = federatedUserId;
         }
         return federatedUsername;
