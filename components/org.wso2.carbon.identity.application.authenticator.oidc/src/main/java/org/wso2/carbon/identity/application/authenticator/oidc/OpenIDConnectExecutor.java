@@ -33,6 +33,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
@@ -204,7 +205,8 @@ public class OpenIDConnectExecutor implements Executor {
         }
 
         ExecutorResponse response = new ExecutorResponse(STATUS_COMPLETE);
-        response.setUpdatedUserClaims(resolveUserAttributes(flowExecutionContext, userInputs.get(OAUTH2_GRANT_TYPE_CODE)));
+        response.setUpdatedUserClaims(resolveUserAttributes(flowExecutionContext,
+                userInputs.get(OAUTH2_GRANT_TYPE_CODE)));
         return response;
     }
 
@@ -399,8 +401,12 @@ public class OpenIDConnectExecutor implements Executor {
             String subject = (String) localClaimsMap.getOrDefault(USERNAME_CLAIM_URI, defaultSubject);
             flowExecutionContext.getFlowUser().addFederatedAssociation(flowExecutionContext.getExternalIdPConfig().getIdPName(),
                     subject);
-            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, getFederatedUsername(flowExecutionContext, localClaimsMap,
-                    defaultSubject));
+            String federatedUsername = getFederatedUsername(flowExecutionContext, localClaimsMap, defaultSubject);
+            if (StringUtils.isNotBlank(federatedUsername)) {
+                localClaimsMap.put(USERNAME_CLAIM_URI, federatedUsername);
+            } else {
+                localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, subject);
+            }
             return localClaimsMap;
         } catch (ClaimMetadataException e) {
             throw handleFlowEngineServerException("Error while resolving local claims.", e);
@@ -451,9 +457,7 @@ public class OpenIDConnectExecutor implements Executor {
 
         String federatedUserId = getFederatedUserId(flowExecutionContext, defaultSubject);
 
-        // If the user ID claim URI is not configured or the claim value is not available, set the federated user ID
-        // as the federated username.
-        if (StringUtils.isBlank(federatedUsername) && StringUtils.isNotBlank(federatedUserId)) {
+        if (shouldUseFederatedUserIdAsUsername(federatedUsername, federatedUserId)) {
             // Set the skip username pattern validation thread local to true to skip the username pattern validation
             // for the federated user ID.
             UserCoreUtil.setSkipUsernamePatternValidationThreadLocal(true);
@@ -461,6 +465,14 @@ public class OpenIDConnectExecutor implements Executor {
             federatedUsername = federatedUserId;
         }
         return federatedUsername;
+    }
+
+    private static boolean shouldUseFederatedUserIdAsUsername(String federatedUsername, String federatedUserId) {
+
+        // If the JIT Provisioning feature is enabled, and the federated username is not found, use the
+        // federated user ID as the username.
+        return FrameworkUtils.isJITProvisionEnhancedFeatureEnabled() &&
+                StringUtils.isBlank(federatedUsername) && StringUtils.isNotBlank(federatedUserId);
     }
 
     private static String getFederatedUserId(FlowExecutionContext flowExecutionContext, String defaultSubject)
