@@ -45,7 +45,7 @@ import org.wso2.carbon.identity.core.URLBuilderException;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineServerException;
-import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
+import org.wso2.carbon.identity.flow.execution.engine.graph.AuthenticationExecutor;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.user.api.UserStoreException;
@@ -87,7 +87,7 @@ import static org.wso2.carbon.utils.DiagnosticLog.ResultStatus.SUCCESS;
 /**
  * OIDC Social Signup Executor.
  */
-public class OpenIDConnectExecutor implements Executor {
+public class OpenIDConnectExecutor extends AuthenticationExecutor {
 
     private static final Log LOG = LogFactory.getLog(OpenIDConnectExecutor.class);
     private static final String OIDC_SIGNUP_EXECUTOR = "OpenIDConnectExecutor";
@@ -100,6 +100,13 @@ public class OpenIDConnectExecutor implements Executor {
     public String getName() {
 
         return OIDC_SIGNUP_EXECUTOR;
+    }
+
+
+    @Override
+    public String getAMRValue() {
+
+        return OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
     }
 
     @Override
