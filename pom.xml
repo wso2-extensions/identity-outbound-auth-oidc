@@ -298,10 +298,10 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>5.25.90</carbon.identity.framework.version>
+        <carbon.identity.framework.version>5.25.728</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v3</oltu.version>
-        <json-smart.version>2.5.2</json-smart.version>
-        <json.wso2.version>3.0.0.wso2v1</json.wso2.version>
+        <json-smart.version>2.6.0</json-smart.version>
+        <json.wso2.version>3.0.0.wso2v7</json.wso2.version>
         <carbon.kernel.version>4.9.0</carbon.kernel.version>
         <maven.buildnumber.plugin.version>1.4</maven.buildnumber.plugin.version>
         <carbon.p2.plugin.version>1.5.3</carbon.p2.plugin.version>
