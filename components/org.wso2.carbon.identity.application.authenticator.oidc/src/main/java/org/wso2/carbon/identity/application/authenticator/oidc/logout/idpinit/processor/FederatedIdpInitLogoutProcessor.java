@@ -296,8 +296,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             validateSignature(signedJWT, identityProvider);
             validateAudience(claimsSet.getAudience(), identityProvider);
             validateIat(claimsSet.getIssueTime());
-            Object eventsClaim = claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
-            validateEventClaim(new JSONObject((Map<String, Object>)eventsClaim));
+            Map<String, Object> eventsClaim =
+                    (Map<String, Object>) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
+            validateEventClaim(eventsClaim != null? new JSONObject(eventsClaim) : null);
             validateNonce(claimsSet);
         } catch (ParseException e) {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
