@@ -28,6 +28,8 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Htt
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextResolver;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2UrlBuilder;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
@@ -62,6 +64,22 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             ctxt.getBundleContext().registerService(HttpIdentityResponseFactory.class.getName(),
                     new LogoutResponseFactory(), null);
             ctxt.getBundleContext().registerService(Executor.class.getName(), new OpenIDConnectExecutor(), null);
+            
+            // Register OAuth2 debug framework components.
+            // Register by framework interface types to allow API layer to look them up by interface.
+            // OAuth2ContextResolver extends DebugContextResolver - register as DebugContextResolver interface.
+            ctxt.getBundleContext().registerService(
+                    "org.wso2.carbon.identity.debug.framework.core.DebugContextResolver", 
+                    new OAuth2ContextResolver(), null);
+            // OAuth2UrlBuilder extends DebugExecutor - register as DebugExecutor interface.
+            ctxt.getBundleContext().registerService(
+                    "org.wso2.carbon.identity.debug.framework.core.DebugExecutor", 
+                    new OAuth2UrlBuilder(), null);
+            // Note: OAuth2 debug request coordination is now handled by the consolidated
+            // DebugRequestCoordinator in the debug-framework module, which is automatically
+            // discovered via reflection in CommonAuthenticationHandler. OAuth2-specific logic
+            // is handled by OAuth2DebugProcessor which extends DebugProcessor.
+            
             if (log.isDebugEnabled()) {
                 log.debug("OpenID Connect Authenticator bundle is activated");
             }
