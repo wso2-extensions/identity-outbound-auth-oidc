@@ -29,6 +29,7 @@ import org.wso2.carbon.identity.debug.framework.core.DebugContextResolver;
 import org.wso2.carbon.identity.debug.framework.exception.ContextResolutionException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -43,7 +44,6 @@ import javax.servlet.http.HttpServletRequest;
 public class OAuth2ContextResolver extends DebugContextResolver {
 
     private static final Log LOG = LogFactory.getLog(OAuth2ContextResolver.class);
-    private static final String CARBON_SUPER = "carbon.super";
 
     /**
      * Resolves and creates an OAuth2 debug context from the given HTTP request.
@@ -65,6 +65,18 @@ public class OAuth2ContextResolver extends DebugContextResolver {
 
             if (StringUtils.isEmpty(idpId)) {
                 throw new ContextResolutionException("IdP ID parameter is missing");
+            }
+            
+            // Validate IdP ID format to prevent injection attacks
+            // Allow only alphanumeric, hyphens, underscores, and dots (UUIDs and typical names)
+            if (!idpId.matches("^[a-zA-Z0-9._-]+$")) {
+                throw new ContextResolutionException("Invalid IdP ID format - contains invalid characters");
+            }
+            
+            // Validate authenticator name if provided
+            if (StringUtils.isNotEmpty(authenticatorName) && 
+                !authenticatorName.matches("^[a-zA-Z0-9._-]+$")) {
+                throw new ContextResolutionException("Invalid authenticator name format - contains invalid characters");
             }
 
             return resolveContext(idpId, authenticatorName);
@@ -128,7 +140,8 @@ public class OAuth2ContextResolver extends DebugContextResolver {
 
         Map<String, Object> context = new HashMap<>();
         try {
-            String tenantDomain = CARBON_SUPER;
+            // Use IdentityTenantUtil to resolve tenant domain dynamically.
+            String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
 
             // Retrieve IdP using IdentityProviderManager.
             IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
@@ -252,12 +265,13 @@ public class OAuth2ContextResolver extends DebugContextResolver {
 
             IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
             IdentityProvider idp = null;
-
+            // Use IdentityTenantUtil to resolve tenant domain dynamically.
+            String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
             try {
-                idp = idpManager.getIdPByResourceId(idpId, CARBON_SUPER, true);
+                idp = idpManager.getIdPByResourceId(idpId, tenantDomain, true);
             } catch (IdentityProviderManagementException e) {
                 try {
-                    idp = idpManager.getIdPByName(idpId, CARBON_SUPER);
+                    idp = idpManager.getIdPByName(idpId, tenantDomain);
                 } catch (IdentityProviderManagementException e2) {
                     return false;
                 }
@@ -597,6 +611,14 @@ public class OAuth2ContextResolver extends DebugContextResolver {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("Alternative method also failed: " + ex.getMessage());
                     }
+                }
+            } catch (IllegalAccessException e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Method not accessible: " + e.getMessage());
+                }
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Failed to invoke method: " + e.getMessage());
                 }
             } catch (Exception e) {
                 if (LOG.isDebugEnabled()) {

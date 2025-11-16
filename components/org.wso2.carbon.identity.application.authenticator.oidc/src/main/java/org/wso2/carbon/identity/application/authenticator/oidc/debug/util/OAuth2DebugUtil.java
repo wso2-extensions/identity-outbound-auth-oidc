@@ -39,6 +39,12 @@ public class OAuth2DebugUtil {
     private static final Log LOG = LogFactory.getLog(OAuth2DebugUtil.class);
     private static final String UTF8 = "UTF-8";
     private static final String SHA256 = "SHA-256";
+    
+    // Pre-compile regex patterns for performance
+    private static final java.util.regex.Pattern EMAIL_PATTERN = 
+            java.util.regex.Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final java.util.regex.Pattern UUID_PATTERN = 
+            java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private OAuth2DebugUtil() {
     }
@@ -145,8 +151,11 @@ public class OAuth2DebugUtil {
                     String encodedValue = java.net.URLEncoder.encode(entry.getValue(), UTF8);
                     urlBuilder.append(entry.getKey()).append("=").append(encodedValue);
                 } catch (UnsupportedEncodingException e) {
-                    LOG.warn("Error encoding parameter value: " + entry.getKey(), e);
-                    urlBuilder.append(entry.getKey()).append("=").append(entry.getValue());
+                    // UTF-8 encoding should always be available, but handle just in case.
+                    LOG.error("UTF-8 encoding not available for URL parameter: " + entry.getKey() + ". " + 
+                            e.getMessage(), e);
+                    // Fail fast to prevent inconsistent URL encoding.
+                    throw new IllegalStateException("UTF-8 encoding failed for OAuth2 parameter", e);
                 }
                 first = false;
             }
@@ -189,7 +198,11 @@ public class OAuth2DebugUtil {
                     String value = java.net.URLDecoder.decode(keyValue[1], UTF8);
                     parameters.put(key, value);
                 } catch (UnsupportedEncodingException e) {
-                    LOG.warn("Error decoding query parameter: " + pair, e);
+                    // UTF-8 decoding should always be available, but handle just in case.
+                    LOG.error("UTF-8 encoding not available for query parameter: " + pair + ". " + 
+                            e.getMessage(), e);
+                    // Log but skip this parameter rather than adding with potentially corrupted data.
+                    continue;
                 }
             }
         }

@@ -127,25 +127,31 @@ public class OAuth2TokenClient {
     }
 
     /**
-     * Extracts error code from OAuth exceptions.
+     * Extracts error code from OAuth exceptions with comprehensive pattern matching.
+     *
+     * @param e The exception to extract error code from.
+     * @return Error code string or generic TOKEN_EXCHANGE_ERROR if code cannot be determined.
      */
     private String extractErrorCode(Exception e) {
-        String exceptionMessage = e.getMessage() != null ? e.getMessage() : "";
+        if (e == null) {
+            return "TOKEN_EXCHANGE_ERROR";
+        }
+        String exceptionMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
         if (exceptionMessage.contains("invalid_client")) {
             return "INVALID_CLIENT";
         } else if (exceptionMessage.contains("invalid_grant")) {
             return "INVALID_GRANT";
-        } else if (exceptionMessage.contains("Unauthorized")) {
+        } else if (exceptionMessage.contains("unauthorized")) {
             return "UNAUTHORIZED";
         } else if (exceptionMessage.contains("invalid_request")) {
             return "INVALID_REQUEST";
         } else if (exceptionMessage.contains("unsupported_grant_type")) {
             return "UNSUPPORTED_GRANT_TYPE";
-        } else if (exceptionMessage.contains("Connection")) {
+        } else if (exceptionMessage.contains("connection")) {
             return "CONNECTION_ERROR";
-        } else if (exceptionMessage.contains("timeout") || exceptionMessage.contains("Timeout")) {
+        } else if (exceptionMessage.contains("timeout")) {
             return "TIMEOUT_ERROR";
-        } else if (exceptionMessage.contains("SSL") || exceptionMessage.contains("Certificate")) {
+        } else if (exceptionMessage.contains("ssl") || exceptionMessage.contains("certificate")) {
             return "SSL_CERTIFICATE_ERROR";
         } else {
             return "TOKEN_EXCHANGE_ERROR";

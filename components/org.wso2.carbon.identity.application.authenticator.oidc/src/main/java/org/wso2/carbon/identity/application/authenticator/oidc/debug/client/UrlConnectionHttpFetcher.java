@@ -30,6 +30,7 @@ import java.util.Map;
 
 /**
  * Default HttpFetcher implementation using HttpURLConnection.
+ * Provides secure HTTPS communication with proper hostname verification.
  */
 public class UrlConnectionHttpFetcher implements HttpFetcher {
 
@@ -41,6 +42,16 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
         try {
             URL url = new URL(urlStr);
             connection = (HttpURLConnection) url.openConnection();
+            
+            // Enable hostname verification for HTTPS connections.
+            if (connection instanceof javax.net.ssl.HttpsURLConnection) {
+                javax.net.ssl.HttpsURLConnection httpsConnection = 
+                        (javax.net.ssl.HttpsURLConnection) connection;
+                // Use default hostname verifier for proper SSL hostname verification.
+                httpsConnection.setHostnameVerifier(
+                        javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier());
+            }
+            
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(10000);
@@ -54,6 +65,7 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
             int responseCode = connection.getResponseCode();
             if (responseCode == 200) {
                 ObjectMapper mapper = new ObjectMapper();
+                // Use try-with-resources to ensure InputStream is always closed
                 try (InputStream in = connection.getInputStream()) {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> claims = mapper.readValue(in, Map.class);
@@ -61,14 +73,23 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
                 }
             } else {
                 LOG.debug("Non-200 response from " + urlStr + ": " + responseCode);
+                return new HashMap<>();
             }
+        } catch (javax.net.ssl.SSLException e) {
+            LOG.error("SSL/HTTPS verification failed for " + urlStr + ": " + e.getMessage(), e);
+            return new HashMap<>();
         } catch (Exception e) {
             LOG.debug("Error fetching JSON from " + urlStr, e);
+            return new HashMap<>();
         } finally {
+            // Always disconnect to release connection resources
             if (connection != null) {
-                connection.disconnect();
+                try {
+                    connection.disconnect();
+                } catch (Exception e) {
+                    LOG.debug("Error disconnecting HTTP connection: " + e.getMessage());
+                }
             }
         }
-        return new HashMap<>();
     }
 }
