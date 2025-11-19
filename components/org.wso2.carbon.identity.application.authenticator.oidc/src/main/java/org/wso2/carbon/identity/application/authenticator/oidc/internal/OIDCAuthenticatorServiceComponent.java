@@ -24,6 +24,10 @@ import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer;
+import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
+import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 
 /**
  * OIDC Authenticator component for registering debug services.
@@ -48,18 +52,33 @@ public class OIDCAuthenticatorServiceComponent {
     @Activate
     protected void activate(ComponentContext ctxt) {
         try {
-            // Note: OAuth2-specific debug processing is handled by OAuth2DebugProcessor
-            // which is called by the consolidated DebugRequestCoordinator from the framework.
-            // The framework's DebugRequestCoordinator will be automatically discovered via reflection
-            // in CommonAuthenticationHandler.handleDebugFlow() method.
+            // Register OAuth2Executer as DebugExecutor service
+            OAuth2Executer oauth2Executor = new OAuth2Executer();
+            ctxt.getBundleContext().registerService(
+                new String[]{DebugExecutor.class.getName()}, 
+                oauth2Executor, 
+                null
+            );
             if (log.isDebugEnabled()) {
-                log.debug("OIDC Authenticator component activated. Debug processing via framework.");
+                log.debug("OAuth2Executer registered as DebugExecutor service");
+            }
+            
+            // Register OAuth2ContextProvider as DebugContextProvider service
+            OAuth2ContextProvider oauth2ContextProvider = new OAuth2ContextProvider();
+            ctxt.getBundleContext().registerService(
+                new String[]{DebugContextProvider.class.getName()}, 
+                oauth2ContextProvider, 
+                null
+            );
+            if (log.isDebugEnabled()) {
+                log.debug("OAuth2ContextProvider registered as DebugContextProvider service");
+            }
+            
+            if (log.isDebugEnabled()) {
+                log.debug("OIDC Authenticator component activated with debug services registered");
             }
         } catch (Exception e) {
-            // Log any issues during activation, but don't fail the component
-            if (log.isDebugEnabled()) {
-                log.debug("OIDC Authenticator activation completed: " + e.getMessage());
-            }
+            log.error("Error activating OIDC Authenticator service component: " + e.getMessage(), e);
         }
     }
 

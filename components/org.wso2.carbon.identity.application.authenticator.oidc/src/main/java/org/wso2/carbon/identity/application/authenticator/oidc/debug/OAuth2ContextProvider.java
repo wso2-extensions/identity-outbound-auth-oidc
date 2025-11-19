@@ -22,10 +22,11 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.Property;
-import org.wso2.carbon.identity.debug.framework.core.DebugContextResolver;
+import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.exception.ContextResolutionException;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
@@ -41,9 +42,9 @@ import javax.servlet.http.HttpServletRequest;
  * Extends the framework's DebugContextResolver to provide OAuth2-specific context resolution.
  * Resolves OAuth2-specific context from IdP configuration using IdentityProviderManager.
  */
-public class OAuth2ContextResolver extends DebugContextResolver {
+public class OAuth2ContextProvider extends DebugContextProvider {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2ContextResolver.class);
+    private static final Log LOG = LogFactory.getLog(OAuth2ContextProvider.class);
 
     /**
      * Resolves and creates an OAuth2 debug context from the given HTTP request.
@@ -217,7 +218,7 @@ public class OAuth2ContextResolver extends DebugContextResolver {
             String cfgName = authenticatorConfig.getName();
             if ("OpenIDConnectAuthenticator".equals(cfgName) ||
                 "OAuth2OpenIDConnectAuthenticator".equals(cfgName)) {
-                executorClass = "org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor";
+                executorClass = OpenIDConnectExecutor.class.getName();
             }
             if (executorClass != null) {
                 context.put("DEBUG_EXECUTOR_CLASS", executorClass);
@@ -399,7 +400,7 @@ public class OAuth2ContextResolver extends DebugContextResolver {
         String cfgName = config.getName();
         if ("OpenIDConnectAuthenticator".equals(cfgName) || 
             "OAuth2OpenIDConnectAuthenticator".equals(cfgName)) {
-            executor = createExecutor("org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor");
+            executor = createExecutor(OpenIDConnectExecutor.class.getName());
         }
         // Note: Google and GitHub authenticators are in separate repositories and will have their own resolver implementations.
 

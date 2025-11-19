@@ -1,17 +1,19 @@
-/*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
@@ -33,9 +35,9 @@ import java.util.Map;
  * Extends the framework's DebugExecutor to provide OAuth2-specific execution logic.
  * Generates OAuth2 Authorization URLs with PKCE parameters and handles debug state management.
  */
-public class OAuth2UrlBuilder extends DebugExecutor {
+public class OAuth2Executer extends DebugExecutor {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2UrlBuilder.class);
+    private static final Log LOG = LogFactory.getLog(OAuth2Executer.class);
     private static final String EXECUTOR_NAME = "OAuth2Executor";
     private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
@@ -149,10 +151,19 @@ public class OAuth2UrlBuilder extends DebugExecutor {
             result.setSuccessful(true);
             result.setStatus("Authorization URL generated successfully");
             result.addResultData("authorizationUrl", authorizationUrl);
+            result.addResultData("sessionId", contextId);
+            result.addResultData("state", state);
             result.addMetadata("authorizationUrl", authorizationUrl);
+            result.addMetadata("sessionId", contextId);
             result.addMetadata("state", state);
             result.addMetadata("codeVerifier", codeVerifier);
             result.addMetadata("idpName", context.get("DEBUG_IDP_NAME"));
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("OAuth2 Authorization URL result: sessionId=" + contextId + 
+                         ", state=" + state + ", authorizationUrl present: " + 
+                         (authorizationUrl != null && !authorizationUrl.isEmpty()));
+            }
 
             LOG.info("OAuth2 Authorization URL generated successfully");
             return result;

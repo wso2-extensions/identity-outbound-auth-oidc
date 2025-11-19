@@ -30,7 +30,9 @@ import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -183,6 +185,13 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     private boolean validateAndExtractPrerequisites(String code, String state, AuthenticationContext context) {
         IdentityProvider idp = (IdentityProvider) context.getProperty("IDP_CONFIG");
+        
+        // Try to restore properties from session cache if IDP_CONFIG not found
+        if (idp == null) {
+            restoreContextFromSessionCache(state, context);
+            idp = (IdentityProvider) context.getProperty("IDP_CONFIG");
+        }
+        
         if (idp == null) {
             LOG.error("IdP configuration not found in context");
             buildAndCacheTokenExchangeErrorResponse("IDP_CONFIG_MISSING", 
@@ -683,6 +692,449 @@ public class OAuth2DebugProcessor extends DebugProcessor {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Checks if authorization code was already processed (replay attack prevention).
+     * For OAuth2, uses state parameter as session key to track processed codes.
+     *
+     * @param authorizationCode The authorization code from callback.
+     * @param request HttpServletRequest.
+     * @param context AuthenticationContext.
+     * @param response HttpServletResponse.
+     * @param state State parameter for session tracking.
+     * @param idpId IdP resource ID.
+     * @return true if duplicate code detected, false otherwise.
+     * @throws IOException If response cannot be sent.
+     */
+    @Override
+    protected boolean isAuthorizationCodeAlreadyProcessed(String authorizationCode, HttpServletRequest request,
+                                                          AuthenticationContext context, HttpServletResponse response,
+                                                          String state, String idpId) throws IOException {
+        // Check if code was already processed in this session using state parameter.
+        Object processedCode = context.getProperty("DEBUG_PROCESSED_CODE_" + state);
+        if (processedCode != null && processedCode.equals(authorizationCode)) {
+            LOG.error("Authorization code replay detected - code already processed for state: " + state);
+            buildAndCacheTokenExchangeErrorResponse("CODE_REPLAY", 
+                    "Authorization code was already processed", "", state, context);
+            return true;
+        }
+        
+        // Mark this code as processed for this state.
+        context.setProperty("DEBUG_PROCESSED_CODE_" + state, authorizationCode);
+        return false;
+    }
+
+    /**
+     * Handles claim extraction result and validates successful extraction.
+     * For OAuth2, validates that required claims (sub/user ID) are present.
+     *
+     * @param claims Map of extracted claims.
+     * @param context AuthenticationContext.
+     * @param response HttpServletResponse.
+     * @param state State parameter.
+     * @param idpId IdP resource ID.
+     * @return true if claims extraction succeeded, false otherwise.
+     * @throws IOException If response cannot be sent.
+     */
+    @Override
+    protected boolean handleClaimsExtractionResult(Map<String, Object> claims, AuthenticationContext context,
+                                                   HttpServletResponse response, String state, 
+                                                   String idpId) throws IOException {
+        if (claims == null || claims.isEmpty()) {
+            LOG.error("No claims extracted from OAuth2 tokens");
+            context.setProperty("DEBUG_AUTH_ERROR", "No user claims extracted from IdP");
+            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            buildAndCacheTokenExchangeErrorResponse("NO_CLAIMS", 
+                    "No user claims available from IdP", "", state, context);
+            return false;
+        }
+
+        // Validate that at least a user identifier is present.
+        if (!claims.containsKey("sub") && !claims.containsKey("user_id") && 
+            !claims.containsKey("userId") && !claims.containsKey("email")) {
+            LOG.error("Required user identifier claim not found in extracted claims");
+            context.setProperty("DEBUG_AUTH_ERROR", "User identifier claim missing");
+            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            buildAndCacheTokenExchangeErrorResponse("NO_USER_IDENTIFIER", 
+                    "User identifier (sub/user_id/email) not found in claims", "", state, context);
+            return false;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Claims extraction validation passed. Claims found: " + claims.keySet());
+        }
+
+        return true;
+    }
+
+    /**
+     * Builds and caches the final debug result after successful authentication.
+     * Includes comprehensive claim mapping information and diagnostic data.
+     * Persists to DebugResultCache for API retrieval.
+     *
+     * @param context AuthenticationContext containing all debug information.
+     * @param state State parameter for session identification.
+     */
+    @Override
+    protected void buildAndCacheDebugResult(AuthenticationContext context, String state) {
+        try {
+            Map<String, Object> debugResult = new HashMap<>();
+            debugResult.put("state", state);
+            debugResult.put("success", "true");
+            debugResult.put("authenticator", "OpenIDConnectAuthenticator");
+            debugResult.put("idpName", context.getProperty("DEBUG_IDP_NAME"));
+            debugResult.put("sessionId", context.getProperty("DEBUG_CONTEXT_ID"));
+            debugResult.put("executor", "UnknownExecutor");
+            
+            // Add step statuses
+            debugResult.put("step_connection_status", "success");
+            debugResult.put("step_authentication_status", "success");
+            debugResult.put("step_claim_extraction_status", "success");
+            debugResult.put("step_claim_mapping_status", "success");
+            
+            // Extract user identifier
+            @SuppressWarnings("unchecked")
+            Map<String, Object> incomingClaims = (Map<String, Object>) context.getProperty("DEBUG_INCOMING_CLAIMS");
+            String userId = null;
+            String username = null;
+            
+            if (incomingClaims != null) {
+                userId = (String) incomingClaims.get("sub");
+                username = (String) incomingClaims.get("email");
+                if (username == null) {
+                    username = (String) incomingClaims.get("username");
+                }
+            }
+            
+            debugResult.put("userId", userId);
+            debugResult.put("username", username);
+            
+            // Build mapped claims array with structured format for UI table
+            List<Map<String, Object>> mappedClaimsArray = new ArrayList<>();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mappedClaims = (Map<String, Object>) context.getProperty("DEBUG_MAPPED_CLAIMS");
+            
+            if (mappedClaims != null && !mappedClaims.isEmpty()) {
+                // Map of local claim URI -> value
+                for (Map.Entry<String, Object> entry : mappedClaims.entrySet()) {
+                    Map<String, Object> claimEntry = new HashMap<>();
+                    claimEntry.put("isClaim", entry.getKey()); // IS claim URI
+                    claimEntry.put("value", entry.getValue());
+                    claimEntry.put("status", "Successful");
+                    
+                    // Try to find the corresponding IdP claim name (reverse lookup)
+                    // For now, extract from the URI or use a generic format
+                    String idpClaimName = extractClaimNameFromUri(entry.getKey());
+                    claimEntry.put("idpClaim", idpClaimName);
+                    
+                    mappedClaimsArray.add(claimEntry);
+                }
+            }
+            
+            // Also add unmapped configured claims with "Not Found" status
+            @SuppressWarnings("unchecked")
+            Map<String, Map<String, String>> idpConfiguredMappings = 
+                    (Map<String, Map<String, String>>) context.getProperty("DEBUG_IDP_CONFIGURED_CLAIM_MAPPINGS");
+            
+            if (idpConfiguredMappings != null) {
+                for (Map.Entry<String, Map<String, String>> mapping : idpConfiguredMappings.entrySet()) {
+                    String remoteClaim = mapping.getValue().get("remote");
+                    String localClaim = mapping.getValue().get("local");
+                    
+                    // Check if this mapping was already added to mappedClaimsArray
+                    boolean alreadyMapped = mappedClaimsArray.stream()
+                            .anyMatch(c -> localClaim.equals(c.get("isClaim")));
+                    
+                    if (!alreadyMapped) {
+                        Map<String, Object> claimEntry = new HashMap<>();
+                        claimEntry.put("idpClaim", remoteClaim);
+                        claimEntry.put("isClaim", localClaim);
+                        claimEntry.put("value", null);
+                        claimEntry.put("status", "Not Found");
+                        mappedClaimsArray.add(claimEntry);
+                    }
+                }
+            }
+            
+            debugResult.put("mappedClaims", mappedClaimsArray);
+            debugResult.put("idpConfiguredClaimMappings", idpConfiguredMappings != null ? idpConfiguredMappings : new HashMap<>());
+            
+            // Build claim mapping diagnostic message
+            if (incomingClaims != null && idpConfiguredMappings != null) {
+                int successCount = (int) mappedClaimsArray.stream()
+                        .filter(c -> "Successful".equals(c.get("status")))
+                        .count();
+                int totalCount = idpConfiguredMappings.size();
+                int notFoundCount = totalCount - successCount;
+                
+                StringBuilder diagnostic = new StringBuilder();
+                diagnostic.append("Claim Mapping Report: ").append(successCount).append(" of ").append(totalCount)
+                        .append(" mappings successful (").append(notFoundCount).append(" not found). ");
+                diagnostic.append("Incoming claims received: ").append(incomingClaims.keySet()).append(". ");
+                
+                List<String> missingClaims = new ArrayList<>();
+                for (Map<String, Object> claim : mappedClaimsArray) {
+                    if ("Not Found".equals(claim.get("status"))) {
+                        missingClaims.add(claim.get("isClaim") + " <- " + claim.get("idpClaim"));
+                    }
+                }
+                if (!missingClaims.isEmpty()) {
+                    diagnostic.append("Missing expected claims: ");
+                    for (String missing : missingClaims) {
+                        diagnostic.append("[").append(missing).append("] ");
+                    }
+                }
+                debugResult.put("claimMappingDiagnostic", diagnostic.toString());
+            }
+            
+            // Build user attributes map (mapped claims as key-value)
+            Map<String, Object> userAttributes = new HashMap<>();
+            if (mappedClaims != null) {
+                userAttributes.putAll(mappedClaims);
+            }
+            debugResult.put("userAttributes", userAttributes);
+            
+            // Add URLs and tokens
+            String externalRedirectUrl = (String) context.getProperty("DEBUG_EXTERNAL_REDIRECT_URL");
+            debugResult.put("externalRedirectUrl", externalRedirectUrl);
+            
+            String idToken = (String) context.getProperty("DEBUG_ID_TOKEN");
+            debugResult.put("idToken", idToken);
+            
+            String callbackUrl = (String) context.getProperty("DEBUG_CALLBACK_URL");
+            debugResult.put("callbackUrl", callbackUrl);
+            
+            debugResult.put("error", null);
+            debugResult.put("timestamp", null);
+            
+            // Add empty metadata (will be populated by API if needed)
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("step_claim_mapping_status", "success");
+            metadata.put("step_authentication_status", "success");
+            metadata.put("step_connection_status", "success");
+            debugResult.put("metadata", metadata);
+            
+            com.fasterxml.jackson.databind.ObjectMapper mapper = 
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            String debugResultJson = mapper.writeValueAsString(debugResult);
+            
+            // Cache the result in context (for local use during this request).
+            context.setProperty("DEBUG_RESULT_CACHE", debugResultJson);
+            context.setProperty("DEBUG_AUTH_SUCCESS", "true");
+            
+            // Get context ID for dual-key caching
+            String contextId = (String) context.getProperty("DEBUG_CONTEXT_ID");
+            
+            // Persist to DebugResultCache for API endpoint retrieval (with both state and contextId as keys).
+            persistDebugResultToCache(state, contextId, debugResultJson);
+            
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Debug result cached and persisted for state: " + state);
+            }
+
+        } catch (Exception e) {
+            LOG.error("Error building and caching debug result: " + e.getMessage(), e);
+            context.setProperty("DEBUG_AUTH_ERROR", "Error caching debug result: " + e.getMessage());
+            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+        }
+    }
+    
+    /**
+     * Extracts a readable claim name from a claim URI.
+     * E.g., "http://wso2.org/claims/emailaddress" -> "email"
+     *
+     * @param claimUri The claim URI.
+     * @return Extracted claim name or the original URI if extraction fails.
+     */
+    private String extractClaimNameFromUri(String claimUri) {
+        if (claimUri == null || claimUri.isEmpty()) {
+            return claimUri;
+        }
+        
+        // Extract the last part of the URI after the last "/"
+        int lastSlashIndex = claimUri.lastIndexOf('/');
+        if (lastSlashIndex > 0 && lastSlashIndex < claimUri.length() - 1) {
+            return claimUri.substring(lastSlashIndex + 1);
+        }
+        return claimUri;
+    }
+
+    /**
+     * Builds and caches token exchange error response with detailed error information.
+     * Formats error details for debug API response.
+     * Persists to DebugResultCache for API retrieval.
+     *
+     * @param errorCode The error code from token exchange failure.
+     * @param errorDescription The error description/message.
+     * @param errorDetails Additional error details or stack trace.
+     * @param state The state parameter for session identification.
+     * @param context AuthenticationContext.
+     */
+    @Override
+    protected void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
+            String errorDetails, String state, AuthenticationContext context) {
+        try {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("state", state);
+            errorResponse.put("success", false);
+            errorResponse.put("error_code", errorCode);
+            errorResponse.put("error_description", errorDescription);
+            if (errorDetails != null && !errorDetails.isEmpty()) {
+                errorResponse.put("error_details", errorDetails);
+            }
+            
+            com.fasterxml.jackson.databind.ObjectMapper mapper = 
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            String errorResponseJson = mapper.writeValueAsString(errorResponse);
+            
+            // Cache in context.
+            context.setProperty("DEBUG_RESULT_CACHE", errorResponseJson);
+            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            
+            // Get context ID for dual-key caching
+            String contextId = (String) context.getProperty("DEBUG_CONTEXT_ID");
+            
+            // Persist to DebugResultCache for API endpoint retrieval (with both state and contextId as keys).
+            persistDebugResultToCache(state, contextId, errorResponseJson);
+            
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Error response cached and persisted for state: " + state + " with error: " + errorCode);
+            }
+
+        } catch (Exception e) {
+            LOG.error("Error building and caching error response: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Persists debug result to DebugResultCache using reflection.
+     * The result can then be retrieved via the GET /debug/result/{session-id} endpoint.
+     * Uses reflection-based direct class access to handle cross-module OSGi dependencies.
+     * Caches under both state and contextId to support flexible lookups.
+     *
+     * @param state The state parameter (primary cache key).
+     * @param contextId The context ID/session ID (alternate cache key).
+     * @param resultJson The JSON-serialized debug result to cache.
+     */
+    private void persistDebugResultToCache(String state, String contextId, String resultJson) {
+        try {
+            // Direct reflection-based access to DebugResultCache static methods
+            Class<?> cacheClass = Class.forName(
+                    "org.wso2.carbon.identity.debug.framework.core.cache.DebugResultCache");
+            
+            // Call the static add method on the cache class
+            java.lang.reflect.Method addMethod = cacheClass.getMethod("add", String.class, String.class);
+            
+            // Cache under both state and contextId for flexibility
+            addMethod.invoke(null, state, resultJson);
+            if (contextId != null && !contextId.equals(state)) {
+                addMethod.invoke(null, contextId, resultJson);
+            }
+            
+            LOG.info("Debug result persisted to cache for state: " + state + 
+                     (contextId != null ? ", contextId: " + contextId : ""));
+            
+        } catch (Exception e) {
+            LOG.error("Error persisting debug result to cache: " + e.getMessage(), e);
+            // Log but don't fail - allow flow to continue
+        }
+    }
+
+    /**
+     * Redirects to the debug success page after processing.
+     * Sends HTTP redirect response with cached debug result.
+     *
+     * @param response HttpServletResponse for sending the redirect.
+     * @param state The state parameter for session identification.
+     * @param idpId The IdP resource ID.
+     * @throws IOException If response fails.
+     */
+    @Override
+    protected void redirectToDebugSuccess(HttpServletResponse response, String state, String idpId) throws IOException {
+        if (!response.isCommitted()) {
+            String encodedState = encodeForUrl(state);
+            String encodedIdpId = encodeForUrl(idpId);
+            String redirectUrl = "/authenticationendpoint/debugSuccess.jsp?state=" + encodedState + 
+                                 "&idpId=" + encodedIdpId;
+            response.sendRedirect(redirectUrl);
+        }
+    }
+    
+    
+    /**
+     * Restores context properties from DebugSessionCache using state parameter.
+     * Transfers cached properties to AuthenticationContext for use in callback processing.
+     *
+     * @param state State parameter (cache key).
+     * @param context AuthenticationContext to populate.
+     */
+    private void restoreContextFromSessionCache(String state, AuthenticationContext context) {
+        try {
+            // Access DebugSessionCache via reflection to retrieve cached context
+            Class<?> sessionCacheClass = Class.forName(
+                    "org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer$DebugSessionCache");
+            java.lang.reflect.Method getInstanceMethod = sessionCacheClass.getMethod("getInstance");
+            Object cacheInstance = getInstanceMethod.invoke(null);
+            
+            if (cacheInstance != null) {
+                java.lang.reflect.Method getMethod = sessionCacheClass.getMethod("get", String.class);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cachedContext = (Map<String, Object>) getMethod.invoke(cacheInstance, state);
+                
+                if (cachedContext != null) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Restoring context from DebugSessionCache for state: " + state);
+                    }
+                    
+                    // Transfer cached properties to AuthenticationContext
+                    String[] propertiesToRestore = {
+                            "DEBUG_TOKEN_ENDPOINT", "DEBUG_CLIENT_ID", "DEBUG_CLIENT_SECRET",
+                            "DEBUG_USERINFO_ENDPOINT", "DEBUG_CODE_VERIFIER", "DEBUG_CALLBACK_URL",
+                            "DEBUG_IDP_NAME", "IDP_CONFIG", "DEBUG_AUTHZ_ENDPOINT", "DEBUG_CONTEXT_ID",
+                            "DEBUG_EXTERNAL_REDIRECT_URL"
+                    };
+                    
+                    for (String property : propertiesToRestore) {
+                        Object value = cachedContext.get(property);
+                        if (value != null) {
+                            context.setProperty(property, value);
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("Restored property from cache: " + property);
+                            }
+                        }
+                    }
+                    
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Context restoration from DebugSessionCache completed");
+                    }
+                } else {
+                    LOG.debug("No cached context found for state: " + state);
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Unable to restore context from DebugSessionCache: " + e.getMessage());
+            // Continue without restoration - will fall back to other methods
+        }
+    }
+
+    /**
+     * URL-encodes a parameter for safe use in HTTP redirects.
+     * Prevents XSS and injection vulnerabilities.
+     *
+     * @param param Parameter to encode.
+     * @return URL-encoded parameter.
+     */
+    private String encodeForUrl(String param) {
+        if (param == null || param.isEmpty()) {
+            return "";
+        }
+        try {
+            return java.net.URLEncoder.encode(param, StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            LOG.warn("Error encoding parameter for URL: " + e.getMessage());
+            return param;
         }
     }
 }
