@@ -25,6 +25,8 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 public class OAuth2DebugConstants {
 
     private OAuth2DebugConstants() {
+
+        // Prevent instantiation
     }
 
     // OAuth2 Debug Extension Identifiers
@@ -40,7 +42,12 @@ public class OAuth2DebugConstants {
     public static final String USERINFO_ENDPOINT = "userinfoEndpoint";
     public static final String REDIRECT_URI = "redirectUri";
     public static final String SCOPES = "scopes";
+    public static final String IDP_SCOPE = "idpScope";
     public static final String RESPONSE_TYPE = "responseType";
+    public static final String OPENID_CONNECT_AUTHENTICATOR = "OpenIDConnectAuthenticator";
+    public static final String OAUTH2_OPENID_CONNECT_AUTHENTICATOR = "OAuth2OpenIDConnectAuthenticator";
+    public static final String IDP_CONFIG = "idpConfig";
+    public static final String DEBUG_IDP_NAME = "debugIdpName";
 
     // OAuth2 Debug Flow Parameters
     public static final String AUTHORIZATION_CODE = "authorizationCode";
@@ -67,6 +74,7 @@ public class OAuth2DebugConstants {
     public static final String INVALID_SCOPE = "invalid_scope";
     public static final String SERVER_ERROR = "server_error";
     public static final String TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
+    public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
 
     // PKCE Parameters
     public static final String PKCE_ENABLED = "pkceEnabled";
@@ -80,9 +88,68 @@ public class OAuth2DebugConstants {
     public static final String STEP_HANDLE_CALLBACK = "handleCallback";
     public static final String STEP_EXCHANGE_CODE = "exchangeCode";
     public static final String STEP_FETCH_USERINFO = "fetchUserinfo";
+    public static final String STEP_CONNECTION_STATUS = "connectionStatus";
+    public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
+    public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
+    public static final String STEP_CLAIM_EXTRACTION_STATUS = "claimExtractionStatus";
+
+    // status values
+    public static final String STATUS_STARTED = "started";
+    public static final String STATUS_SUCCESS = "success";
+    public static final String STATUS_FAILED = "failed";
+    public static final String STATUS_PENDING = "pending";
+    public static final String STATUS_PRESENT = "present";
+    public static final String STATUS_ABSENT = "absent";
+    public static final String STATUS_FOUND = "found";
 
     // Debug Session Keys
     public static final String DEBUG_SESSION_ID = "debugSessionId";
     public static final String DEBUG_FLOW_ID = "debugFlowId";
     public static final String DEBUG_TIMESTAMP = "debugTimestamp";
+    public static final String DEBUG_TENANT_DOMAIN = "debugTenantDomain";
+    public static final String DEBUG_REQUEST_TYPE = "debugRequestType";
+    public static final String DEBUG_AUTHENTICATOR_NAME = "debugAuthenticatorName";
+    public static final String DEBUG_EXECUTOR_CLASS = "debugExecutorClass";
+    public static final String IS_DEBUG_FLOW = "isDebugFlow";
+    public static final String ADDITIONAL_OAUTH_PARAMS = "additionalOAuthParams";
+
+    //Auth Status 
+    public static final String DEBUG_AUTH_ERROR = "debug_auth_error";
+    public static final String DEBUG_AUTH_SUCCESS = "debug_auth_success";
+
+    // Boolean Values
+    public static final String TRUE = "true";
+    public static final String FALSE = "false";
+
+    // Debug Context Property Keys
+    public static final String DEBUG_STATE = "DEBUG_STATE";
+    public static final String DEBUG_ID_TOKEN = "DEBUG_ID_TOKEN";
+    public static final String DEBUG_ACCESS_TOKEN = "DEBUG_ACCESS_TOKEN";
+    public static final String DEBUG_USERINFO_CALLED = "DEBUG_USERINFO_CALLED";
+    public static final String DEBUG_USERINFO_ERROR = "DEBUG_USERINFO_ERROR";
+    public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
+    public static final String DEBUG_USERINFO_ENDPOINT = "DEBUG_USERINFO_ENDPOINT";
+    public static final String DEBUG_PROCESSED_CODE_PREFIX = "DEBUG_PROCESSED_CODE_";
+    public static final String DEBUG_CONTEXT_ID = "DEBUG_CONTEXT_ID";
+    public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
+    public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
+    public static final String DEBUG_INCOMING_CLAIMS_KEY = "DEBUG_INCOMING_CLAIMS";
+    public static final String DEBUG_CUSTOM_ACCESS_TYPE = "DEBUG_CUSTOM_access_type";
+    public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
+
+    // Claim Mapping Keys
+    public static final String CLAIM_MAPPING_REMOTE = "remote";
+    public static final String CLAIM_MAPPING_LOCAL = "local";
+    public static final String CLAIM_MAPPING_IDP_CLAIM = "idpClaim";
+    public static final String CLAIM_MAPPING_LOCAL_CLAIM = "isClaim";
+    public static final String CLAIM_MAPPING_VALUE = "value";
+    public static final String CLAIM_MAPPING_STATUS = "status";
+
+    // Debug Result Keys
+    public static final String DEBUG_RESULT_SUCCESS = "success";
+    public static final String DEBUG_RESULT_IDPNAME = "idpName";
+    public static final String DEBUG_RESULT_SESSIONID = "sessionId";
+
+    // JSON/Response Property Keys
+    public static final String RESPONSE_SUCCESS = "success";
 }

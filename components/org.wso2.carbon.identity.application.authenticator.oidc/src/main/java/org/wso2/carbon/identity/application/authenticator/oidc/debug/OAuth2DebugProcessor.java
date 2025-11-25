@@ -23,6 +23,7 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.OAuth2TokenClient;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.TokenResponse;
+import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.Property;
@@ -32,8 +33,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -57,6 +60,7 @@ import javax.servlet.http.HttpServletResponse;
 public class OAuth2DebugProcessor extends DebugProcessor {
 
     private static final Log LOG = LogFactory.getLog(OAuth2DebugProcessor.class);
+    private static final String STATUS_SUCCESS = "success";
 
     /**
      * Validates OAuth2-specific callback parameters.
@@ -72,7 +76,8 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected boolean validateProtocolCallback(HttpServletRequest request, AuthenticationContext context,
-            HttpServletResponse response, String state, String idpId) throws IOException {
+              HttpServletResponse response, String state, String idpId) throws IOException {
+
         String code = request.getParameter("code");
         String error = request.getParameter("error");
         String errorDescription = request.getParameter("error_description");
@@ -80,8 +85,8 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         // Handle OAuth2 error responses.
         if (error != null) {
             LOG.error("OAuth2 error from IdP: " + error + " - " + errorDescription);
-            context.setProperty("DEBUG_AUTH_ERROR", error + ": " + errorDescription);
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, error + ": " + errorDescription);
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse(error, errorDescription, "", state, context);
             return false;
         }
@@ -89,8 +94,8 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         // Validate authorization code presence.
         if (code == null || code.trim().isEmpty()) {
             LOG.error("Authorization code missing in OAuth2 callback");
-            context.setProperty("DEBUG_AUTH_ERROR", "Authorization code not received from IdP");
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "Authorization code not received");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse("NO_CODE", 
                     "Authorization code not received from IdP", "", state, context);
             return false;
@@ -99,19 +104,19 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         // Validate state parameter.
         if (state == null || state.trim().isEmpty()) {
             LOG.error("State parameter missing in OAuth2 callback");
-            context.setProperty("DEBUG_AUTH_ERROR", "State parameter missing - possible CSRF attack");
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "State parameter missing - possible CSRF attack");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse("NO_STATE", 
                     "State parameter missing - possible CSRF attack", "", state, context);
             return false;
         }
 
         // Validate state matches stored value if available.
-        String storedState = (String) context.getProperty("DEBUG_STATE");
+        String storedState = (String) context.getProperty(OAuth2DebugConstants.DEBUG_STATE);
         if (storedState != null && !state.equals(storedState)) {
             LOG.error("State parameter mismatch - CSRF attack detected");
-            context.setProperty("DEBUG_AUTH_ERROR", "State validation failed - possible CSRF attack");
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "State validation failed - possible CSRF attack");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse("STATE_MISMATCH", 
                     "State validation failed - possible CSRF attack", "", state, context);
             return false;
@@ -139,8 +144,16 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected boolean exchangeAuthorizationForTokens(HttpServletRequest request, AuthenticationContext context,
-            HttpServletResponse response, String state, String idpId) throws IOException {
+              HttpServletResponse response, String state, String idpId) throws IOException {
+
         String code = request.getParameter("code");
+        
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("=== Starting OAuth2 Token Exchange ===");
+            LOG.debug("Authorization Code: " + (code != null && !code.isEmpty() ? OAuth2DebugConstants.STATUS_PRESENT : OAuth2DebugConstants.STATUS_ABSENT));
+            LOG.debug("State: " + state);
+            LOG.debug("IdP ID: " + idpId);
+        }
         
         try {
             if (LOG.isDebugEnabled()) {
@@ -149,13 +162,25 @@ public class OAuth2DebugProcessor extends DebugProcessor {
             
             // Validate prerequisites.
             if (!validateAndExtractPrerequisites(code, state, context)) {
-                context.setProperty("step_connection_status", "failed");
+                LOG.error("Token exchange failed: Prerequisites validation failed");
+                context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
                 return false;
             }
             
             // Extract configuration from IdP and context.
             OAuth2Configuration config = extractOAuth2Configuration(context, request);
+            
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Extracted OAuth2 Configuration:");
+                LOG.debug("  IdP Name: " + config.getIdpName());
+                LOG.debug("  Token Endpoint: " + config.getTokenEndpoint());
+                LOG.debug("  Client ID: " + (config.getClientId() != null ? OAuth2DebugConstants.STATUS_PRESENT : OAuth2DebugConstants.STATUS_ABSENT));
+                LOG.debug("  Client Secret: " + (config.getClientSecret() != null ? OAuth2DebugConstants.STATUS_PRESENT : OAuth2DebugConstants.STATUS_ABSENT));
+                LOG.debug("  Callback URL: " + config.getCallbackUrl());
+            }
+            
             if (!config.isValid()) {
+                LOG.error("Token exchange failed: OAuth2 configuration is invalid");
                 handleConfigurationError(config, state, context);
                 return false;
             }
@@ -164,13 +189,13 @@ public class OAuth2DebugProcessor extends DebugProcessor {
             return performTokenExchange(code, config, state, context);
 
         } catch (Exception e) {
-            LOG.error("Error exchanging OAuth2 authorization code: " + e.getMessage(), e);
+            LOG.error("Exception during OAuth2 token exchange: " + e.getMessage(), e);
             buildAndCacheTokenExchangeErrorResponse("TOKEN_EXCHANGE_ERROR",
                     "Token exchange error: " + e.getMessage(), e.toString(), state, context);
-            context.setProperty("step_connection_status", "failed");
-            context.setProperty("step_authentication_status", "failed");
-            context.setProperty("DEBUG_AUTH_ERROR", "Token exchange error: " + e.getMessage());
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+            context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "Token exchange error: " + e.getMessage());
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             return false;
         }
     }
@@ -184,12 +209,13 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if validation passes, false otherwise.
      */
     private boolean validateAndExtractPrerequisites(String code, String state, AuthenticationContext context) {
-        IdentityProvider idp = (IdentityProvider) context.getProperty("IDP_CONFIG");
+
+        IdentityProvider idp = (IdentityProvider) context.getProperty(OAuth2DebugConstants.IDP_CONFIG);
         
         // Try to restore properties from session cache if IDP_CONFIG not found
         if (idp == null) {
             restoreContextFromSessionCache(state, context);
-            idp = (IdentityProvider) context.getProperty("IDP_CONFIG");
+            idp = (IdentityProvider) context.getProperty(OAuth2DebugConstants.IDP_CONFIG);
         }
         
         if (idp == null) {
@@ -206,7 +232,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
             return false;
         }
 
-        context.setProperty("DEBUG_IDP_NAME", idp.getIdentityProviderName());
+        context.setProperty(OAuth2DebugConstants.DEBUG_IDP_NAME, idp.getIdentityProviderName());
         return true;
     }
 
@@ -219,23 +245,24 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return OAuth2Configuration containing all required endpoints and credentials.
      */
     private OAuth2Configuration extractOAuth2Configuration(AuthenticationContext context, HttpServletRequest request) {
+
         OAuth2Configuration config = new OAuth2Configuration();
-        IdentityProvider idp = (IdentityProvider) context.getProperty("IDP_CONFIG");
+        IdentityProvider idp = (IdentityProvider) context.getProperty(OAuth2DebugConstants.IDP_CONFIG);
         String idpName = idp != null ? idp.getIdentityProviderName() : "Unknown";
         config.setIdpName(idpName);
-        config.setCodeVerifier((String) context.getProperty("DEBUG_CODE_VERIFIER"));
+        config.setCodeVerifier((String) context.getProperty(OAuth2DebugConstants.DEBUG_CODE_VERIFIER));
 
         // Extract from context first (set by OAuth2ContextResolver).
-        config.setTokenEndpoint((String) context.getProperty("DEBUG_TOKEN_ENDPOINT"));
-        config.setClientId((String) context.getProperty("DEBUG_CLIENT_ID"));
-        config.setClientSecret((String) context.getProperty("DEBUG_CLIENT_SECRET"));
-        config.setUserInfoEndpoint((String) context.getProperty("DEBUG_USERINFO_ENDPOINT"));
+        config.setTokenEndpoint((String) context.getProperty(OAuth2DebugConstants.TOKEN_ENDPOINT));
+        config.setClientId((String) context.getProperty(OAuth2DebugConstants.CLIENT_ID));
+        config.setClientSecret((String) context.getProperty(OAuth2DebugConstants.CLIENT_SECRET));
+        config.setUserInfoEndpoint((String) context.getProperty(OAuth2DebugConstants.USERINFO_ENDPOINT));
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Token exchange - from context: tokenEndpoint=" + 
-                    (config.getTokenEndpoint() != null ? "FOUND" : "null") +
-                    ", clientId=" + (config.getClientId() != null ? "FOUND" : "null") + 
-                    ", clientSecret=" + (config.getClientSecret() != null ? "FOUND" : "null"));
+                    (config.getTokenEndpoint() != null ? OAuth2DebugConstants.STATUS_FOUND : "null") +
+                    ", clientId=" + (config.getClientId() != null ? OAuth2DebugConstants.STATUS_FOUND : "null") + 
+                    ", clientSecret=" + (config.getClientSecret() != null ? OAuth2DebugConstants.STATUS_FOUND : "null"));
         }
 
         // If not in context, extract from IdP authenticator config.
@@ -244,7 +271,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         }
 
         // Build callback URL.
-        String callbackUrl = (String) context.getProperty("DEBUG_CALLBACK_URL");
+        String callbackUrl = (String) context.getProperty(OAuth2DebugConstants.REDIRECT_URI);
         if (callbackUrl == null || callbackUrl.trim().isEmpty()) {
             callbackUrl = request.getRequestURL().toString().split("\\?")[0];
         }
@@ -260,31 +287,87 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @param config OAuth2Configuration to populate.
      */
     private void extractFromIdPConfig(IdentityProvider idp, OAuth2Configuration config) {
+
+        FederatedAuthenticatorConfig authConfig = findOAuth2AuthenticatorConfig(idp);
+        if (authConfig != null) {
+            extractPropertiesFromAuthConfig(authConfig, config);
+        }
+    }
+
+    /**
+     * Finds OAuth2 authenticator config from IdP.
+     *
+     * @param idp IdentityProvider containing authenticator configs.
+     * @return First OAuth2 authenticator config found, or null.
+     */
+    private FederatedAuthenticatorConfig findOAuth2AuthenticatorConfig(IdentityProvider idp) {
+
         for (FederatedAuthenticatorConfig authConfig : idp.getFederatedAuthenticatorConfigs()) {
             if (authConfig != null && isOAuth2Authenticator(authConfig.getName())) {
-                Property[] properties = authConfig.getProperties();
-                if (properties != null) {
-                    for (Property prop : properties) {
-                        if (prop != null && prop.getName() != null) {
-                            String propName = prop.getName();
-                            String propValue = prop.getValue();
-                            
-                            if (propValue != null && !propValue.trim().isEmpty()) {
-                                if (isTokenEndpointProperty(propName)) {
-                                    config.setTokenEndpoint(propValue);
-                                } else if (isClientIdProperty(propName)) {
-                                    config.setClientId(propValue);
-                                } else if (isClientSecretProperty(propName)) {
-                                    config.setClientSecret(propValue);
-                                } else if (isUserInfoEndpointProperty(propName)) {
-                                    config.setUserInfoEndpoint(propValue);
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
+                return authConfig;
             }
+        }
+        return null;
+    }
+
+    /**
+     * Extracts OAuth2 properties from authenticator configuration.
+     *
+     * @param authConfig Authenticator configuration.
+     * @param config OAuth2Configuration to populate.
+     */
+    private void extractPropertiesFromAuthConfig(FederatedAuthenticatorConfig authConfig, 
+            OAuth2Configuration config) {
+
+        Property[] properties = authConfig.getProperties();
+        if (properties == null) {
+            return;
+        }
+
+        for (Property prop : properties) {
+            extractPropertyValue(prop, config);
+        }
+    }
+
+    /**
+     * Extracts and applies a single property value to OAuth2 configuration.
+     *
+     * @param prop Property to extract.
+     * @param config OAuth2Configuration to populate.
+     */
+    private void extractPropertyValue(Property prop, OAuth2Configuration config) {
+
+        if (prop == null || prop.getName() == null) {
+            return;
+        }
+
+        String propName = prop.getName();
+        String propValue = prop.getValue();
+
+        if (propValue == null || propValue.trim().isEmpty()) {
+            return;
+        }
+
+        applyPropertyToConfig(propName, propValue, config);
+    }
+
+    /**
+     * Applies a property value to the appropriate field in OAuth2 configuration.
+     *
+     * @param propName Property name.
+     * @param propValue Property value.
+     * @param config OAuth2Configuration to populate.
+     */
+    private void applyPropertyToConfig(String propName, String propValue, OAuth2Configuration config) {
+
+        if (isTokenEndpointProperty(propName)) {
+            config.setTokenEndpoint(propValue);
+        } else if (isClientIdProperty(propName)) {
+            config.setClientId(propValue);
+        } else if (isClientSecretProperty(propName)) {
+            config.setClientSecret(propValue);
+        } else if (isUserInfoEndpointProperty(propName)) {
+            config.setUserInfoEndpoint(propValue);
         }
     }
 
@@ -296,6 +379,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @param context AuthenticationContext.
      */
     private void handleConfigurationError(OAuth2Configuration config, String state, AuthenticationContext context) {
+
         if (config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty()) {
             LOG.error("Token endpoint not found in context or IdP configuration");
             buildAndCacheTokenExchangeErrorResponse("TOKEN_ENDPOINT_MISSING", 
@@ -320,34 +404,181 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     private boolean performTokenExchange(String code, OAuth2Configuration config, String state, 
             AuthenticationContext context) {
-        // Use OAuth2TokenClient to exchange code for tokens.
-        OAuth2TokenClient tokenClient = new OAuth2TokenClient();
-        TokenResponse tokenResponse = tokenClient.exchangeCodeForTokens(
-                code, config.getTokenEndpoint(), config.getClientId(), config.getClientSecret(), 
-                config.getCallbackUrl(), config.getCodeVerifier(), config.getIdpName());
-
+        
+        logTokenExchangeStart(config);
+        TokenResponse tokenResponse = executeTokenExchange(code, config);
+        
         if (tokenResponse.hasError()) {
-            LOG.error("Token exchange failed: " + tokenResponse.getErrorCode() + " - " + 
-                    tokenResponse.getErrorDescription());
-            buildAndCacheTokenExchangeErrorResponse(tokenResponse.getErrorCode(),
-                    tokenResponse.getErrorDescription(), tokenResponse.getErrorDetails(), state, context);
-            context.setProperty("step_connection_status", "failed");
-            context.setProperty("step_authentication_status", "failed");
-            context.setProperty("DEBUG_AUTH_ERROR", tokenResponse.getErrorDescription());
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
-            return false;
+            return handleTokenExchangeError(tokenResponse, config, state, context);
         }
 
-        // Token exchange succeeded - store tokens in context.
-        storeTokensInContext(tokenResponse, config, context);
-        context.setProperty("step_connection_status", "success");
-        context.setProperty("step_authentication_status", "success");
+        return handleTokenExchangeSuccess(tokenResponse, config, context);
+    }
+
+    /**
+     * Logs the start of token exchange process.
+     *
+     * @param config OAuth2Configuration.
+     */
+    private void logTokenExchangeStart(OAuth2Configuration config) {
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("OAuth2 token exchange completed successfully for IdP: " + config.getIdpName());
+            LOG.debug("Starting token exchange with IdP: " + config.getIdpName() + 
+                    ", Token Endpoint: " + config.getTokenEndpoint() + 
+                    ", Client ID: " + (config.getClientId() != null ? "PRESENT" : "MISSING"));
         }
+    }
 
+    /**
+     * Executes the actual token exchange call to the provider.
+     *
+     * @param code Authorization code.
+     * @param config OAuth2Configuration.
+     * @return Token response from provider.
+     */
+    private TokenResponse executeTokenExchange(String code, OAuth2Configuration config) {
+
+        OAuth2TokenClient tokenClient = new OAuth2TokenClient();
+        return tokenClient.exchangeCodeForTokens(
+                code, config.getTokenEndpoint(), config.getClientId(), config.getClientSecret(), 
+                config.getCallbackUrl(), config.getCodeVerifier(), config.getIdpName());
+    }
+
+    /**
+     * Handles token exchange error response.
+     *
+     * @param tokenResponse Token response with error.
+     * @param config OAuth2Configuration.
+     * @param state State parameter.
+     * @param context AuthenticationContext.
+     * @return false always, indicating exchange failed.
+     */
+    private boolean handleTokenExchangeError(TokenResponse tokenResponse, OAuth2Configuration config, 
+            String state, AuthenticationContext context) {
+
+        String errorCode = tokenResponse.getErrorCode();
+        String errorDesc = tokenResponse.getErrorDescription();
+        String errorDetails = tokenResponse.getErrorDetails();
+
+        logTokenExchangeError(config, errorCode, errorDesc, errorDetails);
+        logErrorDiagnosticInfo(config);
+        logErrorCauses(errorCode);
+
+        buildAndCacheTokenExchangeErrorResponse(errorCode, errorDesc, errorDetails, state, context);
+        markContextAsFailedExchange(context, errorDesc);
+        
+        return false;
+    }
+
+    /**
+     * Logs detailed error information from token exchange failure.
+     *
+     * @param config OAuth2Configuration.
+     * @param errorCode Error code from response.
+     * @param errorDesc Error description.
+     * @param errorDetails Additional error details.
+     */
+    private void logTokenExchangeError(OAuth2Configuration config, String errorCode, 
+            String errorDesc, String errorDetails) {
+
+        LOG.error("Token exchange failed for IdP: " + config.getIdpName());
+        LOG.error("  Error Code: " + errorCode);
+        LOG.error("  Error Description: " + errorDesc);
+        
+        if (errorDetails != null && !errorDetails.isEmpty()) {
+            LOG.error("  Error Details: " + errorDetails);
+        }
+    }
+
+    /**
+     * Logs diagnostic configuration details used for token exchange.
+     *
+     * @param config OAuth2Configuration.
+     */
+    private void logErrorDiagnosticInfo(OAuth2Configuration config) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Token exchange configuration used:");
+            LOG.debug("  Token Endpoint: " + config.getTokenEndpoint());
+            LOG.debug("  Client ID: " + config.getClientId());
+            LOG.debug("  Callback URL: " + config.getCallbackUrl());
+            LOG.debug("  Code Verifier: " + (config.getCodeVerifier() != null ? "PRESENT" : "NOT_PRESENT"));
+        }
+    }
+
+    /**
+     * Logs likely causes of common OAuth2 error codes.
+     *
+     * @param errorCode The error code returned from token endpoint.
+     */
+    private void logErrorCauses(String errorCode) {
+
+        if ("INVALID_CLIENT".equals(errorCode) || "unauthorized".equals(errorCode)) {
+            LOG.error("Possible causes: Incorrect Client ID or Client Secret");
+            LOG.error("Verify credentials in IdP authenticator configuration");
+        } else if ("INVALID_GRANT".equals(errorCode)) {
+            LOG.error("Possible causes: Authorization code expired or already used");
+        } else if ("INVALID_REQUEST".equals(errorCode)) {
+            LOG.error("Possible causes: Malformed request, incorrect redirect URI, or PKCE mismatch");
+        }
+    }
+
+    /**
+     * Marks the authentication context as failed exchange.
+     *
+     * @param context AuthenticationContext.
+     * @param errorDesc Error description.
+     */
+    private void markContextAsFailedExchange(AuthenticationContext context, String errorDesc) {
+
+        context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+        context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+        context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, errorDesc);
+        context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
+    }
+
+    /**
+     * Handles successful token exchange.
+     *
+     * @param tokenResponse Token response from provider.
+     * @param config OAuth2Configuration.
+     * @param context AuthenticationContext.
+     * @return true always, indicating exchange succeeded.
+     */
+    private boolean handleTokenExchangeSuccess(TokenResponse tokenResponse, OAuth2Configuration config,
+            AuthenticationContext context) {
+
+        storeTokensInContext(tokenResponse, config, context);
+        markContextAsSuccessfulExchange(context);
+        logTokenExchangeSuccess(tokenResponse, config);
         return true;
+    }
+
+    /**
+     * Marks the authentication context as successful exchange.
+     *
+     * @param context AuthenticationContext.
+     */
+    private void markContextAsSuccessfulExchange(AuthenticationContext context) {
+
+        context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+    }
+
+    /**
+     * Logs successful token exchange completion.
+     *
+     * @param tokenResponse Token response from provider.
+     * @param config OAuth2Configuration.
+     */
+    private void logTokenExchangeSuccess(TokenResponse tokenResponse, OAuth2Configuration config) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("OAuth2 token exchange completed successfully for IdP: " + config.getIdpName() + 
+                    ", received tokens: " + 
+                    (tokenResponse.getAccessToken() != null ? "access_token present, " : "NO access_token, ") +
+                    (tokenResponse.getIdToken() != null ? "id_token present" : "NO id_token"));
+        }
     }
 
     /**
@@ -359,19 +590,20 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     private void storeTokensInContext(TokenResponse tokenResponse, OAuth2Configuration config, 
             AuthenticationContext context) {
+
         String accessToken = tokenResponse.getAccessToken();
         String idToken = tokenResponse.getIdToken();
         String tokenType = tokenResponse.getTokenType();
 
-        context.setProperty("DEBUG_ACCESS_TOKEN", accessToken);
+        context.setProperty(OAuth2DebugConstants.ACCESS_TOKEN, accessToken);
         if (idToken != null && !idToken.trim().isEmpty()) {
-            context.setProperty("DEBUG_ID_TOKEN", idToken);
+            context.setProperty(OAuth2DebugConstants.ID_TOKEN, idToken);
         }
         if (tokenType != null && !tokenType.trim().isEmpty()) {
-            context.setProperty("DEBUG_TOKEN_TYPE", tokenType);
+            context.setProperty(OAuth2DebugConstants.TOKEN_TYPE, tokenType);
         }
         if (config.getUserInfoEndpoint() != null && !config.getUserInfoEndpoint().trim().isEmpty()) {
-            context.setProperty("DEBUG_USERINFO_ENDPOINT", config.getUserInfoEndpoint());
+            context.setProperty(OAuth2DebugConstants.USERINFO, config.getUserInfoEndpoint());
         }
     }
 
@@ -380,6 +612,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * Provides validation and null-safe access to required endpoints and credentials.
      */
     private static class OAuth2Configuration {
+
         private String tokenEndpoint;
         private String clientId;
         private String clientSecret;
@@ -428,6 +661,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if the name matches OAuth2/OIDC variations, false otherwise.
      */
     private boolean isOAuth2Authenticator(String authName) {
+
         if (authName == null || authName.isEmpty()) {
             return false;
         }
@@ -446,6 +680,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if the property name matches token endpoint variations.
      */
     private boolean isTokenEndpointProperty(String propertyName) {
+
         return "OAuth2TokenEPUrl".equals(propertyName) || 
                "OAuth2TokenURL".equals(propertyName) ||
                "tokenEndpoint".equals(propertyName) || 
@@ -461,6 +696,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if the property name matches client ID variations.
      */
     private boolean isClientIdProperty(String propertyName) {
+
         return "ClientId".equals(propertyName) || 
                "client_id".equals(propertyName) ||
                "clientId".equals(propertyName);
@@ -474,6 +710,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if the property name matches client secret variations.
      */
     private boolean isClientSecretProperty(String propertyName) {
+
         return "ClientSecret".equals(propertyName) || 
                "client_secret".equals(propertyName) ||
                "clientSecret".equals(propertyName);
@@ -487,6 +724,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if the property name matches UserInfo endpoint variations.
      */
     private boolean isUserInfoEndpointProperty(String propertyName) {
+
         return "OAuth2UserInfoEPUrl".equals(propertyName) || 
                "OAuth2UserInfoURL".equals(propertyName) ||
                "userInfoEndpoint".equals(propertyName) || 
@@ -505,65 +743,122 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected Map<String, Object> extractUserClaims(AuthenticationContext context) {
+
         try {
-            String idToken = (String) context.getProperty("DEBUG_ID_TOKEN");
-            if (idToken == null || idToken.trim().isEmpty()) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("No ID token available for claim extraction");
-                }
+            // Extract and validate ID token.
+            String idToken = (String) context.getProperty(OAuth2DebugConstants.ID_TOKEN);
+            if (!isValidIdToken(idToken)) {
                 return new HashMap<>();
             }
 
-            // Parse JWT ID token to extract claims.
+            // Parse ID token to extract initial claims.
             Map<String, Object> claims = parseIdTokenClaims(idToken);
-            if (claims == null) {
-                claims = new HashMap<>();
-            }
 
-            // Get access token for UserInfo endpoint call.
-            String accessToken = (String) context.getProperty("DEBUG_ACCESS_TOKEN");
-            if (accessToken != null && !accessToken.trim().isEmpty()) {
-                try {
-                    // Attempt to call UserInfo endpoint to get complete user profile claims.
-                    Map<String, Object> userInfoClaims = callUserInfoEndpoint(context, accessToken);
-                    if (userInfoClaims != null && !userInfoClaims.isEmpty()) {
-                        // Merge UserInfo claims with ID token claims (UserInfo takes precedence).
-                        userInfoClaims.putAll(claims);
-                        claims = userInfoClaims;
-                        context.setProperty("DEBUG_USERINFO_CALLED", "true");
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Successfully merged UserInfo claims with ID token claims. Total: " + 
-                                      claims.size());
-                        }
-                    }
-                } catch (Exception e) {
-                    // Log error but continue with ID token claims.
-                    context.setProperty("DEBUG_USERINFO_ERROR", e.getMessage());
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("UserInfo endpoint call failed, continuing with ID token claims: " + 
-                                  e.getMessage());
-                    }
-                }
-            }
+            // Attempt to merge with UserInfo endpoint claims if available.
+            mergeUserInfoClaims(context, claims);
 
-            if (!claims.isEmpty()) {
-                context.setProperty("DEBUG_INCOMING_CLAIMS", claims);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Successfully extracted " + claims.size() + " claims from tokens: " + 
-                              claims.keySet());
-                }
-                return claims;
-            }
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("No claims extracted from ID token or UserInfo endpoint");
-            }
-            return new HashMap<>();
+            // Return extracted claims or empty map if none found.
+            return returnExtractedClaims(claims, context);
 
         } catch (Exception e) {
             LOG.error("Error extracting user claims from OAuth2 tokens: " + e.getMessage(), e);
             return new HashMap<>();
         }
+    }
+
+    /**
+     * Validates if the ID token is present and not empty.
+     *
+     * @param idToken The ID token to validate.
+     * @return true if token is valid, false otherwise.
+     */
+    private boolean isValidIdToken(String idToken) {
+
+        if (idToken == null || idToken.trim().isEmpty()) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No ID token available for claim extraction");
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Merges claims from UserInfo endpoint with ID token claims.
+     * Handles the case where access token is available to call UserInfo endpoint.
+     *
+     * @param context AuthenticationContext.
+     * @param claims Current claims map from ID token (modified in place).
+     */
+    private void mergeUserInfoClaims(AuthenticationContext context, Map<String, Object> claims) {
+
+        String accessToken = (String) context.getProperty(OAuth2DebugConstants.ACCESS_TOKEN);
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            Map<String, Object> userInfoClaims = callUserInfoEndpoint(context, accessToken);
+            if (!userInfoClaims.isEmpty()) {
+                userInfoClaims.putAll(claims);
+                claims.clear();
+                claims.putAll(userInfoClaims);
+                context.setProperty("DEBUG_USERINFO_CALLED", "true");
+                logUserInfoMergeSuccess(claims);
+            }
+        } catch (Exception e) {
+            handleUserInfoCallError(context, e);
+        }
+    }
+
+    /**
+     * Logs successful merge of UserInfo and ID token claims.
+     *
+     * @param claims Merged claims.
+     */
+    private void logUserInfoMergeSuccess(Map<String, Object> claims) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Successfully merged UserInfo claims with ID token claims. Total: " + claims.size());
+        }
+    }
+
+    /**
+     * Handles error during UserInfo endpoint call.
+     *
+     * @param context AuthenticationContext.
+     * @param e The exception that occurred.
+     */
+    private void handleUserInfoCallError(AuthenticationContext context, Exception e) {
+
+        context.setProperty("DEBUG_USERINFO_ERROR", e.getMessage());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("UserInfo endpoint call failed, continuing with ID token claims: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns extracted claims with appropriate logging.
+     *
+     * @param claims Extracted claims.
+     * @param context AuthenticationContext.
+     * @return Claims if not empty, empty map otherwise.
+     */
+    private Map<String, Object> returnExtractedClaims(Map<String, Object> claims, 
+            AuthenticationContext context) {
+
+        if (!claims.isEmpty()) {
+            context.setProperty(OAuth2DebugConstants.DEBUG_INCOMING_CLAIMS, claims);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Successfully extracted " + claims.size() + " claims from tokens: " + claims.keySet());
+            }
+            return claims;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("No claims extracted from ID token or UserInfo endpoint");
+        }
+        return new HashMap<>();
     }
 
     /**
@@ -575,6 +870,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return Map of claims extracted from the token payload, or empty map if parsing fails.
      */
     private Map<String, Object> parseIdTokenClaims(String idToken) {
+
         if (idToken == null || idToken.trim().isEmpty()) {
             return new HashMap<>();
         }
@@ -605,6 +901,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return Map of claims from the JSON, or empty map if parsing fails.
      */
     private Map<String, Object> parseJsonToClaims(String json) {
+
         if (json == null || json.trim().isEmpty()) {
             return new HashMap<>();
         }
@@ -623,76 +920,117 @@ public class OAuth2DebugProcessor extends DebugProcessor {
     /**
      * Calls the UserInfo endpoint to retrieve complete user profile claims.
      * UserInfo endpoint provides claims not available in ID token (email, profile, etc.).
-     * Properly manages HTTP connection resource cleanup.
+     * Properly manages HTTP connection resource cleanup using try-finally.
      *
      * @param context AuthenticationContext containing UserInfo endpoint URL.
      * @param accessToken Access token for authorization.
      * @return Map of user claims from UserInfo endpoint, or empty map if call fails.
      */
     private Map<String, Object> callUserInfoEndpoint(AuthenticationContext context, String accessToken) {
-        java.net.HttpURLConnection connection = null;
-        try {
-            // Get UserInfo endpoint URL from context or IdP configuration.
-            String userInfoEndpoint = (String) context.getProperty("DEBUG_USERINFO_ENDPOINT");
-            if (userInfoEndpoint == null || userInfoEndpoint.trim().isEmpty()) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("UserInfo endpoint URL not available in context");
-                }
-                return new HashMap<>();
-            }
 
-            // Make HTTP GET request to UserInfo endpoint with Bearer token.
-            java.net.URL url = new java.net.URL(userInfoEndpoint);
-            connection = (java.net.HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
+        String userInfoEndpoint = getUserInfoEndpointUrl(context);
+        if (userInfoEndpoint == null) {
+            return new HashMap<>();
+        }
+
+        try {
+            String responseBody = fetchUserInfoResponse(userInfoEndpoint, accessToken);
+            return parseJsonToClaims(responseBody);
+        } catch (java.io.IOException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Error calling UserInfo endpoint: " + e.getMessage());
+            }
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * Gets the UserInfo endpoint URL from context or configuration.
+     *
+     * @param context AuthenticationContext.
+     * @return UserInfo endpoint URL or null if not available.
+     */
+    private String getUserInfoEndpointUrl(AuthenticationContext context) {
+
+        String userInfoEndpoint = (String) context.getProperty("DEBUG_USERINFO_ENDPOINT");
+        if (userInfoEndpoint == null || userInfoEndpoint.trim().isEmpty()) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("UserInfo endpoint URL not available in context");
+            }
+            return null;
+        }
+        return userInfoEndpoint;
+    }
+
+    /**
+     * Fetches UserInfo response from the endpoint using provided access token.
+     *
+     * @param userInfoEndpoint The UserInfo endpoint URL.
+     * @param accessToken Access token for authorization.
+     * @return Response body as string.
+     * @throws java.io.IOException If fetch fails.
+     */
+    private String fetchUserInfoResponse(String userInfoEndpoint, String accessToken) throws java.io.IOException {
+
+        java.net.URL url = new java.net.URL(userInfoEndpoint);
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+        try {
+            configureUserInfoConnection(connection, accessToken);
 
             int responseCode = connection.getResponseCode();
             if (responseCode != 200) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("UserInfo endpoint returned status code: " + responseCode);
                 }
-                return new HashMap<>();
+                return "";
             }
 
-            // Read and parse response.
-            java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
-            }
-            reader.close();
-
-            String responseBody = response.toString();
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("UserInfo endpoint response received with " + responseBody.length() + " bytes");
-            }
-
-            // Parse JSON response to claims map.
-            return parseJsonToClaims(responseBody);
-
-        } catch (Exception e) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Error calling UserInfo endpoint: " + e.getMessage());
-            }
-            return new HashMap<>();
+            return readUserInfoResponse(connection);
         } finally {
-            // Ensure connection is properly closed.
-            if (connection != null) {
-                try {
-                    connection.disconnect();
-                } catch (Exception e) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Error disconnecting UserInfo endpoint connection: " + e.getMessage());
-                    }
-                }
-            }
+            connection.disconnect();
         }
+    }
+
+    /**
+     * Configures HTTP connection for UserInfo endpoint request.
+     *
+     * @param connection HTTP connection to configure.
+     * @param accessToken Access token for Bearer authentication.
+     * @throws java.net.ProtocolException If request method cannot be set.
+     */
+    private void configureUserInfoConnection(java.net.HttpURLConnection connection, String accessToken) 
+            throws java.net.ProtocolException {
+
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(5000);
+    }
+
+    /**
+     * Reads and parses UserInfo response body.
+     *
+     * @param connection HTTP connection with successful response.
+     * @return Response body as string.
+     * @throws java.io.IOException If read fails.
+     */
+    private String readUserInfoResponse(java.net.HttpURLConnection connection) throws java.io.IOException {
+
+        java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+        reader.close();
+
+        String responseBody = response.toString();
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("UserInfo endpoint response received with " + responseBody.length() + " bytes");
+        }
+        return responseBody;
     }
 
     /**
@@ -710,8 +1048,9 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected boolean isAuthorizationCodeAlreadyProcessed(String authorizationCode, HttpServletRequest request,
-                                                          AuthenticationContext context, HttpServletResponse response,
-                                                          String state, String idpId) throws IOException {
+              AuthenticationContext context, HttpServletResponse response, String state, String idpId) 
+              throws IOException {
+
         // Check if code was already processed in this session using state parameter.
         Object processedCode = context.getProperty("DEBUG_PROCESSED_CODE_" + state);
         if (processedCode != null && processedCode.equals(authorizationCode)) {
@@ -740,12 +1079,12 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected boolean handleClaimsExtractionResult(Map<String, Object> claims, AuthenticationContext context,
-                                                   HttpServletResponse response, String state, 
-                                                   String idpId) throws IOException {
+              HttpServletResponse response, String state, String idpId) throws IOException {
+
         if (claims == null || claims.isEmpty()) {
             LOG.error("No claims extracted from OAuth2 tokens");
-            context.setProperty("DEBUG_AUTH_ERROR", "No user claims extracted from IdP");
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "No user claims extracted from IdP");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse("NO_CLAIMS", 
                     "No user claims available from IdP", "", state, context);
             return false;
@@ -755,8 +1094,8 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         if (!claims.containsKey("sub") && !claims.containsKey("user_id") && 
             !claims.containsKey("userId") && !claims.containsKey("email")) {
             LOG.error("Required user identifier claim not found in extracted claims");
-            context.setProperty("DEBUG_AUTH_ERROR", "User identifier claim missing");
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_ERROR, "User identifier claim missing");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
             buildAndCacheTokenExchangeErrorResponse("NO_USER_IDENTIFIER", 
                     "User identifier (sub/user_id/email) not found in claims", "", state, context);
             return false;
@@ -779,188 +1118,478 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected void buildAndCacheDebugResult(AuthenticationContext context, String state) {
+
         try {
-            Map<String, Object> debugResult = new HashMap<>();
-            debugResult.put("state", state);
-            debugResult.put("success", "true");
-            debugResult.put("authenticator", "OpenIDConnectAuthenticator");
-            debugResult.put("idpName", context.getProperty("DEBUG_IDP_NAME"));
-            debugResult.put("sessionId", context.getProperty("DEBUG_CONTEXT_ID"));
-            debugResult.put("executor", "UnknownExecutor");
+            Map<String, Object> debugResult = initializeDebugResult(context, state);
+            Map<String, Object> incomingClaims = extractIncomingClaims(context);
+            extractAndProcessUserIdentifiers(incomingClaims, debugResult);
+            processClaimMappingsAndDiagnostics(context, incomingClaims, debugResult);
+            buildUserAttributesAndMetadata(incomingClaims, debugResult, context);
+            persistDebugResultToCache(state, context, debugResult);
             
-            // Add step statuses
-            debugResult.put("step_connection_status", "success");
-            debugResult.put("step_authentication_status", "success");
-            debugResult.put("step_claim_extraction_status", "success");
-            debugResult.put("step_claim_mapping_status", "success");
-            
-            // Extract user identifier
-            @SuppressWarnings("unchecked")
-            Map<String, Object> incomingClaims = (Map<String, Object>) context.getProperty("DEBUG_INCOMING_CLAIMS");
-            String userId = null;
-            String username = null;
-            
-            if (incomingClaims != null) {
-                userId = (String) incomingClaims.get("sub");
-                username = (String) incomingClaims.get("email");
-                if (username == null) {
-                    username = (String) incomingClaims.get("username");
-                }
+        } catch (Exception e) {
+            LOG.error("Error building and caching debug result: " + e.getMessage(), e);
+            context.setProperty("DEBUG_AUTH_ERROR", "Error caching debug result: " + e.getMessage());
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.FALSE);
+        }
+    }
+
+    /**
+     * Initializes the debug result map with basic properties and step statuses.
+     *
+     * @param context AuthenticationContext.
+     * @param state State parameter.
+     * @return Initialized debug result map.
+     */
+    private Map<String, Object> initializeDebugResult(AuthenticationContext context, String state) {
+
+        Map<String, Object> debugResult = new HashMap<>();
+        debugResult.put("state", state);
+        debugResult.put(OAuth2DebugConstants.DEBUG_RESULT_SUCCESS, OAuth2DebugConstants.TRUE);
+        debugResult.put("authenticator", "OpenIDConnectAuthenticator");
+        debugResult.put(OAuth2DebugConstants.DEBUG_RESULT_IDPNAME, 
+                context.getProperty(OAuth2DebugConstants.DEBUG_IDP_NAME));
+        debugResult.put(OAuth2DebugConstants.DEBUG_RESULT_SESSIONID, 
+                context.getProperty(OAuth2DebugConstants.DEBUG_CONTEXT_ID));
+        debugResult.put("executor", "UnknownExecutor");
+        
+        // Add step statuses.
+        debugResult.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        debugResult.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        debugResult.put(OAuth2DebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        debugResult.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        
+        return debugResult;
+    }
+
+    /**
+     * Extracts incoming claims from context.
+     *
+     * @param context AuthenticationContext.
+     * @return Incoming claims map or empty map if not available.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractIncomingClaims(AuthenticationContext context) {
+
+        Map<String, Object> incomingClaims = 
+                (Map<String, Object>) context.getProperty(OAuth2DebugConstants.DEBUG_INCOMING_CLAIMS_KEY);
+        return incomingClaims != null ? incomingClaims : new HashMap<>();
+    }
+
+    /**
+     * Extracts user identifier claims (sub, email, username) from incoming claims.
+     *
+     * @param incomingClaims Map of incoming claims.
+     * @param debugResult Debug result map to populate with userId and username.
+     */
+    private void extractAndProcessUserIdentifiers(Map<String, Object> incomingClaims,
+
+            Map<String, Object> debugResult) {
+        String userId = null;
+        String username = null;
+        
+        if (!incomingClaims.isEmpty()) {
+            userId = (String) incomingClaims.get("sub");
+            username = (String) incomingClaims.get("email");
+            if (username == null) {
+                username = (String) incomingClaims.get("username");
             }
-            
-            debugResult.put("userId", userId);
-            debugResult.put("username", username);
-            
-            // Build mapped claims array with structured format for UI table
-            List<Map<String, Object>> mappedClaimsArray = new ArrayList<>();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> mappedClaims = (Map<String, Object>) context.getProperty("DEBUG_MAPPED_CLAIMS");
-            
-            if (mappedClaims != null && !mappedClaims.isEmpty()) {
-                // Map of local claim URI -> value
-                for (Map.Entry<String, Object> entry : mappedClaims.entrySet()) {
-                    Map<String, Object> claimEntry = new HashMap<>();
-                    claimEntry.put("isClaim", entry.getKey()); // IS claim URI
-                    claimEntry.put("value", entry.getValue());
-                    claimEntry.put("status", "Successful");
-                    
-                    // Try to find the corresponding IdP claim name (reverse lookup)
-                    // For now, extract from the URI or use a generic format
-                    String idpClaimName = extractClaimNameFromUri(entry.getKey());
-                    claimEntry.put("idpClaim", idpClaimName);
-                    
-                    mappedClaimsArray.add(claimEntry);
-                }
-            }
-            
-            // Also add unmapped configured claims with "Not Found" status
-            @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> idpConfiguredMappings = 
-                    (Map<String, Map<String, String>>) context.getProperty("DEBUG_IDP_CONFIGURED_CLAIM_MAPPINGS");
-            
-            if (idpConfiguredMappings != null) {
-                for (Map.Entry<String, Map<String, String>> mapping : idpConfiguredMappings.entrySet()) {
-                    String remoteClaim = mapping.getValue().get("remote");
-                    String localClaim = mapping.getValue().get("local");
-                    
-                    // Check if this mapping was already added to mappedClaimsArray
-                    boolean alreadyMapped = mappedClaimsArray.stream()
-                            .anyMatch(c -> localClaim.equals(c.get("isClaim")));
-                    
-                    if (!alreadyMapped) {
-                        Map<String, Object> claimEntry = new HashMap<>();
-                        claimEntry.put("idpClaim", remoteClaim);
-                        claimEntry.put("isClaim", localClaim);
-                        claimEntry.put("value", null);
-                        claimEntry.put("status", "Not Found");
-                        mappedClaimsArray.add(claimEntry);
-                    }
-                }
-            }
-            
-            debugResult.put("mappedClaims", mappedClaimsArray);
-            debugResult.put("idpConfiguredClaimMappings", idpConfiguredMappings != null ? idpConfiguredMappings : new HashMap<>());
-            
-            // Build claim mapping diagnostic message
-            if (incomingClaims != null && idpConfiguredMappings != null) {
-                int successCount = (int) mappedClaimsArray.stream()
-                        .filter(c -> "Successful".equals(c.get("status")))
-                        .count();
-                int totalCount = idpConfiguredMappings.size();
-                int notFoundCount = totalCount - successCount;
+        }
+        
+        debugResult.put("userId", userId);
+        debugResult.put("username", username);
+    }
+
+    /**
+     * Processes claim mappings from IdP configuration and builds diagnostic information.
+     *
+     * @param context AuthenticationContext.
+     * @param incomingClaims Incoming claims map.
+     * @param debugResult Debug result map to populate.
+     */
+    private void processClaimMappingsAndDiagnostics(AuthenticationContext context, 
+            Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
+
+        IdentityProvider idp = (IdentityProvider) context.getProperty(OAuth2DebugConstants.IDP_CONFIG);
+        Map<String, Map<String, String>> idpClaimMappings = extractIdPClaimMappings(idp);
+        
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Building mapped claims array from " + idpClaimMappings.size() + 
+                    " configured mappings. Incoming claims: " + 
+                    (incomingClaims.isEmpty() ? "none" : incomingClaims.keySet()));
+        }
+        
+        List<Map<String, Object>> mappedClaimsArray = buildMappedClaimsArray(
+                idpClaimMappings, incomingClaims);
+        
+        debugResult.put("mappedClaims", mappedClaimsArray);
+        debugResult.put("idpConfiguredClaimMappings", idpClaimMappings);
+        
+        if (!idpClaimMappings.isEmpty()) {
+            String diagnostic = buildClaimMappingDiagnostic(mappedClaimsArray, idpClaimMappings, incomingClaims);
+            debugResult.put("claimMappingDiagnostic", diagnostic);
+        }
+    }
+
+    /**
+     * Builds the mapped claims array by processing configured mappings and auto-discovered claims.
+     *
+     * @param idpClaimMappings IdP configured claim mappings.
+     * @param incomingClaims Incoming claims from tokens.
+     * @return List of mapped claim entries with status information.
+     */
+    private List<Map<String, Object>> buildMappedClaimsArray(
+            Map<String, Map<String, String>> idpClaimMappings, Map<String, Object> incomingClaims) {
+
+        List<Map<String, Object>> mappedClaimsArray = new ArrayList<>();
+        Set<String> processedClaims = new HashSet<>();
+        
+        // Process configured mappings.
+        if (!idpClaimMappings.isEmpty()) {
+            for (Map.Entry<String, Map<String, String>> mapping : idpClaimMappings.entrySet()) {
+                String remoteClaimUri = mapping.getValue().get(OAuth2DebugConstants.CLAIM_MAPPING_REMOTE);
+                String localClaimUri = mapping.getValue().get(OAuth2DebugConstants.CLAIM_MAPPING_LOCAL);
                 
-                StringBuilder diagnostic = new StringBuilder();
-                diagnostic.append("Claim Mapping Report: ").append(successCount).append(" of ").append(totalCount)
-                        .append(" mappings successful (").append(notFoundCount).append(" not found). ");
-                diagnostic.append("Incoming claims received: ").append(incomingClaims.keySet()).append(". ");
-                
-                List<String> missingClaims = new ArrayList<>();
-                for (Map<String, Object> claim : mappedClaimsArray) {
-                    if ("Not Found".equals(claim.get("status"))) {
-                        missingClaims.add(claim.get("isClaim") + " <- " + claim.get("idpClaim"));
-                    }
-                }
-                if (!missingClaims.isEmpty()) {
-                    diagnostic.append("Missing expected claims: ");
-                    for (String missing : missingClaims) {
-                        diagnostic.append("[").append(missing).append("] ");
-                    }
-                }
-                debugResult.put("claimMappingDiagnostic", diagnostic.toString());
+                Map<String, Object> claimEntry = processConfiguredMapping(
+                        remoteClaimUri, localClaimUri, incomingClaims, processedClaims);
+                mappedClaimsArray.add(claimEntry);
+            }
+        }
+        
+        // Add auto-discovered claims.
+        addAutoDiscoveredClaims(mappedClaimsArray, incomingClaims, processedClaims);
+        
+        return mappedClaimsArray;
+    }
+
+    /**
+     * Processes a single configured claim mapping.
+     *
+     * @param remoteClaimUri Remote claim URI from IdP.
+     * @param localClaimUri Local claim URI mapping.
+     * @param incomingClaims Incoming claims from tokens.
+     * @param processedClaims Set to track processed claim names.
+     * @return Claim entry map with status and value information.
+     */
+    private Map<String, Object> processConfiguredMapping(String remoteClaimUri, String localClaimUri,
+            Map<String, Object> incomingClaims, Set<String> processedClaims) {
+
+        Map<String, Object> claimEntry = new HashMap<>();
+        claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_IDP_CLAIM, remoteClaimUri != null ? remoteClaimUri : "");
+        claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_LOCAL_CLAIM, localClaimUri != null ? localClaimUri : "");
+        
+        Object claimValue = null;
+        String claimStatus = "Not Mapped";
+        
+        if (remoteClaimUri != null && incomingClaims.containsKey(remoteClaimUri)) {
+            claimValue = incomingClaims.get(remoteClaimUri);
+            claimStatus = "Successful";
+            processedClaims.add(remoteClaimUri);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Mapped claim: " + remoteClaimUri + " -> " + localClaimUri);
+            }
+        } else if (LOG.isDebugEnabled()) {
+            LOG.debug("Claim not found in incoming claims: " + remoteClaimUri);
+        }
+        
+        claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_VALUE, 
+                claimValue != null ? claimValue.toString() : null);
+        claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_STATUS, claimStatus);
+        
+        return claimEntry;
+    }
+
+    /**
+     * Adds auto-discovered claims that were not covered by configured mappings.
+     *
+     * @param mappedClaimsArray List to add auto-discovered claims to.
+     * @param incomingClaims Incoming claims from tokens.
+     * @param processedClaims Set of already processed claim names.
+     */
+    private void addAutoDiscoveredClaims(List<Map<String, Object>> mappedClaimsArray,
+            Map<String, Object> incomingClaims, Set<String> processedClaims) {
+
+        if (incomingClaims.isEmpty()) {
+            return;
+        }
+        
+        for (Map.Entry<String, Object> entry : incomingClaims.entrySet()) {
+            String claimName = entry.getKey();
+            if (processedClaims.contains(claimName)) {
+                continue;
             }
             
-            // Build user attributes map (mapped claims as key-value)
-            Map<String, Object> userAttributes = new HashMap<>();
-            if (mappedClaims != null) {
-                userAttributes.putAll(mappedClaims);
+            Map<String, Object> claimEntry = new HashMap<>();
+            String claimUri = "http://wso2.org/claims/" + claimName;
+            
+            claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_IDP_CLAIM, claimName);
+            claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_LOCAL_CLAIM, claimUri);
+            claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_VALUE, 
+                    entry.getValue() != null ? entry.getValue().toString() : null);
+            claimEntry.put(OAuth2DebugConstants.CLAIM_MAPPING_STATUS, "Auto-Discovered");
+            
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Adding unmapped incoming claim: " + claimName);
             }
-            debugResult.put("userAttributes", userAttributes);
             
-            // Add URLs and tokens
-            String externalRedirectUrl = (String) context.getProperty("DEBUG_EXTERNAL_REDIRECT_URL");
-            debugResult.put("externalRedirectUrl", externalRedirectUrl);
-            
-            String idToken = (String) context.getProperty("DEBUG_ID_TOKEN");
-            debugResult.put("idToken", idToken);
-            
-            String callbackUrl = (String) context.getProperty("DEBUG_CALLBACK_URL");
-            debugResult.put("callbackUrl", callbackUrl);
-            
-            debugResult.put("error", null);
-            debugResult.put("timestamp", null);
-            
-            // Add empty metadata (will be populated by API if needed)
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("step_claim_mapping_status", "success");
-            metadata.put("step_authentication_status", "success");
-            metadata.put("step_connection_status", "success");
-            debugResult.put("metadata", metadata);
-            
+            mappedClaimsArray.add(claimEntry);
+        }
+    }
+
+    /**
+     * Builds a diagnostic message summarizing claim mapping results.
+     *
+     * @param mappedClaimsArray Mapped claims array.
+     * @param idpClaimMappings IdP configured mappings.
+     * @param incomingClaims Incoming claims.
+     * @return Diagnostic message string.
+     */
+    private String buildClaimMappingDiagnostic(List<Map<String, Object>> mappedClaimsArray,
+            Map<String, Map<String, String>> idpClaimMappings, Map<String, Object> incomingClaims) {
+
+        int successCount = (int) mappedClaimsArray.stream()
+                .filter(c -> "Successful".equals(c.get("status")))
+                .count();
+        int totalCount = idpClaimMappings.size();
+        int notFoundCount = totalCount - successCount;
+        
+        StringBuilder diagnostic = new StringBuilder();
+        diagnostic.append("Claim Mapping Report: ").append(successCount).append(" of ").append(totalCount)
+                .append(" mappings successful");
+        
+        if (notFoundCount > 0) {
+            diagnostic.append(" (").append(notFoundCount).append(" not found)");
+        }
+        diagnostic.append(". ");
+        
+        if (!incomingClaims.isEmpty()) {
+            diagnostic.append("Incoming claims received: ").append(String.join(", ", incomingClaims.keySet()))
+                    .append(". ");
+        }
+        
+        List<String> missingClaims = new ArrayList<>();
+        for (Map<String, Object> claim : mappedClaimsArray) {
+            if ("Not Mapped".equals(claim.get("status"))) {
+                missingClaims.add(claim.get("isClaim") + " <- " + claim.get("idpClaim"));
+            }
+        }
+        if (!missingClaims.isEmpty()) {
+            diagnostic.append("Missing expected claims: ");
+            for (int i = 0; i < missingClaims.size(); i++) {
+                if (i > 0) diagnostic.append(", ");
+                diagnostic.append("[").append(missingClaims.get(i)).append("]");
+            }
+        }
+        
+        return diagnostic.toString();
+    }
+
+    /**
+     * Builds user attributes map and metadata information.
+     *
+     * @param incomingClaims Incoming claims.
+     * @param debugResult Debug result to populate.
+     * @param context AuthenticationContext.
+     */
+    private void buildUserAttributesAndMetadata(Map<String, Object> incomingClaims,
+            Map<String, Object> debugResult, AuthenticationContext context) {
+
+        // Build user attributes map.
+        Map<String, Object> userAttributes = new HashMap<>();
+        if (!incomingClaims.isEmpty()) {
+            userAttributes.putAll(incomingClaims);
+        }
+        debugResult.put("userAttributes", userAttributes);
+        
+        // Add URLs and tokens.
+        String externalRedirectUrl = (String) context.getProperty("DEBUG_EXTERNAL_REDIRECT_URL");
+        debugResult.put("externalRedirectUrl", externalRedirectUrl);
+        
+        String idToken = (String) context.getProperty(OAuth2DebugConstants.ID_TOKEN);
+        debugResult.put("idToken", idToken);
+        
+        String callbackUrl = (String) context.getProperty(OAuth2DebugConstants.REDIRECT_URI);
+        debugResult.put("callbackUrl", callbackUrl);
+        
+        debugResult.put("error", null);
+        debugResult.put("timestamp", null);
+        
+        // Add metadata.
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("step_claim_mapping_status", STATUS_SUCCESS);
+        metadata.put("step_authentication_status", STATUS_SUCCESS);
+        metadata.put("step_connection_status", STATUS_SUCCESS);
+        debugResult.put("metadata", metadata);
+    }
+
+    /**
+     * Persists debug result to cache with JSON serialization.
+     *
+     * @param state State parameter.
+     * @param context AuthenticationContext.
+     * @param debugResult Debug result to persist.
+     */
+    private void persistDebugResultToCache(String state, AuthenticationContext context,
+            Map<String, Object> debugResult) {
+
+        try {
             com.fasterxml.jackson.databind.ObjectMapper mapper = 
                     new com.fasterxml.jackson.databind.ObjectMapper();
             String debugResultJson = mapper.writeValueAsString(debugResult);
             
-            // Cache the result in context (for local use during this request).
+            // Cache in context.
             context.setProperty("DEBUG_RESULT_CACHE", debugResultJson);
-            context.setProperty("DEBUG_AUTH_SUCCESS", "true");
+            context.setProperty(OAuth2DebugConstants.DEBUG_AUTH_SUCCESS, OAuth2DebugConstants.TRUE);
             
-            // Get context ID for dual-key caching
-            String contextId = (String) context.getProperty("DEBUG_CONTEXT_ID");
-            
-            // Persist to DebugResultCache for API endpoint retrieval (with both state and contextId as keys).
+            // Get context ID and persist to DebugResultCache.
+            String contextId = (String) context.getProperty(OAuth2DebugConstants.DEBUG_CONTEXT_ID);
             persistDebugResultToCache(state, contextId, debugResultJson);
             
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Debug result cached and persisted for state: " + state);
             }
-
-        } catch (Exception e) {
-            LOG.error("Error building and caching debug result: " + e.getMessage(), e);
-            context.setProperty("DEBUG_AUTH_ERROR", "Error caching debug result: " + e.getMessage());
-            context.setProperty("DEBUG_AUTH_SUCCESS", "false");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            LOG.error("Failed to serialize debug result to JSON: " + e.getMessage(), e);
         }
     }
     
     /**
-     * Extracts a readable claim name from a claim URI.
-     * E.g., "http://wso2.org/claims/emailaddress" -> "email"
+     * Extracts claim mappings from IdP configuration.
+     * Converts ClaimMapping objects to a map format for easier processing.
      *
-     * @param claimUri The claim URI.
-     * @return Extracted claim name or the original URI if extraction fails.
+     * @param idp The IdentityProvider configuration.
+     * @return Map of claim mappings, empty if no mappings found.
      */
-    private String extractClaimNameFromUri(String claimUri) {
-        if (claimUri == null || claimUri.isEmpty()) {
-            return claimUri;
+    private Map<String, Map<String, String>> extractIdPClaimMappings(IdentityProvider idp) {
+
+        Map<String, Map<String, String>> mappings = new HashMap<>();
+        
+        if (!hasClaimMappings(idp)) {
+            logNoClaimConfiguration();
+            return mappings;
         }
         
-        // Extract the last part of the URI after the last "/"
-        int lastSlashIndex = claimUri.lastIndexOf('/');
-        if (lastSlashIndex > 0 && lastSlashIndex < claimUri.length() - 1) {
-            return claimUri.substring(lastSlashIndex + 1);
+        try {
+            processClaimMappingsFromIdP(idp, mappings);
+        } catch (Exception e) {
+            logClaimMappingExtractionError(e);
         }
-        return claimUri;
+        
+        return mappings;
     }
 
+    /**
+     * Checks if the IdP has valid claim mappings.
+     *
+     * @param idp The IdentityProvider configuration.
+     * @return true if claim mappings exist and are valid, false otherwise.
+     */
+    private boolean hasClaimMappings(IdentityProvider idp) {
+
+        return idp != null && idp.getClaimConfig() != null && 
+               idp.getClaimConfig().getClaimMappings() != null;
+    }
+
+    /**
+     * Logs when no claim configuration is found.
+     */
+    private void logNoClaimConfiguration() {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("No claim configuration found in IdP");
+        }
+    }
+
+    /**
+     * Processes claim mappings from IdP configuration and populates the mappings map.
+     *
+     * @param idp The IdentityProvider configuration.
+     * @param mappings Map to populate with extracted mappings.
+     */
+    private void processClaimMappingsFromIdP(IdentityProvider idp, Map<String, Map<String, String>> mappings) {
+
+        ClaimMapping[] claimMappings = idp.getClaimConfig().getClaimMappings();
+        for (int i = 0; i < claimMappings.length; i++) {
+            processClaimMapping(claimMappings[i], i, mappings);
+        }
+    }
+
+    /**
+     * Processes a single claim mapping and adds it to the mappings map if valid.
+     *
+     * @param claimMapping The claim mapping to process.
+     * @param index The index of the mapping in the array (used as fallback key).
+     * @param mappings Map to add the processed mapping to.
+     */
+    private void processClaimMapping(ClaimMapping claimMapping, int index, 
+            Map<String, Map<String, String>> mappings) {
+
+        if (!isValidClaimMapping(claimMapping)) {
+            return;
+        }
+        
+        String remoteClaimUri = claimMapping.getRemoteClaim().getClaimUri();
+        String localClaimUri = claimMapping.getLocalClaim().getClaimUri();
+        
+        Map<String, String> mapping = buildClaimMappingEntry(remoteClaimUri, localClaimUri);
+        String mappingKey = remoteClaimUri != null ? remoteClaimUri : ("claim_" + index);
+        
+        mappings.put(mappingKey, mapping);
+        logClaimMappingExtracted(remoteClaimUri, localClaimUri);
+    }
+
+    /**
+     * Validates if a claim mapping is complete and usable.
+     *
+     * @param claimMapping The claim mapping to validate.
+     * @return true if all required parts are present, false otherwise.
+     */
+    private boolean isValidClaimMapping(ClaimMapping claimMapping) {
+
+        return claimMapping != null && claimMapping.getRemoteClaim() != null && 
+               claimMapping.getLocalClaim() != null;
+    }
+
+    /**
+     * Builds a claim mapping entry with remote and local URIs.
+     *
+     * @param remoteClaimUri The remote claim URI.
+     * @param localClaimUri The local claim URI.
+     * @return Map with remote and local keys.
+     */
+    private Map<String, String> buildClaimMappingEntry(String remoteClaimUri, String localClaimUri) {
+
+        Map<String, String> mapping = new HashMap<>();
+        mapping.put(OAuth2DebugConstants.CLAIM_MAPPING_REMOTE, remoteClaimUri);
+        mapping.put(OAuth2DebugConstants.CLAIM_MAPPING_LOCAL, localClaimUri);
+        return mapping;
+    }
+
+    /**
+     * Logs the extraction of a claim mapping.
+     *
+     * @param remoteClaimUri The remote claim URI.
+     * @param localClaimUri The local claim URI.
+     */
+    private void logClaimMappingExtracted(String remoteClaimUri, String localClaimUri) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Extracted claim mapping: " + remoteClaimUri + " -> " + localClaimUri);
+        }
+    }
+
+    /**
+     * Logs error during claim mapping extraction.
+     *
+     * @param e The exception that occurred.
+     */
+    private void logClaimMappingExtractionError(Exception e) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Error extracting claim mappings from IdP: " + e.getMessage());
+        }
+    }
+    
     /**
      * Builds and caches token exchange error response with detailed error information.
      * Formats error details for debug API response.
@@ -975,6 +1604,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
     @Override
     protected void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
             String errorDetails, String state, AuthenticationContext context) {
+
         try {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("state", state);
@@ -1019,6 +1649,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @param resultJson The JSON-serialized debug result to cache.
      */
     private void persistDebugResultToCache(String state, String contextId, String resultJson) {
+
         try {
             // Direct reflection-based access to DebugResultCache static methods
             Class<?> cacheClass = Class.forName(
@@ -1053,6 +1684,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      */
     @Override
     protected void redirectToDebugSuccess(HttpServletResponse response, String state, String idpId) throws IOException {
+
         if (!response.isCommitted()) {
             String encodedState = encodeForUrl(state);
             String encodedIdpId = encodeForUrl(idpId);
@@ -1071,51 +1703,119 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @param context AuthenticationContext to populate.
      */
     private void restoreContextFromSessionCache(String state, AuthenticationContext context) {
+
         try {
-            // Access DebugSessionCache via reflection to retrieve cached context
-            Class<?> sessionCacheClass = Class.forName(
-                    "org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer$DebugSessionCache");
-            java.lang.reflect.Method getInstanceMethod = sessionCacheClass.getMethod("getInstance");
-            Object cacheInstance = getInstanceMethod.invoke(null);
-            
-            if (cacheInstance != null) {
-                java.lang.reflect.Method getMethod = sessionCacheClass.getMethod("get", String.class);
-                @SuppressWarnings("unchecked")
-                Map<String, Object> cachedContext = (Map<String, Object>) getMethod.invoke(cacheInstance, state);
-                
-                if (cachedContext != null) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Restoring context from DebugSessionCache for state: " + state);
-                    }
-                    
-                    // Transfer cached properties to AuthenticationContext
-                    String[] propertiesToRestore = {
-                            "DEBUG_TOKEN_ENDPOINT", "DEBUG_CLIENT_ID", "DEBUG_CLIENT_SECRET",
-                            "DEBUG_USERINFO_ENDPOINT", "DEBUG_CODE_VERIFIER", "DEBUG_CALLBACK_URL",
-                            "DEBUG_IDP_NAME", "IDP_CONFIG", "DEBUG_AUTHZ_ENDPOINT", "DEBUG_CONTEXT_ID",
-                            "DEBUG_EXTERNAL_REDIRECT_URL"
-                    };
-                    
-                    for (String property : propertiesToRestore) {
-                        Object value = cachedContext.get(property);
-                        if (value != null) {
-                            context.setProperty(property, value);
-                            if (LOG.isDebugEnabled()) {
-                                LOG.debug("Restored property from cache: " + property);
-                            }
-                        }
-                    }
-                    
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Context restoration from DebugSessionCache completed");
-                    }
-                } else {
-                    LOG.debug("No cached context found for state: " + state);
-                }
+            Object cacheInstance = getCacheInstance();
+            if (cacheInstance == null) {
+                return;
             }
+            
+            Map<String, Object> cachedContext = retrieveCachedContext(cacheInstance, state);
+            if (cachedContext == null) {
+                LOG.debug("No cached context found for state: " + state);
+                return;
+            }
+            
+            logRestorationStart(state);
+            restorePropertiesToContext(cachedContext, context);
+            logRestorationComplete();
+            
         } catch (Exception e) {
             LOG.debug("Unable to restore context from DebugSessionCache: " + e.getMessage());
             // Continue without restoration - will fall back to other methods
+        }
+    }
+
+    /**
+     * Gets the DebugSessionCache instance via reflection.
+     *
+     * @return Cache instance or null if retrieval fails.
+     * @throws ReflectiveOperationException If reflection operations fail.
+     */
+    private Object getCacheInstance() throws ReflectiveOperationException {
+
+        Class<?> sessionCacheClass = Class.forName(
+                "org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer$DebugSessionCache");
+        java.lang.reflect.Method getInstanceMethod = sessionCacheClass.getMethod("getInstance");
+        return getInstanceMethod.invoke(null);
+    }
+
+    /**
+     * Retrieves cached context from cache instance using state parameter.
+     *
+     * @param cacheInstance The cache instance.
+     * @param state State parameter (cache key).
+     * @return Cached context map or null if not found.
+     * @throws ReflectiveOperationException If reflection operations fail.
+     */
+    private Map<String, Object> retrieveCachedContext(Object cacheInstance, String state) throws ReflectiveOperationException {
+
+        Class<?> sessionCacheClass = cacheInstance.getClass();
+        java.lang.reflect.Method getMethod = sessionCacheClass.getMethod("get", String.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cachedContext = (Map<String, Object>) getMethod.invoke(cacheInstance, state);
+        return cachedContext;
+    }
+
+    /**
+     * Logs the start of context restoration process.
+     *
+     * @param state State parameter for context identification.
+     */
+    private void logRestorationStart(String state) {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Restoring context from DebugSessionCache for state: " + state);
+        }
+    }
+
+    /**
+     * Restores individual properties from cached context to authentication context.
+     *
+     * @param cachedContext The cached context map.
+     * @param context The authentication context to populate.
+     */
+    private void restorePropertiesToContext(Map<String, Object> cachedContext, AuthenticationContext context) {
+
+        String[] propertiesToRestore = {
+                OAuth2DebugConstants.TOKEN_ENDPOINT, OAuth2DebugConstants.CLIENT_ID, OAuth2DebugConstants.CLIENT_SECRET,
+                OAuth2DebugConstants.USERINFO_ENDPOINT, OAuth2DebugConstants.DEBUG_CODE_VERIFIER, OAuth2DebugConstants.REDIRECT_URI,
+                OAuth2DebugConstants.DEBUG_IDP_NAME, OAuth2DebugConstants.IDP_CONFIG, OAuth2DebugConstants.AUTHORIZATION_ENDPOINT, 
+                OAuth2DebugConstants.DEBUG_CONTEXT_ID, OAuth2DebugConstants.DEBUG_EXTERNAL_REDIRECT_URL,
+                OAuth2DebugConstants.ACCESS_TOKEN, OAuth2DebugConstants.ID_TOKEN, OAuth2DebugConstants.TOKEN_TYPE, OAuth2DebugConstants.USERINFO
+        };
+        
+        for (String property : propertiesToRestore) {
+            restorePropertyIfPresent(cachedContext, context, property);
+        }
+    }
+
+    /**
+     * Restores a single property from cached context if it exists.
+     *
+     * @param cachedContext The cached context map.
+     * @param context The authentication context to populate.
+     * @param property The property name to restore.
+     */
+    private void restorePropertyIfPresent(Map<String, Object> cachedContext, AuthenticationContext context, 
+            String property) {
+
+        Object value = cachedContext.get(property);
+        if (value != null) {
+            context.setProperty(property, value);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Restored property from cache: " + property);
+            }
+        }
+    }
+
+    /**
+     * Logs the completion of context restoration process.
+     */
+    private void logRestorationComplete() {
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Context restoration from DebugSessionCache completed");
         }
     }
 
@@ -1127,6 +1827,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return URL-encoded parameter.
      */
     private String encodeForUrl(String param) {
+
         if (param == null || param.isEmpty()) {
             return "";
         }

@@ -26,6 +26,7 @@ import org.wso2.carbon.identity.debug.framework.exception.ExecutionException;
 import org.wso2.carbon.identity.debug.framework.model.DebugResult;
 
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Map;
@@ -46,12 +47,13 @@ public class OAuth2Executer extends DebugExecutor {
      * Reads resolved OAuth2 parameters from context map (populated by OAuth2ContextResolver)
      * and generates a complete Authorization URL with PKCE parameters.
      *
-     * @param context Map containing debug configuration and state (prepared by DebugContextResolver).
+     * @param context Map containing debug configuration and state (prepared by DebugContextProvider).
      * @return DebugResult containing the generated authorization URL and metadata.
      * @throws ExecutionException If execution fails.
      */
     @Override
     public DebugResult execute(Map<String, Object> context) throws ExecutionException {
+
         // Initialize step status.
         DebugResult result = new DebugResult();
 
@@ -65,14 +67,14 @@ public class OAuth2Executer extends DebugExecutor {
 
         try {
             // Initialize step status.
-            context.put("step_connection_status", "started");
-            context.put("step_authentication_status", "started");
-            context.put("step_claim_mapping_status", "started");
+            context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_STARTED);
+            context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_STARTED);
+            context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_STARTED);
 
-            // Validate required parameters from context (populated by DebugContextResolver).
-            String clientId = (String) context.get("DEBUG_CLIENT_ID");
-            String authzEndpoint = (String) context.get("DEBUG_AUTHZ_ENDPOINT");
-            String redirectUri = (String) context.get("CUSTOM_REDIRECT_URI");
+            // Validate required parameters from context (populated by DebugContextProvider).
+            String clientId = (String) context.get(OAuth2DebugConstants.CLIENT_ID);
+            String authzEndpoint = (String) context.get(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT);
+            String redirectUri = (String) context.get(OAuth2DebugConstants.REDIRECT_URI);
 
             // Use default callback URI if custom one not provided
             if (redirectUri == null || redirectUri.trim().isEmpty()) {
@@ -80,26 +82,26 @@ public class OAuth2Executer extends DebugExecutor {
             }
 
             if (StringUtils.isEmpty(clientId)) {
-                LOG.error("DEBUG_CLIENT_ID not found in context");
-                context.put("step_connection_status", "failed");
-                context.put("step_authentication_status", "failed");
-                context.put("step_claim_mapping_status", "failed");
+                LOG.error("clientId not found in context");
+                context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_FAILED);
                 throw new ExecutionException("Missing required parameter: CLIENT_ID");
             }
 
             if (StringUtils.isEmpty(authzEndpoint)) {
                 LOG.error("DEBUG_AUTHZ_ENDPOINT not found in context");
-                context.put("step_connection_status", "failed");
-                context.put("step_authentication_status", "failed");
-                context.put("step_claim_mapping_status", "failed");
+                context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_FAILED);
                 throw new ExecutionException("Missing required parameter: AUTHORIZATION_ENDPOINT");
             }
 
             if (StringUtils.isEmpty(redirectUri)) {
                 LOG.error("Redirect URI not configured");
-                context.put("step_connection_status", "failed");
-                context.put("step_authentication_status", "failed");
-                context.put("step_claim_mapping_status", "failed");
+                context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_FAILED);
                 throw new ExecutionException("Missing required parameter: REDIRECT_URI");
             }
 
@@ -111,13 +113,13 @@ public class OAuth2Executer extends DebugExecutor {
             // Generate PKCE parameters.
             String codeVerifier = generateCodeVerifier();
             String codeChallenge = generateCodeChallenge(codeVerifier);
-            String state = (String) context.getOrDefault("DEBUG_STATE", generateState());
-            String contextId = (String) context.getOrDefault("DEBUG_CONTEXT_ID", 
+            String state = (String) context.getOrDefault("  ", generateState());
+            String contextId = (String) context.getOrDefault(OAuth2DebugConstants.DEBUG_CONTEXT_ID, 
                     "debug-" + java.util.UUID.randomUUID().toString());
 
-            context.put("DEBUG_CODE_VERIFIER", codeVerifier);
-            context.put("DEBUG_STATE", state);
-            context.put("DEBUG_CONTEXT_ID", contextId);
+            context.put(OAuth2DebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
+            context.put(OAuth2DebugConstants.DEBUG_STATE, state);
+            context.put(OAuth2DebugConstants.DEBUG_CONTEXT_ID, contextId);
 
             // Build OAuth2 Authorization URL.
             String authorizationUrl = buildAuthorizationUrl(authzEndpoint, clientId, redirectUri, state, 
@@ -125,14 +127,14 @@ public class OAuth2Executer extends DebugExecutor {
 
             if (authorizationUrl == null) {
                 LOG.error("Failed to build authorization URL");
-                context.put("step_connection_status", "failed");
-                context.put("step_authentication_status", "failed");
-                context.put("step_claim_mapping_status", "failed");
+                context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+                context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_FAILED);
                 throw new ExecutionException("Failed to build authorization URL");
             }
 
             // Store authorization URL in context.
-            context.put("DEBUG_EXTERNAL_REDIRECT_URL", authorizationUrl);
+            context.put(OAuth2DebugConstants.DEBUG_EXTERNAL_REDIRECT_URL, authorizationUrl);
             context.put("isDebugFlow", "true");
             context.put("DEBUG_AUTH_URL_GENERATED", "true");
             context.put("DEBUG_AUTH_URL_TIMESTAMP", System.currentTimeMillis());
@@ -140,9 +142,9 @@ public class OAuth2Executer extends DebugExecutor {
             context.put("DEBUG_STEP_AUTH_URL", authorizationUrl);
 
             // Update step status to success.
-            context.put("step_connection_status", "success");
-            context.put("step_authentication_status", "success");
-            context.put("step_claim_mapping_status", "pending");
+            context.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, "success");
+            context.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, "success");
+            context.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
 
             // Cache authentication context for framework to retrieve during callback.
             cacheDebugContext(context);
@@ -157,7 +159,7 @@ public class OAuth2Executer extends DebugExecutor {
             result.addMetadata("sessionId", contextId);
             result.addMetadata("state", state);
             result.addMetadata("codeVerifier", codeVerifier);
-            result.addMetadata("idpName", context.get("DEBUG_IDP_NAME"));
+            result.addMetadata("idpName", context.get(OAuth2DebugConstants.DEBUG_IDP_NAME));
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OAuth2 Authorization URL result: sessionId=" + contextId + 
@@ -170,15 +172,15 @@ public class OAuth2Executer extends DebugExecutor {
 
         } catch (ExecutionException e) {
             LOG.error("Error generating OAuth2 Authorization URL: " + e.getMessage(), e);
-            context.put("step_connection_status", "failed");
-            context.put("step_authentication_status", "failed");
-            context.put("step_claim_mapping_status", "failed");
+            context.put("step_connection_status", OAuth2DebugConstants.STATUS_FAILED);
+            context.put("step_authentication_status", OAuth2DebugConstants.STATUS_FAILED);
+            context.put("step_claim_mapping_status", OAuth2DebugConstants.STATUS_FAILED);
             throw e;
         } catch (Exception e) {
             LOG.error("Unexpected error generating OAuth2 Authorization URL: " + e.getMessage(), e);
-            context.put("step_connection_status", "failed");
-            context.put("step_authentication_status", "failed");
-            context.put("step_claim_mapping_status", "failed");
+            context.put("step_connection_status", OAuth2DebugConstants.STATUS_FAILED);
+            context.put("step_authentication_status", OAuth2DebugConstants.STATUS_FAILED);
+            context.put("step_claim_mapping_status", OAuth2DebugConstants.STATUS_FAILED);
             throw new ExecutionException("Error generating authorization URL: " + e.getMessage(), e);
         }
     }
@@ -192,9 +194,10 @@ public class OAuth2Executer extends DebugExecutor {
      */
     @Override
     public boolean canExecute(Map<String, Object> context) {
-        return context != null && context.containsKey("DEBUG_CLIENT_ID") && 
-                context.containsKey("DEBUG_AUTHZ_ENDPOINT") && 
-                context.containsKey("DEBUG_IDP_SCOPE");
+
+        return context != null && context.containsKey(OAuth2DebugConstants.CLIENT_ID) && 
+                context.containsKey(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT) && 
+                context.containsKey(OAuth2DebugConstants.IDP_SCOPE);
     }
 
     /**
@@ -204,6 +207,7 @@ public class OAuth2Executer extends DebugExecutor {
      */
     @Override
     public String getExecutorName() {
+
         return EXECUTOR_NAME;
     }
 
@@ -220,8 +224,8 @@ public class OAuth2Executer extends DebugExecutor {
      * @throws ExecutionException If URL building fails.
      */
     private String buildAuthorizationUrl(String authzEndpoint, String clientId, String redirectUri, 
-                                        String state, String codeChallenge, 
-                                        Map<String, Object> context) throws ExecutionException {
+            String state, String codeChallenge, Map<String, Object> context) throws ExecutionException {
+
         try {
             StringBuilder urlBuilder = new StringBuilder();
             urlBuilder.append(authzEndpoint);
@@ -229,8 +233,8 @@ public class OAuth2Executer extends DebugExecutor {
             urlBuilder.append("&client_id=").append(encodeParam(clientId));
             urlBuilder.append("&redirect_uri=").append(encodeParam(redirectUri));
 
-            // Get scope from context (set by DebugContextResolver).
-            String scope = (String) context.get("DEBUG_IDP_SCOPE");
+            // Get scope from context (set by DebugContextProvider).
+            String scope = (String) context.get(OAuth2DebugConstants.IDP_SCOPE);
             if (StringUtils.isEmpty(scope)) {
                 throw new ExecutionException("Scope not found in context");
             }
@@ -242,19 +246,19 @@ public class OAuth2Executer extends DebugExecutor {
             urlBuilder.append("&code_challenge_method=S256");
 
             // Add optional access_type for refresh token support.
-            String accessType = (String) context.get("DEBUG_CUSTOM_access_type");
+            String accessType = (String) context.get(OAuth2DebugConstants.DEBUG_CUSTOM_ACCESS_TYPE);
             if (StringUtils.isNotEmpty(accessType)) {
                 urlBuilder.append("&access_type=").append(encodeParam(accessType));
             }
 
             // Add login_hint if username is available.
-            String username = (String) context.get("DEBUG_USERNAME");
+            String username = (String) context.get(OAuth2DebugConstants.DEBUG_USERNAME);
             if (StringUtils.isNotEmpty(username)) {
                 urlBuilder.append("&login_hint=").append(encodeParam(username));
             }
 
             // Add any additional custom parameters from context.
-            Object additionalParamsObj = context.get("ADDITIONAL_OAUTH_PARAMS");
+            Object additionalParamsObj = context.get(OAuth2DebugConstants.ADDITIONAL_OAUTH_PARAMS);
             if (additionalParamsObj instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, String> additionalParams = (Map<String, String>) additionalParamsObj;
@@ -268,7 +272,7 @@ public class OAuth2Executer extends DebugExecutor {
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Generated OAuth2 Authorization URL with PKCE for IdP: " + 
-                        context.get("DEBUG_IDP_NAME"));
+                        context.get(OAuth2DebugConstants.DEBUG_IDP_NAME));
             }
 
             return urlBuilder.toString();
@@ -284,6 +288,7 @@ public class OAuth2Executer extends DebugExecutor {
      * @return Base64URL-encoded code verifier.
      */
     private String generateCodeVerifier() {
+
         byte[] randomBytes = new byte[32];
         SECURE_RANDOM.nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
@@ -297,9 +302,10 @@ public class OAuth2Executer extends DebugExecutor {
      * @throws ExecutionException If challenge generation fails.
      */
     private String generateCodeChallenge(String codeVerifier) throws ExecutionException {
+
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(codeVerifier.getBytes("UTF-8"));
+            byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (Exception e) {
             LOG.error("Error generating code challenge: " + e.getMessage(), e);
@@ -315,8 +321,9 @@ public class OAuth2Executer extends DebugExecutor {
      * @throws ExecutionException If encoding fails.
      */
     private String encodeParam(String param) throws ExecutionException {
+
         try {
-            return URLEncoder.encode(param, "UTF-8");
+            return URLEncoder.encode(param, StandardCharsets.UTF_8.name());
         } catch (Exception e) {
             LOG.error("Error encoding parameter: " + e.getMessage(), e);
             throw new ExecutionException("Failed to URL-encode parameter: " + e.getMessage(), e);
@@ -329,6 +336,7 @@ public class OAuth2Executer extends DebugExecutor {
      * @return Random state string.
      */
     private String generateState() {
+
         return "debug-" + java.util.UUID.randomUUID().toString().replace("-", "");
     }
 
@@ -340,6 +348,7 @@ public class OAuth2Executer extends DebugExecutor {
      * @return The redirect URI for OAuth2 callback.
      */
     private String getDefaultRedirectUri() {
+
         // Allow override via system property for different deployments
         String customUri = System.getProperty("debug.oauth2.redirect.uri");
         if (customUri != null && !customUri.trim().isEmpty()) {
@@ -360,7 +369,7 @@ public class OAuth2Executer extends DebugExecutor {
     private void cacheDebugContext(Map<String, Object> context) {
         try {
             // Get the state parameter which will be used as cache key
-            String state = (String) context.get("DEBUG_STATE");
+            String state = (String) context.get(OAuth2DebugConstants.DEBUG_STATE);
             if (state == null) {
                 LOG.warn("Cannot cache debug context - state parameter is null");
                 return;
@@ -368,8 +377,8 @@ public class OAuth2Executer extends DebugExecutor {
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Caching debug context with state: " + state + 
-                         ", TOKEN_ENDPOINT=" + (context.get("DEBUG_TOKEN_ENDPOINT") != null ? "FOUND" : "null") +
-                         ", CLIENT_ID=" + (context.get("DEBUG_CLIENT_ID") != null ? "FOUND" : "null"));
+                         ", TOKEN_ENDPOINT=" + (context.get(OAuth2DebugConstants.TOKEN_ENDPOINT) != null ? "FOUND" : "null") +
+                         ", CLIENT_ID=" + (context.get(OAuth2DebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
                 // NOTE: We do NOT log the actual values of CLIENT_SECRET, ACCESS_TOKEN, ID_TOKEN, etc.
             }
 
@@ -395,10 +404,10 @@ public class OAuth2Executer extends DebugExecutor {
      * Thread-safe with ConcurrentHashMap and ScheduledExecutorService.
      */
     public static class DebugSessionCache {
+        
         private static final DebugSessionCache INSTANCE = new DebugSessionCache();
         private final Map<String, Map<String, Object>> cache = new java.util.concurrent.ConcurrentHashMap<>();
-        private final int CACHE_TIMEOUT_MINUTES = 60;
-        private static java.util.concurrent.ScheduledExecutorService cleanupExecutor;
+        private static final int CACHE_TIMEOUT_MINUTES = 60;
 
         public static DebugSessionCache getInstance() {
             return INSTANCE;
@@ -415,7 +424,7 @@ public class OAuth2Executer extends DebugExecutor {
 
         public Map<String, Object> get(String key) {
             if (key == null) {
-                return null;
+                return new java.util.HashMap<>();
             }
             // Atomic get - no race condition here since ConcurrentHashMap is atomic
             return cache.get(key);
@@ -423,32 +432,22 @@ public class OAuth2Executer extends DebugExecutor {
 
         public Map<String, Object> remove(String key) {
             if (key == null) {
-                return null;
+                return new java.util.HashMap<>();
             }
             // Atomic remove operation
             return cache.remove(key);
         }
 
         private void scheduleRemoval(String key) {
+            
             try {
                 // Use ScheduledExecutorService for better resource management
-                if (cleanupExecutor == null) {
-                    synchronized (DebugSessionCache.class) {
-                        if (cleanupExecutor == null) {
-                            cleanupExecutor = java.util.concurrent.Executors.newScheduledThreadPool(1, r -> {
-                                Thread t = new Thread(r);
-                                t.setName("DebugSessionCache-Cleanup");
-                                t.setDaemon(true);
-                                return t;
-                            });
-                        }
-                    }
-                }
+                // Lazy initialization via static holder class is thread-safe
+                java.util.concurrent.ScheduledExecutorService executor = ExecutorHolder.EXECUTOR;
                 
                 // Schedule removal as a single task
-                cleanupExecutor.schedule(() -> {
-                    cache.remove(key);
-                }, CACHE_TIMEOUT_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+                executor.schedule(() -> cache.remove(key), 
+                        CACHE_TIMEOUT_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
             } catch (Exception e) {
                 // Log but don't fail - cache will be cleaned up by maintain() scheduler
                 LOG.debug("Error scheduling cache entry removal: " + e.getMessage());
@@ -456,19 +455,33 @@ public class OAuth2Executer extends DebugExecutor {
         }
         
         /**
+         * Static holder for ExecutorService to enable lazy initialization
+         * without double-checked locking (which is unsafe with non-volatile fields).
+         */
+        private static class ExecutorHolder {
+
+            static final java.util.concurrent.ScheduledExecutorService EXECUTOR = 
+                java.util.concurrent.Executors.newScheduledThreadPool(1, r -> {
+                    Thread t = new Thread(r);
+                    t.setName("DebugSessionCache-Cleanup");
+                    t.setDaemon(true);
+                    return t;
+                });
+        }        /**
          * Shuts down the cleanup executor gracefully.
          * Called during module unload to free resources.
          */
         public static void shutdown() {
-            if (cleanupExecutor != null && !cleanupExecutor.isShutdown()) {
-                try {
-                    cleanupExecutor.shutdownNow();
+            
+            try {
+                if (!ExecutorHolder.EXECUTOR.isShutdown()) {
+                    ExecutorHolder.EXECUTOR.shutdownNow();
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("DebugSessionCache cleanup executor shut down");
                     }
-                } catch (Exception e) {
-                    LOG.warn("Error shutting down DebugSessionCache cleanup executor: " + e.getMessage());
                 }
+            } catch (Exception e) {
+                LOG.warn("Error shutting down DebugSessionCache cleanup executor: " + e.getMessage());
             }
         }
     }

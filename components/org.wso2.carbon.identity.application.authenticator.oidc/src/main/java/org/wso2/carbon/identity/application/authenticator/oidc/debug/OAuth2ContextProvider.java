@@ -39,7 +39,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * OAuth2 context resolver for debug operations.
- * Extends the framework's DebugContextResolver to provide OAuth2-specific context resolution.
+ * Extends the framework's DebugContextProvider to provide OAuth2-specific context resolution.
  * Resolves OAuth2-specific context from IdP configuration using IdentityProviderManager.
  */
 public class OAuth2ContextProvider extends DebugContextProvider {
@@ -55,6 +55,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     @Override
     public Map<String, Object> resolveContext(HttpServletRequest request) throws ContextResolutionException {
+
         try {
             if (request == null) {
                 throw new ContextResolutionException("HTTP request is null");
@@ -100,6 +101,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @throws ContextResolutionException If context resolution fails.
      */
     public Map<String, Object> resolveContext(Map<String, Object> input) throws ContextResolutionException {
+
         if (input == null) {
             throw new ContextResolutionException("Input context map is null");
         }
@@ -131,6 +133,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     @Override
     public Map<String, Object> resolveContext(String idpId, String authenticator) throws ContextResolutionException {
+
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolving OAuth2 debug context for IdP: " + idpId + " with authenticator: " + authenticator);
         }
@@ -141,99 +144,25 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
         Map<String, Object> context = new HashMap<>();
         try {
-            // Use IdentityTenantUtil to resolve tenant domain dynamically.
             String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
+            IdentityProvider idp = retrieveIdentityProvider(idpId, tenantDomain);
+            validateIdpIsEnabled(idp);
 
-            // Retrieve IdP using IdentityProviderManager.
-            IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
-            IdentityProvider idp = null;
+            // Set IdP-specific context properties
+            populateIdpContextProperties(context, idp);
 
-            try {
-                // First try to get by resource ID.
-                idp = idpManager.getIdPByResourceId(idpId, tenantDomain, true);
-            } catch (IdentityProviderManagementException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to get IdP by resource ID: " + e.getMessage(), e);
-                }
-            }
-
-            // If not found by resource ID, try by name (legacy semantics accept either resource id or name).
-            if (idp == null) {
-                try {
-                    idp = idpManager.getIdPByName(idpId, tenantDomain);
-                } catch (IdentityProviderManagementException e2) {
-                    throw new ContextResolutionException("IdP not found: " + idpId, e2);
-                }
-            }
-
-            if (idp == null) {
-                throw new ContextResolutionException("IdP not found: " + idpId);
-            }
-
-            if (!idp.isEnable()) {
-                throw new ContextResolutionException("IdP is disabled: " + idp.getIdentityProviderName());
-            }
-
-            // Set IdP-specific context properties.
-            context.put("DEBUG_IDP_NAME", idp.getIdentityProviderName());
-            context.put("DEBUG_IDP_RESOURCE_ID", idp.getResourceId());
-            context.put("DEBUG_IDP_DESCRIPTION", idp.getIdentityProviderDescription());
-            context.put("IDP_CONFIG", idp);  // Store the full IdP config for debug processors
-
-            // Find and extract OAuth2 authenticator configuration.
+            // Find and extract OAuth2 authenticator configuration
             FederatedAuthenticatorConfig authenticatorConfig = findOAuth2AuthenticatorConfig(idp, authenticator);
             if (authenticatorConfig == null) {
-                // Log all available configs for this IdP to help diagnose why match failed.
-                FederatedAuthenticatorConfig[] allConfigs = idp.getFederatedAuthenticatorConfigs();
-                StringBuilder configList = new StringBuilder("Available authenticator configs for IdP '")
-                        .append(idp.getIdentityProviderName()).append("':");
-                if (allConfigs != null) {
-                    for (FederatedAuthenticatorConfig cfg : allConfigs) {
-                        if (cfg == null) {
-                            configList.append(" [null]");
-                        } else {
-                            configList.append(" [name=").append(cfg.getName())
-                                    .append(" enabled=").append(cfg.isEnabled()).append("]");
-                        }
-                    }
-                } else {
-                    configList.append(" [none]");
-                }
-                String msg = configList.toString();
-                LOG.warn(msg);
-                
+                logAvailableAuthenticators(idp);
                 throw new ContextResolutionException("No OAuth2 authenticator configuration found for IdP: " +
                         idp.getIdentityProviderName());
             }
 
-            // Extract OAuth2 parameters from authenticator configuration.
-            extractOAuth2Parameters(authenticatorConfig, context, idp);
-
-            // Set debug-specific properties.
-            context.put("DEBUG_AUTHENTICATOR_NAME", authenticatorConfig.getName());
-            // Legacy executor mapping: indicate which executor implementation should be used for this
-            // authenticator. The executor wiring may use this key to instantiate or delegate to the
-            // protocol-specific executor (keeps parity with legacy ContextProvider.createOAuth2DebugContext).
-            String executorClass = null;
-            String cfgName = authenticatorConfig.getName();
-            if ("OpenIDConnectAuthenticator".equals(cfgName) ||
-                "OAuth2OpenIDConnectAuthenticator".equals(cfgName)) {
-                executorClass = OpenIDConnectExecutor.class.getName();
-            }
-            if (executorClass != null) {
-                context.put("DEBUG_EXECUTOR_CLASS", executorClass);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Mapped authenticator '" + cfgName + "' to executor '" + executorClass + "'.");
-                }
-            }
-            context.put("isDebugFlow", Boolean.TRUE);
-            context.put("DEBUG_SESSION_ID", java.util.UUID.randomUUID().toString());
-            context.put("DEBUG_TIMESTAMP", System.currentTimeMillis());
-            context.put("DEBUG_TENANT_DOMAIN", tenantDomain);
-            context.put("DEBUG_REQUEST_TYPE", "DFDP_DEBUG");
-
-            // Set context identifier (used for caching and callback).
-            context.put("DEBUG_CONTEXT_ID", "debug-" + java.util.UUID.randomUUID().toString());
+            // Extract OAuth2 parameters and set authenticator details
+            extractOAuth2Parameters(authenticatorConfig, context);
+            populateAuthenticatorContextProperties(context, authenticatorConfig);
+            populateDebugSessionProperties(context, tenantDomain);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OAuth2 debug context resolved successfully for IdP: " + idp.getIdentityProviderName());
@@ -251,6 +180,150 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
+     * Retrieves the Identity Provider by resource ID or name.
+     *
+     * @param idpId Identity Provider resource ID or name.
+     * @param tenantDomain Tenant domain.
+     * @return IdentityProvider instance.
+     * @throws ContextResolutionException If IdP is not found.
+     */
+    private IdentityProvider retrieveIdentityProvider(String idpId, String tenantDomain) 
+            throws ContextResolutionException {
+
+        IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
+        IdentityProvider idp = null;
+
+        // First try to get by resource ID
+        try {
+            idp = idpManager.getIdPByResourceId(idpId, tenantDomain, true);
+        } catch (IdentityProviderManagementException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to get IdP by resource ID: " + e.getMessage(), e);
+            }
+        }
+
+        // If not found by resource ID, try by name
+        if (idp == null) {
+            try {
+                idp = idpManager.getIdPByName(idpId, tenantDomain);
+            } catch (IdentityProviderManagementException e) {
+                throw new ContextResolutionException("IdP not found: " + idpId, e);
+            }
+        }
+
+        if (idp == null) {
+            throw new ContextResolutionException("IdP not found: " + idpId);
+        }
+        
+        return idp;
+    }
+
+    /**
+     * Validates that the IdP is enabled.
+     *
+     * @param idp IdentityProvider to validate.
+     * @throws ContextResolutionException If IdP is disabled.
+     */
+    private void validateIdpIsEnabled(IdentityProvider idp) throws ContextResolutionException {
+
+        if (!idp.isEnable()) {
+            throw new ContextResolutionException("IdP is disabled: " + idp.getIdentityProviderName());
+        }
+    }
+
+    /**
+     * Populates IdP-specific context properties.
+     *
+     * @param context Context map to populate.
+     * @param idp IdentityProvider instance.
+     */
+    private void populateIdpContextProperties(Map<String, Object> context, IdentityProvider idp) {
+
+        context.put(OAuth2DebugConstants.DEBUG_IDP_NAME, idp.getIdentityProviderName());
+        context.put("DEBUG_IDP_RESOURCE_ID", idp.getResourceId());
+        context.put("DEBUG_IDP_DESCRIPTION", idp.getIdentityProviderDescription());
+        context.put(OAuth2DebugConstants.IDP_CONFIG, idp);
+    }
+
+    /**
+     * Logs available authenticator configurations for debugging.
+     *
+     * @param idp IdentityProvider instance.
+     */
+    private void logAvailableAuthenticators(IdentityProvider idp) {
+
+        FederatedAuthenticatorConfig[] allConfigs = idp.getFederatedAuthenticatorConfigs();
+        StringBuilder configList = new StringBuilder("Available authenticator configs for IdP '")
+                .append(idp.getIdentityProviderName()).append("':");
+        
+        if (allConfigs != null) {
+            for (FederatedAuthenticatorConfig cfg : allConfigs) {
+                if (cfg == null) {
+                    configList.append(" [null]");
+                } else {
+                    configList.append(" [name=").append(cfg.getName())
+                            .append(" enabled=").append(cfg.isEnabled()).append("]");
+                }
+            }
+        } else {
+            configList.append(" [none]");
+        }
+        LOG.warn(configList.toString());
+    }
+
+    /**
+     * Populates authenticator-specific context properties.
+     *
+     * @param context Context map to populate.
+     * @param authenticatorConfig Authenticator configuration.
+     */
+    private void populateAuthenticatorContextProperties(Map<String, Object> context, 
+            FederatedAuthenticatorConfig authenticatorConfig) {
+
+        context.put(OAuth2DebugConstants.DEBUG_AUTHENTICATOR_NAME, authenticatorConfig.getName());
+        
+        String executorClass = mapAuthenticatorToExecutor(authenticatorConfig.getName());
+        if (executorClass != null) {
+            context.put(OAuth2DebugConstants.DEBUG_EXECUTOR_CLASS, executorClass);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Mapped authenticator '" + authenticatorConfig.getName() + 
+                         "' to executor '" + executorClass + "'.");
+            }
+        }
+    }
+
+    /**
+     * Maps authenticator name to executor class name.
+     *
+     * @param authenticatorName Name of the authenticator.
+     * @return Executor class name or null if no mapping found.
+     */
+    private String mapAuthenticatorToExecutor(String authenticatorName) {
+
+        if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
+            OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+            return OpenIDConnectExecutor.class.getName();
+        }
+        return null;
+    }
+
+    /**
+     * Populates debug session properties.
+     *
+     * @param context Context map to populate.
+     * @param tenantDomain Tenant domain.
+     */
+    private void populateDebugSessionProperties(Map<String, Object> context, String tenantDomain) {
+
+        context.put(OAuth2DebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
+        context.put(OAuth2DebugConstants.DEBUG_SESSION_ID, java.util.UUID.randomUUID().toString());
+        context.put(OAuth2DebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
+        context.put(OAuth2DebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
+        context.put(OAuth2DebugConstants.DEBUG_REQUEST_TYPE, "DFDP_DEBUG");
+        context.put(OAuth2DebugConstants.DEBUG_CONTEXT_ID, "debug-" + java.util.UUID.randomUUID().toString());
+    }
+
+    /**
      * Validates if this resolver can handle the given IdP.
      * Returns true if the IdP has at least one enabled OAuth2/OIDC authenticator.
      *
@@ -259,24 +332,14 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     @Override
     public boolean canResolve(String idpId) {
+
         try {
             if (StringUtils.isEmpty(idpId)) {
                 return false;
             }
 
-            IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
-            IdentityProvider idp = null;
-            // Use IdentityTenantUtil to resolve tenant domain dynamically.
             String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
-            try {
-                idp = idpManager.getIdPByResourceId(idpId, tenantDomain, true);
-            } catch (IdentityProviderManagementException e) {
-                try {
-                    idp = idpManager.getIdPByName(idpId, tenantDomain);
-                } catch (IdentityProviderManagementException e2) {
-                    return false;
-                }
-            }
+            IdentityProvider idp = retrieveIdpForCanResolve(idpId, tenantDomain);
 
             if (idp == null || !idp.isEnable()) {
                 return false;
@@ -293,6 +356,36 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
+     * Retrieves the IdP for canResolve check with fallback from resource ID to name.
+     *
+     * @param idpId Identity Provider resource ID or name.
+     * @param tenantDomain Tenant domain.
+     * @return IdentityProvider instance or null if not found.
+     */
+    private IdentityProvider retrieveIdpForCanResolve(String idpId, String tenantDomain) {
+
+        IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
+        
+        try {
+            return idpManager.getIdPByResourceId(idpId, tenantDomain, true);
+        } catch (IdentityProviderManagementException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to get IdP by resource ID, trying by name: " + e.getMessage());
+            }
+        }
+
+        try {
+            return idpManager.getIdPByName(idpId, tenantDomain);
+        } catch (IdentityProviderManagementException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to get IdP by name: " + e.getMessage());
+            }
+        }
+        
+        return null;
+    }
+
+    /**
      * Finds the OAuth2/OIDC authenticator configuration in the IdP.
      * If authenticatorName is provided, finds the specific authenticator.
      * Otherwise, returns the first enabled OAuth2 authenticator.
@@ -302,91 +395,182 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @return FederatedAuthenticatorConfig or null if not found.
      */
     private FederatedAuthenticatorConfig findOAuth2AuthenticatorConfig(IdentityProvider idp, 
-                                                                      String authenticatorName) {
+            String authenticatorName) {
+
         FederatedAuthenticatorConfig[] configs = idp.getFederatedAuthenticatorConfigs();
         if (configs == null || configs.length == 0) {
             return null;
         }
 
-        // If an authenticatorName is explicitly provided, prefer an exact match (legacy behavior).
+        // Try exact match if authenticator name is provided.
         if (StringUtils.isNotEmpty(authenticatorName)) {
-            for (FederatedAuthenticatorConfig config : configs) {
-                if (config == null || !config.isEnabled()) {
-                    continue;
-                }
-                String configName = config.getName();
-                if (StringUtils.isEmpty(configName)) {
-                    continue;
-                }
-                if (authenticatorName.equals(configName)) {
-                    return config;
-                }
+            FederatedAuthenticatorConfig exactMatch = findExactAuthenticatorMatch(configs, authenticatorName);
+            if (exactMatch != null) {
+                return exactMatch;
             }
-            // No exact match found for provided authenticator name.
-            // If the provided authenticatorName is a generic protocol name (e.g., "oauth2", "oidc"),
-            // fall back to legacy matching behavior to find a known OAuth2/OIDC authenticator.
-            if ("oauth2".equalsIgnoreCase(authenticatorName) || 
-                "oidc".equalsIgnoreCase(authenticatorName) ||
-                "openid".equalsIgnoreCase(authenticatorName)) {
-                // Fall through to legacy matching logic below.
-            } else {
+            
+            // Check if authenticatorName is a generic protocol name for fallback.
+            if (!isGenericProtocolName(authenticatorName)) {
                 return null;
             }
         }
 
-        // Legacy behavior: select the first enabled authenticator that matches known OAuth2/OIDC implementations.
-        for (FederatedAuthenticatorConfig config : configs) {
-            if (config == null || !config.isEnabled()) {
-                continue;
-            }
-            String configName = config.getName();
-            if (StringUtils.isEmpty(configName)) {
-                continue;
-            }
-
-            // Match OpenIDConnectAuthenticator (main OIDC implementation in this repo).
-            if ("OpenIDConnectAuthenticator".equals(configName) ||
-                "OAuth2OpenIDConnectAuthenticator".equals(configName)) {
-                return config;
-            }
+        // Try known OAuth2/OIDC implementations.
+        FederatedAuthenticatorConfig knownMatch = findKnownOAuth2Authenticator(configs);
+        if (knownMatch != null) {
+            return knownMatch;
         }
 
-        // No known OAuth2/OIDC authenticator found.
-        try {
-            StringBuilder sb = new StringBuilder();
-            sb.append("No OAuth2 authenticator matched for IdP '").append(idp.getIdentityProviderName()).append("'. Available configs:");
-            for (FederatedAuthenticatorConfig cfg : configs) {
-                if (cfg == null) {
-                    sb.append(" [null]");
-                    continue;
-                }
-                sb.append(" [name=").append(cfg.getName())
-                  .append(" enabled=").append(cfg.isEnabled()).append("]");
-            }
-            String warnMsg = sb.toString();
-            LOG.warn(warnMsg);
-        } catch (Throwable t) {
-            LOG.warn("Failed to build authenticator config debug info: " + t.getMessage(), t);
+        // Try OAuth2/OIDC-based authenticators by suffix matching (Google, GitHub, etc.).
+        FederatedAuthenticatorConfig suffixMatch = findOAuth2AuthenticatorBySuffix(configs);
+        if (suffixMatch != null) {
+            return suffixMatch;
         }
 
+        logNoAuthenticatorFound(idp, configs);
         return null;
     }
 
     /**
+     * Finds an authenticator with exact name match.
+     *
+     * @param configs Authenticator configurations.
+     * @param authenticatorName Name to match.
+     * @return Matching config or null.
+     */
+    private FederatedAuthenticatorConfig findExactAuthenticatorMatch(FederatedAuthenticatorConfig[] configs,
+            String authenticatorName) {
+
+        for (FederatedAuthenticatorConfig config : configs) {
+            if (config != null && config.isEnabled() && 
+                authenticatorName.equals(config.getName())) {
+                return config;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Checks if authenticator name is a generic protocol name.
+     *
+     * @param authenticatorName Name to check.
+     * @return true if generic protocol name.
+     */
+    private boolean isGenericProtocolName(String authenticatorName) {
+        
+        return "oauth2".equalsIgnoreCase(authenticatorName) || 
+               "oidc".equalsIgnoreCase(authenticatorName) ||
+               "openid".equalsIgnoreCase(authenticatorName);
+    }
+
+    /**
+     * Finds known OAuth2/OIDC authenticator implementations.
+     *
+     * @param configs Authenticator configurations.
+     * @return First known OAuth2 authenticator or null.
+     */
+    private FederatedAuthenticatorConfig findKnownOAuth2Authenticator(FederatedAuthenticatorConfig[] configs) {
+
+        for (FederatedAuthenticatorConfig config : configs) {
+            if (config != null && config.isEnabled()) {
+                String configName = config.getName();
+                if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(configName) ||
+                    OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(configName)) {
+                    return config;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds OAuth2/OIDC authenticator by name suffix (e.g., GoogleOIDCAuthenticator).
+     *
+     * @param configs Authenticator configurations.
+     * @return First matching config or null.
+     */
+    private FederatedAuthenticatorConfig findOAuth2AuthenticatorBySuffix(FederatedAuthenticatorConfig[] configs) {
+
+        for (FederatedAuthenticatorConfig config : configs) {
+            if (config != null && config.isEnabled()) {
+                String configName = config.getName();
+                if (StringUtils.isNotEmpty(configName) &&
+                    (configName.endsWith("OIDCAuthenticator") || configName.endsWith("OAuth2Authenticator"))) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Using OAuth2-based authenticator as fallback: " + configName);
+                    }
+                    return config;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Logs warning when no OAuth2 authenticator is found.
+     *
+     * @param idp Identity Provider.
+     * @param configs Available authenticator configurations.
+     */
+    private void logNoAuthenticatorFound(IdentityProvider idp, FederatedAuthenticatorConfig[] configs) {
+
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("No OAuth2 authenticator matched for IdP '").append(idp.getIdentityProviderName())
+              .append("'. Available configs:");
+            for (FederatedAuthenticatorConfig cfg : configs) {
+                if (cfg == null) {
+                    sb.append(" [null]");
+                } else {
+                    sb.append(" [name=").append(cfg.getName())
+                      .append(" enabled=").append(cfg.isEnabled()).append("]");
+                }
+            }
+            LOG.warn(sb.toString());
+        } catch (Exception t) {
+            LOG.warn("Failed to build authenticator config debug info: " + t.getMessage(), t);
+        }
+    }
+
+    /**
      * Extracts OAuth2 parameters from the authenticator configuration and stores them in context.
-     * Uses executor-based resolution (like legacy ContextProvider) for better compatibility.
      *
      * @param config Authenticator configuration.
      * @param context Map to store extracted parameters.
-     * @param idp Identity Provider.
      * @throws ContextResolutionException If required parameters are missing.
      */
-    private void extractOAuth2Parameters(FederatedAuthenticatorConfig config, Map<String, Object> context, 
-                                        IdentityProvider idp) throws ContextResolutionException {
+    private void extractOAuth2Parameters(FederatedAuthenticatorConfig config, Map<String, Object> context)
+            throws ContextResolutionException {
+
         Property[] properties = config.getProperties();
         if (properties == null || properties.length == 0) {
             throw new ContextResolutionException("No properties found in authenticator configuration");
         }
+
+        Map<String, String> propertyMap = buildPropertyMap(properties);
+        Object executor = createExecutorForAuthenticator(config.getName());
+
+        // Extract required parameters.
+        extractAndStoreClientId(propertyMap, context);
+        extractAndStoreAuthorizationEndpoint(propertyMap, executor, context);
+        extractAndStoreTokenEndpoint(propertyMap, executor, context);
+        extractAndStoreScope(propertyMap, executor, context);
+
+        // Extract optional parameters.
+        extractAndStoreOptionalParameters(propertyMap, context);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("OAuth2 parameters extracted successfully. ClientId: FOUND");
+        }
+    }
+
+    /**
+     * Builds a property map from Property array.
+     *
+     * @param properties Array of Property objects.
+     * @return Map of property names to values.
+     */
+    private Map<String, String> buildPropertyMap(Property[] properties) {
 
         Map<String, String> propertyMap = new HashMap<>();
         for (Property prop : properties) {
@@ -394,63 +578,78 @@ public class OAuth2ContextProvider extends DebugContextProvider {
                 propertyMap.put(prop.getName(), prop.getValue());
             }
         }
+        return propertyMap;
+    }
 
-        // Create executor instance to resolve endpoints (like legacy ContextProvider does).
-        Object executor = null;
-        String cfgName = config.getName();
-        if ("OpenIDConnectAuthenticator".equals(cfgName) || 
-            "OAuth2OpenIDConnectAuthenticator".equals(cfgName)) {
-            executor = createExecutor(OpenIDConnectExecutor.class.getName());
-        }
-        // Note: Google and GitHub authenticators are in separate repositories and will have their own resolver implementations.
+    /**
+     * Creates an executor instance for the given authenticator name.
+     *
+     * @param authenticatorName Authenticator name.
+     * @return Executor instance or null if not available.
+     */
+    private Object createExecutorForAuthenticator(String authenticatorName) {
 
-        // Extract client ID (use property map directly).
-        String clientId = propertyMap.get("ClientId");
-        if (StringUtils.isEmpty(clientId)) {
-            clientId = propertyMap.get("client_id");
+        if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) || 
+            OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+            return createExecutor(OpenIDConnectExecutor.class.getName());
         }
-        if (StringUtils.isEmpty(clientId)) {
-            clientId = propertyMap.get("OAuth2ClientId");
-        }
+        return null;
+    }
+
+    /**
+     * Extracts and stores the client ID from properties.
+     *
+     * @param propertyMap Property map.
+     * @param context Context to store result.
+     * @throws ContextResolutionException If client ID is not found.
+     */
+    private void extractAndStoreClientId(Map<String, String> propertyMap, Map<String, Object> context)
+            throws ContextResolutionException {
+
+        String clientId = getOrNull(propertyMap, "ClientId", "client_id", "OAuth2ClientId");
         if (StringUtils.isEmpty(clientId)) {
             throw new ContextResolutionException("Client ID not found in authenticator configuration");
         }
-        context.put("DEBUG_CLIENT_ID", clientId);
+        context.put(OAuth2DebugConstants.CLIENT_ID, clientId);
+    }
 
-        // Extract authorization endpoint using executor resolution (with fallback).
-        String authzEndpoint = getAuthorizationEndpointFromExecutor(executor, propertyMap, cfgName);
+    /**
+     * Extracts and stores the authorization endpoint.
+     *
+     * @param propertyMap Property map.
+     * @param executor Executor instance (can be null).
+     * @param context Context to store result.
+     * @throws ContextResolutionException If endpoint is not found.
+     */
+    private void extractAndStoreAuthorizationEndpoint(Map<String, String> propertyMap, Object executor,
+            Map<String, Object> context) throws ContextResolutionException {
+
+        String authzEndpoint = getAuthorizationEndpointFromExecutor(executor, propertyMap);
         if (StringUtils.isEmpty(authzEndpoint)) {
-            // Fallback to direct property lookup with multiple key variants.
-            authzEndpoint = propertyMap.get("AuthorizationEndpoint");
-            if (StringUtils.isEmpty(authzEndpoint)) {
-                authzEndpoint = propertyMap.get("Authorization Endpoint");
-            }
-            if (StringUtils.isEmpty(authzEndpoint)) {
-                authzEndpoint = propertyMap.get("OAuth2AuthzEPUrl");
-            }
-            if (StringUtils.isEmpty(authzEndpoint)) {
-                authzEndpoint = propertyMap.get("authorization_endpoint");
-            }
+            authzEndpoint = getOrNull(propertyMap, "AuthorizationEndpoint", "Authorization Endpoint",
+                    "OAuth2AuthzEPUrl", "authorization_endpoint");
         }
         if (StringUtils.isEmpty(authzEndpoint)) {
             throw new ContextResolutionException("Authorization endpoint not found in authenticator configuration");
         }
-        context.put("DEBUG_AUTHZ_ENDPOINT", authzEndpoint);
+        context.put(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT, authzEndpoint);
+    }
 
-        // Extract token endpoint using executor resolution (with fallback).
-        String tokenEndpoint = getTokenEndpointFromExecutor(executor, propertyMap, cfgName);
+    /**
+     * Extracts and stores the token endpoint.
+     *
+     * @param propertyMap Property map.
+     * @param executor Executor instance (can be null).
+     * @param context Context to store result.
+     * @throws ContextResolutionException If endpoint is not found.
+     */
+    private void extractAndStoreTokenEndpoint(Map<String, String> propertyMap, Object executor,
+            Map<String, Object> context) throws ContextResolutionException {
+
+        String tokenEndpoint = getTokenEndpointFromExecutor(executor, propertyMap);
         if (StringUtils.isEmpty(tokenEndpoint)) {
-            // Fallback to direct property lookup with multiple key variants.
-            tokenEndpoint = propertyMap.get("TokenEndpoint");
-            if (StringUtils.isEmpty(tokenEndpoint)) {
-                tokenEndpoint = propertyMap.get("Token Endpoint");
-            }
-            if (StringUtils.isEmpty(tokenEndpoint)) {
-                tokenEndpoint = propertyMap.get("OAuth2TokenEPUrl");
-            }
-            if (StringUtils.isEmpty(tokenEndpoint)) {
-                tokenEndpoint = propertyMap.get("token_endpoint");
-            }
+            tokenEndpoint = getOrNull(propertyMap, "TokenEndpoint", "Token Endpoint",
+                    "OAuth2TokenEPUrl", "token_endpoint");
         }
         if (StringUtils.isEmpty(tokenEndpoint)) {
             throw new ContextResolutionException("Token endpoint not found in authenticator configuration");
@@ -458,99 +657,131 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolved token endpoint: " + tokenEndpoint);
         }
-        context.put("DEBUG_TOKEN_ENDPOINT", tokenEndpoint);
+        context.put(OAuth2DebugConstants.TOKEN_ENDPOINT, tokenEndpoint);
+    }
 
-        // Extract scope with multiple fallback strategies.
-        String scope = null;
-        
-        // Strategy 1: Check standard scope properties (case-sensitive variations).
-        String[] scopePropertyNames = {"Scope", "scope", "SCOPE", "scopes", "requestedScope", 
-                                       "requestedScopes"};
-        for (String scopePropName : scopePropertyNames) {
-            String scopeValue = propertyMap.get(scopePropName);
-            if (StringUtils.isNotEmpty(scopeValue)) {
-                scope = scopeValue;
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Found scope in property: " + scopePropName + " = " + scope);
-                }
-                break;
-            }
-        }
-        
-        // Strategy 2: Check AdditionalQueryParameters for scope (like Google OIDC uses).
-        if (StringUtils.isEmpty(scope)) {
-            String additionalParams = propertyMap.get("AdditionalQueryParameters");
-            if (additionalParams != null && !additionalParams.isEmpty()) {
-                scope = extractScopeFromQueryParams(additionalParams);
-                if (StringUtils.isNotEmpty(scope) && LOG.isDebugEnabled()) {
-                    LOG.debug("Found scope in AdditionalQueryParameters: " + scope);
-                }
-            }
-        }
-        
-        // Strategy 3: Check executor's getScope method if available.
-        if (StringUtils.isEmpty(scope) && executor != null) {
-            try {
-                java.lang.reflect.Method method = executor.getClass().getMethod("getScope", Map.class);
-                Object result = method.invoke(executor, propertyMap);
-                if (result != null && !result.toString().trim().isEmpty()) {
-                    scope = result.toString();
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Found scope via executor.getScope(): " + scope);
-                    }
-                }
-            } catch (NoSuchMethodException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Executor does not have getScope(Map) method");
-                }
-            } catch (Exception e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to get scope from executor: " + e.getMessage());
-                }
-            }
-        }
-        
-        // Strategy 4: Only default to "openid" if absolutely no scope found anywhere.
-        if (StringUtils.isEmpty(scope)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("No scope found in configuration, defaulting to 'openid'");
-            }
-            scope = "openid";
-        }
-        
+    /**
+     * Extracts and stores the OAuth2 scope parameter.
+     *
+     * @param propertyMap Property map.
+     * @param executor Executor instance (can be null).
+     * @param context Context to store result.
+     */
+    private void extractAndStoreScope(Map<String, String> propertyMap, Object executor,
+            Map<String, Object> context) {
+
+        String scope = extractScope(propertyMap, executor);
         if (LOG.isDebugEnabled()) {
             LOG.debug("Final resolved scope for authorization URL: " + scope);
         }
-        context.put("DEBUG_IDP_SCOPE", scope);
+        context.put(OAuth2DebugConstants.IDP_SCOPE, scope);
+    }
 
-        // Extract optional parameters.
-        String userInfoEndpoint = getOrNull(propertyMap, "UserInfoEndpoint", "User Info Endpoint", 
-                                            "userinfo_endpoint");
+    /**
+     * Extracts scope using multiple fallback strategies.
+     *
+     * @param propertyMap Property map.
+     * @param executor Executor instance (can be null).
+     * @return Extracted scope or "openid" as default.
+     */
+    private String extractScope(Map<String, String> propertyMap, Object executor) {
+
+        // Strategy 1: Check standard scope properties.
+        String scope = getOrNull(propertyMap, "Scope", "scope", "SCOPE", "scopes",
+                "requestedScope", "requestedScopes");
+        if (StringUtils.isNotEmpty(scope)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Found scope in property");
+            }
+            return scope;
+        }
+
+        // Strategy 2: Check AdditionalQueryParameters.
+        String additionalParams = propertyMap.get("AdditionalQueryParameters");
+        if (additionalParams != null && !additionalParams.isEmpty()) {
+            scope = extractScopeFromQueryParams(additionalParams);
+            if (StringUtils.isNotEmpty(scope)) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Found scope in AdditionalQueryParameters: " + scope);
+                }
+                return scope;
+            }
+        }
+
+        // Strategy 3: Check executor's getScope method.
+        if (executor != null) {
+            scope = invokeScopeMethodOnExecutor(executor, propertyMap);
+            if (StringUtils.isNotEmpty(scope)) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Found scope via executor.getScope(): " + scope);
+                }
+                return scope;
+            }
+        }
+
+        // Strategy 4: Default to "openid".
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("No scope found in configuration, defaulting to 'openid'");
+        }
+        return "openid";
+    }
+
+    /**
+     * Invokes the getScope method on the executor using reflection.
+     *
+     * @param executor Executor instance.
+     * @param propertyMap Property map.
+     * @return Scope value or null.
+     */
+    private String invokeScopeMethodOnExecutor(Object executor, Map<String, String> propertyMap) {
+
+        try {
+            java.lang.reflect.Method method = executor.getClass().getMethod("getScope", Map.class);
+            Object result = method.invoke(executor, propertyMap);
+            if (result != null && !result.toString().trim().isEmpty()) {
+                return result.toString();
+            }
+        } catch (NoSuchMethodException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Executor does not have getScope(Map) method");
+            }
+        } catch (Exception e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to get scope from executor: " + e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extracts and stores optional OAuth2 parameters.
+     *
+     * @param propertyMap Property map.
+     * @param context Context to store results.
+     */
+    private void extractAndStoreOptionalParameters(Map<String, String> propertyMap,
+            Map<String, Object> context) {
+
+        String userInfoEndpoint = getOrNull(propertyMap, "UserInfoEndpoint", "User Info Endpoint",
+                "userinfo_endpoint");
         if (StringUtils.isNotEmpty(userInfoEndpoint)) {
-            context.put("DEBUG_USERINFO_ENDPOINT", userInfoEndpoint);
+            context.put(OAuth2DebugConstants.USERINFO_ENDPOINT, userInfoEndpoint);
         }
 
-        String clientSecret = propertyMap.get("ClientSecret");
-        if (StringUtils.isEmpty(clientSecret)) {
-            clientSecret = propertyMap.get("client_secret");
-        }
+        String clientSecret = getOrNull(propertyMap, "ClientSecret", "client_secret");
         if (StringUtils.isNotEmpty(clientSecret)) {
-            context.put("DEBUG_CLIENT_SECRET", clientSecret);
+            context.put(OAuth2DebugConstants.CLIENT_SECRET, clientSecret);
         }
 
         String responseType = propertyMap.get("ResponseType");
         if (StringUtils.isEmpty(responseType)) {
             responseType = "code";
         }
-        context.put("DEBUG_RESPONSE_TYPE", responseType);
+        context.put(OAuth2DebugConstants.RESPONSE_TYPE, responseType);
 
-        // Check if PKCE is enabled (PKCE is REQUIRED for debug flow).
-        context.put("DEBUG_PKCE_ENABLED", true);
-        context.put("DEBUG_PKCE_METHOD", "S256");
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("OAuth2 parameters extracted successfully. ClientId: FOUND, AuthzEndpoint: " + authzEndpoint);
-        }
+        // PKCE is REQUIRED for debug flow.
+        context.put(OAuth2DebugConstants.PKCE_ENABLED, true);
+        context.put(OAuth2DebugConstants.PKCE_METHOD, OAuth2DebugConstants.PKCE_METHOD_S256);
     }
 
     /**
@@ -561,6 +792,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @return Executor instance or null if class not found.
      */
     private Object createExecutor(String executorClassName) {
+
         try {
             Class<?> executorClass = Class.forName(executorClassName);
             return executorClass.getDeclaredConstructor().newInstance();
@@ -585,46 +817,87 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @param authenticatorName Name of the authenticator.
      * @return Authorization endpoint URL or null if not found.
      */
+    /**
+     * Gets the authorization endpoint using executor instance with fallback strategies.
+     *
+     * @param executor Executor instance (can be null if extension not available).
+     * @param authenticatorProperties Authenticator properties map.
+     * @return Authorization endpoint URL or null if not found.
+     */
     private String getAuthorizationEndpointFromExecutor(Object executor,
-            Map<String, String> authenticatorProperties, String authenticatorName) {
-        if (executor != null) {
-            try {
-                // Try getAuthorizationServerEndpoint first.
-                java.lang.reflect.Method method = executor.getClass()
-                        .getMethod("getAuthorizationServerEndpoint", Map.class);
-                Object result = method.invoke(executor, authenticatorProperties);
-                if (result != null && !result.toString().trim().isEmpty()) {
-                    return result.toString();
-                }
-            } catch (NoSuchMethodException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("getAuthorizationServerEndpoint method not found");
-                }
-                try {
-                    // Try getAuthorizationEndpoint as alternative.
-                    java.lang.reflect.Method altMethod = executor.getClass()
-                            .getMethod("getAuthorizationEndpoint", Map.class);
-                    Object result = altMethod.invoke(executor, authenticatorProperties);
-                    if (result != null && !result.toString().trim().isEmpty()) {
-                        return result.toString();
-                    }
-                } catch (Exception ex) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Alternative method also failed: " + ex.getMessage());
-                    }
-                }
-            } catch (IllegalAccessException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Method not accessible: " + e.getMessage());
-                }
-            } catch (java.lang.reflect.InvocationTargetException e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to invoke method: " + e.getMessage());
-                }
-            } catch (Exception e) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to get authorization endpoint from executor: " + e.getMessage());
-                }
+            Map<String, String> authenticatorProperties) {
+
+        if (executor == null) {
+            return null;
+        }
+
+        // Strategy 1: Try getAuthorizationServerEndpoint method.
+        String endpoint = invokeAuthorizationServerEndpointMethod(executor, authenticatorProperties);
+        if (endpoint != null) {
+            return endpoint;
+        }
+
+        // Strategy 2: Try getAuthorizationEndpoint method.
+        return invokeAlternativeAuthorizationEndpointMethod(executor, authenticatorProperties);
+    }
+
+    /**
+     * Invokes getAuthorizationServerEndpoint method on executor using reflection.
+     *
+     * @param executor Executor instance.
+     * @param authenticatorProperties Authenticator properties map.
+     * @return Authorization endpoint or null if method fails/not found.
+     */
+    private String invokeAuthorizationServerEndpointMethod(Object executor,
+            Map<String, String> authenticatorProperties) {
+
+        try {
+            java.lang.reflect.Method method = executor.getClass()
+                    .getMethod("getAuthorizationServerEndpoint", Map.class);
+            Object result = method.invoke(executor, authenticatorProperties);
+            if (result != null && !result.toString().trim().isEmpty()) {
+                return result.toString();
+            }
+        } catch (NoSuchMethodException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("getAuthorizationServerEndpoint method not found");
+            }
+        } catch (IllegalAccessException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Method not accessible: " + e.getMessage());
+            }
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to invoke method: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to get authorization endpoint from executor: " + e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Invokes getAuthorizationEndpoint method as fallback.
+     *
+     * @param executor Executor instance.
+     * @param authenticatorProperties Authenticator properties map.
+     * @return Authorization endpoint or null if method fails/not found.
+     */
+    private String invokeAlternativeAuthorizationEndpointMethod(Object executor,
+            Map<String, String> authenticatorProperties) {
+
+        try {
+            java.lang.reflect.Method altMethod = executor.getClass()
+                    .getMethod("getAuthorizationEndpoint", Map.class);
+            Object result = altMethod.invoke(executor, authenticatorProperties);
+            if (result != null && !result.toString().trim().isEmpty()) {
+                return result.toString();
+            }
+        } catch (Exception ex) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Alternative authorization endpoint method failed: " + ex.getMessage());
             }
         }
         return null;
@@ -639,7 +912,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @return Token endpoint URL with fallback support.
      */
     private String getTokenEndpointFromExecutor(Object executor,
-            Map<String, String> authenticatorProperties, String authenticatorName) {
+            Map<String, String> authenticatorProperties) {
+
         if (executor != null) {
             try {
                 // Use reflection to call getTokenEndpoint method.
@@ -682,6 +956,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @return Extracted scope value or null if not found.
      */
     private String extractScopeFromQueryParams(String queryParams) {
+
         if (queryParams == null || queryParams.trim().isEmpty()) {
             return null;
         }
@@ -710,6 +985,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @return First non-empty value or null.
      */
     private String getOrNull(Map<String, String> map, String... keys) {
+
         if (map == null || keys == null) {
             return null;
         }

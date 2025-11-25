@@ -70,7 +70,7 @@ public class OpenIDConnectAuthenticatorServiceComponent {
 
             // Register OAuth2 debug framework components.
             // Register by framework interface types to allow API layer to look them up by interface.
-            // OAuth2ContextResolver extends DebugContextResolver - register as DebugContextResolver interface.
+            // OAuth2ContextProvider extends DebugContextProvider - register as DebugContextProvider interface.
             componentContext.getBundleContext().registerService(DebugContextProvider.class.getName(), new OAuth2ContextProvider(), null);
             // OAuth2UrlBuilder extends DebugExecutor - register as DebugExecutor interface.
             componentContext.getBundleContext().registerService(DebugExecutor.class.getName(), new OAuth2Executer(), null);

@@ -25,6 +25,7 @@ import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugConstants;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,42 +55,16 @@ public class OAuth2TokenClient {
     public TokenResponse exchangeCodeForTokens(String authorizationCode, String tokenEndpoint, String clientId,
             String clientSecret, String redirectUri, String codeVerifier, String idpName) {
         
+        // Validate all required parameters.
+        TokenResponse validationError = validateRequiredParameters(authorizationCode, tokenEndpoint, clientId,
+                clientSecret, redirectUri);
+        if (validationError != null) {
+            return validationError;
+        }
+
         try {
-            // Validate required parameters.
-            if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
-                return new TokenResponse("INVALID_REQUEST", "Authorization code is required",
-                        "Authorization code parameter was null or empty");
-            }
-            if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
-                return new TokenResponse("INVALID_REQUEST", "Token endpoint URL is required",
-                        "Token endpoint URL was null or empty");
-            }
-            if (clientId == null || clientId.trim().isEmpty()) {
-                return new TokenResponse("INVALID_REQUEST", "Client ID is required",
-                        "Client ID was null or empty");
-            }
-            if (clientSecret == null || clientSecret.trim().isEmpty()) {
-                return new TokenResponse("INVALID_REQUEST", "Client secret is required",
-                        "Client secret was null or empty");
-            }
-            if (redirectUri == null || redirectUri.trim().isEmpty()) {
-                return new TokenResponse("INVALID_REQUEST", "Redirect URI is required",
-                        "Redirect URI was null or empty");
-            }
-
-            OAuthClientRequest request = OAuthClientRequest.tokenLocation(tokenEndpoint)
-                .setGrantType(GrantType.AUTHORIZATION_CODE)
-                .setClientId(clientId)
-                .setClientSecret(clientSecret)
-                .setRedirectURI(redirectUri)
-                .setCode(authorizationCode)
-                .setParameter("code_verifier", codeVerifier)
-                .buildBodyMessage();
-
-            // Add Accept: application/json header for GitHub token endpoint and other special cases.
-            if (idpName != null && idpName.toLowerCase().contains("github")) {
-                request.addHeader("Accept", "application/json");
-            }
+            OAuthClientRequest request = buildTokenRequest(tokenEndpoint, clientId, clientSecret, redirectUri,
+                    authorizationCode, codeVerifier, idpName);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Exchanging authorization code for tokens at endpoint: " + tokenEndpoint + 
@@ -99,31 +74,127 @@ public class OAuth2TokenClient {
             OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
             OAuthJSONAccessTokenResponse oAuthResponse = oAuthClient.accessToken(request);
 
-            String accessToken = oAuthResponse.getAccessToken();
-            String refreshToken = oAuthResponse.getRefreshToken();
-            String tokenType = oAuthResponse.getParam("token_type");
-            String idToken = oAuthResponse.getParam("id_token");
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Token exchange successful for IdP: " + idpName + ", received access_token and token_type.");
-            }
-
-            return new TokenResponse(accessToken, idToken, refreshToken, tokenType);
+            return extractTokenResponse(oAuthResponse, idpName);
         } catch (Exception e) {
-            // Capture detailed error information from the exception.
-            String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            String errorCode = extractErrorCode(e);
-            String enhancedDetails = buildDetailedErrorDescription(e, errorCode, idpName);
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Token exchange failed with error code: " + errorCode + ", message: " + errorMessage + 
-                        ". IdP: " + idpName);
-            }
-            LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode + 
-                    ", Message: " + errorMessage, e);
-            
-            return new TokenResponse(errorCode, errorMessage, enhancedDetails);
+            return handleTokenExchangeError(e, idpName);
         }
+    }
+
+    /**
+     * Validates that all required parameters are present and non-empty.
+     *
+     * @param authorizationCode The authorization code from the IdP.
+     * @param tokenEndpoint The token endpoint URL of the IdP.
+     * @param clientId The OAuth2 client ID.
+     * @param clientSecret The OAuth2 client secret.
+     * @param redirectUri The redirect URI.
+     * @return TokenResponse with error if validation fails, null if all parameters are valid.
+     */
+    private TokenResponse validateRequiredParameters(String authorizationCode, String tokenEndpoint,
+            String clientId, String clientSecret, String redirectUri) {
+
+        if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
+            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
+                    "Authorization code parameter was null or empty");
+        }
+        if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
+            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
+                    "Token endpoint URL was null or empty");
+        }
+        if (clientId == null || clientId.trim().isEmpty()) {
+            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
+                    "Client ID was null or empty");
+        }
+        if (clientSecret == null || clientSecret.trim().isEmpty()) {
+            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
+                    "Client secret was null or empty");
+        }
+        if (redirectUri == null || redirectUri.trim().isEmpty()) {
+            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
+                    "Redirect URI was null or empty");
+        }
+        return null;
+    }
+
+    /**
+     * Builds the OAuth2 token request with appropriate headers and parameters.
+     *
+     * @param tokenEndpoint The token endpoint URL.
+     * @param clientId The OAuth2 client ID.
+     * @param clientSecret The OAuth2 client secret.
+     * @param redirectUri The redirect URI.
+     * @param authorizationCode The authorization code.
+     * @param codeVerifier The PKCE code verifier (may be null).
+     * @param idpName The IdP name for special handling.
+     * @return Configured OAuthClientRequest ready to send.
+     */
+    private OAuthClientRequest buildTokenRequest(String tokenEndpoint, String clientId, String clientSecret,
+            String redirectUri, String authorizationCode, String codeVerifier, String idpName) {
+
+        try {
+            OAuthClientRequest request = OAuthClientRequest.tokenLocation(tokenEndpoint)
+                    .setGrantType(GrantType.AUTHORIZATION_CODE)
+                    .setClientId(clientId)
+                    .setClientSecret(clientSecret)
+                    .setRedirectURI(redirectUri)
+                    .setCode(authorizationCode)
+                    .setParameter("code_verifier", codeVerifier)
+                    .buildBodyMessage();
+
+            // Add Accept: application/json header for GitHub token endpoint and other special cases.
+            if (idpName != null && idpName.toLowerCase().contains("github")) {
+                request.addHeader("Accept", "application/json");
+            }
+
+            return request;
+        } catch (Exception e) {
+            // Re-throw to be caught by the calling method's try-catch.
+            throw new IllegalStateException("Failed to build OAuth2 token request", e);
+        }
+    }
+
+    /**
+     * Extracts tokens from the OAuth2 response.
+     *
+     * @param oAuthResponse The OAuth2 response from the IdP.
+     * @param idpName The IdP name for logging.
+     * @return TokenResponse with extracted tokens.
+     */
+    private TokenResponse extractTokenResponse(OAuthJSONAccessTokenResponse oAuthResponse, String idpName) {
+
+        String accessToken = oAuthResponse.getAccessToken();
+        String refreshToken = oAuthResponse.getRefreshToken();
+        String tokenType = oAuthResponse.getParam("token_type");
+        String idToken = oAuthResponse.getParam("id_token");
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Token exchange successful for IdP: " + idpName + ", received access_token and token_type.");
+        }
+
+        return new TokenResponse(accessToken, idToken, refreshToken, tokenType);
+    }
+
+    /**
+     * Handles errors that occur during token exchange.
+     *
+     * @param e The exception that occurred.
+     * @param idpName The IdP name for logging.
+     * @return TokenResponse with error details.
+     */
+    private TokenResponse handleTokenExchangeError(Exception e, String idpName) {
+
+        String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        String errorCode = extractErrorCode(e);
+        String enhancedDetails = buildDetailedErrorDescription(e, errorCode);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Token exchange failed with error code: " + errorCode + ", message: " + errorMessage + 
+                    ". IdP: " + idpName);
+        }
+        LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode + 
+                ", Message: " + errorMessage, e);
+
+        return new TokenResponse(errorCode, errorMessage, enhancedDetails);
     }
 
     /**
@@ -133,6 +204,7 @@ public class OAuth2TokenClient {
      * @return Error code string or generic TOKEN_EXCHANGE_ERROR if code cannot be determined.
      */
     private String extractErrorCode(Exception e) {
+
         if (e == null) {
             return "TOKEN_EXCHANGE_ERROR";
         }
@@ -144,7 +216,7 @@ public class OAuth2TokenClient {
         } else if (exceptionMessage.contains("unauthorized")) {
             return "UNAUTHORIZED";
         } else if (exceptionMessage.contains("invalid_request")) {
-            return "INVALID_REQUEST";
+            return OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST;
         } else if (exceptionMessage.contains("unsupported_grant_type")) {
             return "UNSUPPORTED_GRANT_TYPE";
         } else if (exceptionMessage.contains("connection")) {
@@ -167,7 +239,8 @@ public class OAuth2TokenClient {
      * @param idpName The Identity Provider name for context in error message.
      * @return A detailed error description with troubleshooting hints.
      */
-    private String buildDetailedErrorDescription(Exception e, String errorCode, String idpName) {
+    private String buildDetailedErrorDescription(Exception e, String errorCode) {
+
         StringBuilder details = new StringBuilder();
         
         // Add context-specific troubleshooting hints.
@@ -181,7 +254,7 @@ public class OAuth2TokenClient {
                     .append("or was already used. Start the authentication process again to get a new ")
                     .append("authorization code.");
                 break;
-            case "INVALID_REQUEST":
+            case OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST:
                 details.append("The token request is malformed. Verify redirect URI and PKCE parameters ")
                     .append("are configured correctly.");
                 break;
@@ -224,6 +297,7 @@ public class OAuth2TokenClient {
      * @return Map of user claims from the UserInfo endpoint.
      */
     public Map<String, Object> fetchUserInfoClaims(String accessToken, String userInfoEndpoint, HttpFetcher fetcher) {
+        
         if (userInfoEndpoint == null || userInfoEndpoint.trim().isEmpty() || fetcher == null) {
             return Collections.emptyMap();
         }

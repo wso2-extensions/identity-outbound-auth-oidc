@@ -35,6 +35,7 @@ public class TokenResponse {
      * Successful token response.
      */
     public TokenResponse(String accessToken, String idToken, String refreshToken, String tokenType) {
+
         this.accessToken = accessToken;
         this.idToken = idToken;
         this.refreshToken = refreshToken;
@@ -48,6 +49,7 @@ public class TokenResponse {
      * Error token response with error details.
      */
     public TokenResponse(String errorCode, String errorDescription, String errorDetails) {
+
         this.errorCode = errorCode;
         this.errorDescription = errorDescription;
         this.errorDetails = errorDetails;
@@ -58,18 +60,22 @@ public class TokenResponse {
     }
 
     public String getAccessToken() {
+
         return accessToken;
     }
 
     public String getIdToken() {
+
         return idToken;
     }
 
     public String getRefreshToken() {
+
         return refreshToken;
     }
 
     public String getTokenType() {
+
         return tokenType;
     }
 
@@ -77,18 +83,22 @@ public class TokenResponse {
      * Returns true if this response contains an error.
      */
     public boolean hasError() {
+
         return errorCode != null;
     }
 
     public String getErrorCode() {
+
         return errorCode;
     }
 
     public String getErrorDescription() {
+
         return errorDescription;
     }
 
     public String getErrorDetails() {
+        
         return errorDetails;
     }
 }

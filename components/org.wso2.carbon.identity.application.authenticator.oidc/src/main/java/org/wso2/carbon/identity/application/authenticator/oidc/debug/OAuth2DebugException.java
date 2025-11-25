@@ -34,6 +34,7 @@ public class OAuth2DebugException extends Exception {
      * @param message The error message.
      */
     public OAuth2DebugException(String message) {
+
         super(message);
     }
 
@@ -44,6 +45,7 @@ public class OAuth2DebugException extends Exception {
      * @param cause The cause of the exception.
      */
     public OAuth2DebugException(String message, Throwable cause) {
+
         super(message, cause);
     }
 
@@ -55,6 +57,7 @@ public class OAuth2DebugException extends Exception {
      * @param cause The cause of the exception.
      */
     public OAuth2DebugException(String errorCode, String message, Throwable cause) {
+
         super(message, cause);
         this.errorCode = errorCode;
     }
@@ -65,6 +68,7 @@ public class OAuth2DebugException extends Exception {
      * @return The error code.
      */
     public String getErrorCode() {
+
         return errorCode;
     }
 
@@ -74,6 +78,7 @@ public class OAuth2DebugException extends Exception {
      * @param errorCode The error code to set.
      */
     public void setErrorCode(String errorCode) {
+        
         this.errorCode = errorCode;
     }
 }

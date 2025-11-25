@@ -36,6 +36,14 @@ public class OAuth2ConfigurationExtractor {
     private static final Log LOG = LogFactory.getLog(OAuth2ConfigurationExtractor.class);
 
     /**
+     * Private constructor to prevent instantiation of utility class.
+     */
+    private OAuth2ConfigurationExtractor() {
+        
+        // Prevent instantiation
+    }
+
+    /**
      * Property name variations for OAuth2 configuration parameters.
      */
     private static final String[] CLIENT_ID_PROPERTY_NAMES = {"ClientId", "client_id", "OAuth2ClientId"};
@@ -57,6 +65,7 @@ public class OAuth2ConfigurationExtractor {
      * @return Map with extracted OAuth2 parameters (clientId, clientSecret, endpoints, etc.).
      */
     public static Map<String, String> extractConfiguration(FederatedAuthenticatorConfig authenticatorConfig) {
+
         Map<String, String> result = new HashMap<>();
 
         if (authenticatorConfig == null || authenticatorConfig.getProperties() == null) {
@@ -84,6 +93,7 @@ public class OAuth2ConfigurationExtractor {
      * @return Map of property names to values.
      */
     private static Map<String, String> buildPropertyMap(Property[] properties) {
+
         Map<String, String> propertyMap = new HashMap<>();
         if (properties != null) {
             for (Property prop : properties) {
@@ -102,6 +112,7 @@ public class OAuth2ConfigurationExtractor {
      * @param result Result map to populate with "clientId" key.
      */
     private static void extractClientId(Map<String, String> propertyMap, Map<String, String> result) {
+
         String value = findPropertyValue(propertyMap, CLIENT_ID_PROPERTY_NAMES);
         if (value != null && !value.trim().isEmpty()) {
             result.put("clientId", value);
@@ -116,6 +127,7 @@ public class OAuth2ConfigurationExtractor {
      * @param result Result map to populate with "clientSecret" key.
      */
     private static void extractClientSecret(Map<String, String> propertyMap, Map<String, String> result) {
+
         String value = findPropertyValue(propertyMap, CLIENT_SECRET_PROPERTY_NAMES);
         if (value != null && !value.trim().isEmpty()) {
             result.put("clientSecret", value);
@@ -132,6 +144,7 @@ public class OAuth2ConfigurationExtractor {
      * @param result Result map to populate with "tokenEndpoint" key.
      */
     private static void extractTokenEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
+
         String value = findPropertyValue(propertyMap, TOKEN_ENDPOINT_PROPERTY_NAMES);
         if (value != null && !value.trim().isEmpty()) {
             result.put("tokenEndpoint", value);
@@ -148,6 +161,7 @@ public class OAuth2ConfigurationExtractor {
      * @param result Result map to populate with "authzEndpoint" key.
      */
     private static void extractAuthorizationEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
+
         String value = findPropertyValue(propertyMap, AUTHZ_ENDPOINT_PROPERTY_NAMES);
         if (value != null && !value.trim().isEmpty()) {
             result.put("authzEndpoint", value);
@@ -165,6 +179,7 @@ public class OAuth2ConfigurationExtractor {
      * @param result Result map to populate with "userInfoEndpoint" key (if found).
      */
     private static void extractUserInfoEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
+
         String value = findPropertyValue(propertyMap, USERINFO_ENDPOINT_PROPERTY_NAMES);
         if (value != null && !value.trim().isEmpty()) {
             result.put("userInfoEndpoint", value);
@@ -180,6 +195,7 @@ public class OAuth2ConfigurationExtractor {
      * @return First non-empty value found, or null if none found.
      */
     private static String findPropertyValue(Map<String, String> propertyMap, String[] propertyNames) {
+
         if (propertyMap == null || propertyNames == null) {
             return null;
         }
@@ -201,6 +217,7 @@ public class OAuth2ConfigurationExtractor {
      * @return true if clientId and tokenEndpoint are present, false otherwise.
      */
     public static boolean isValid(Map<String, String> config) {
+
         if (config == null) {
             return false;
         }
@@ -220,6 +237,7 @@ public class OAuth2ConfigurationExtractor {
      * @return Value or null if not present or empty.
      */
     public static String getConfigValue(Map<String, String> config, String key) {
+
         if (config == null || key == null) {
             return null;
         }
