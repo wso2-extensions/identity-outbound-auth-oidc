@@ -981,7 +981,9 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
     /**
      * Helper to extract scope from AdditionalQueryParameters.
-     * Example: "scope=openid+email" or "scope=openid%20email".
+     * Handles multiple formats:
+     * - Standard: "scope=openid+email+profile" or "scope=openid%20email%20profile"
+     * - Alternative: "scope=openid&email&profile" (treats subsequent params as scope values)
      *
      * @param queryParams Query parameters string.
      * @return Extracted scope value or null if not found.
@@ -993,19 +995,69 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         }
         try {
             String[] params = queryParams.split("&");
-            for (String param : params) {
-                if (param.startsWith("scope=")) {
-                    String scope = param.substring("scope=".length());
-                    scope = java.net.URLDecoder.decode(scope, "UTF-8");
-                    return scope;
-                }
+            int scopeIndex = findScopeParameterIndex(params);
+            
+            if (scopeIndex == -1) {
+                return null;
             }
+            
+            String scope = buildScopeFromParameters(params, scopeIndex);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Extracted scope from query params: " + scope);
+            }
+            return scope;
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error extracting scope from AdditionalQueryParameters: " + queryParams, e);
             }
         }
         return null;
+    }
+
+    /**
+     * Finds the index of the scope parameter in the parameters array.
+     *
+     * @param params Array of parameters.
+     * @return Index of scope parameter, or -1 if not found.
+     */
+    private int findScopeParameterIndex(String[] params) {
+
+        for (int i = 0; i < params.length; i++) {
+            if (params[i].trim().startsWith("scope=")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Builds the complete scope string from parameters starting at scopeIndex.
+     * Handles format: scope=openid&email&profile by treating subsequent non-key-value params as scope values.
+     *
+     * @param params Array of parameters.
+     * @param scopeIndex Index of the scope parameter.
+     * @return Complete scope string.
+     * @throws java.io.UnsupportedEncodingException If URL decoding fails.
+     */
+    private String buildScopeFromParameters(String[] params, int scopeIndex) 
+            throws java.io.UnsupportedEncodingException {
+
+        StringBuilder scopeBuilder = new StringBuilder();
+        String firstScopeValue = params[scopeIndex].substring("scope=".length());
+        firstScopeValue = java.net.URLDecoder.decode(firstScopeValue, "UTF-8");
+        scopeBuilder.append(firstScopeValue);
+        
+        // Collect subsequent parameters that are scope values (no '=' sign).
+        for (int j = scopeIndex + 1; j < params.length; j++) {
+            String nextParam = params[j].trim();
+            if (!nextParam.contains("=")) {
+                scopeBuilder.append(" ").append(nextParam);
+            } else {
+                break;
+            }
+        }
+        
+        return scopeBuilder.toString().trim();
     }
 
     /**
