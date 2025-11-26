@@ -60,7 +60,6 @@ import javax.servlet.http.HttpServletResponse;
 public class OAuth2DebugProcessor extends DebugProcessor {
 
     private static final Log LOG = LogFactory.getLog(OAuth2DebugProcessor.class);
-    private static final String STATUS_SUCCESS = "success";
 
     /**
      * Validates OAuth2-specific callback parameters.
@@ -75,7 +74,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean validateProtocolCallback(HttpServletRequest request, AuthenticationContext context,
+    protected boolean validateCallback(HttpServletRequest request, AuthenticationContext context,
               HttpServletResponse response, String state, String idpId) throws IOException {
 
         String code = request.getParameter("code");
@@ -143,7 +142,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean exchangeAuthorizationForTokens(HttpServletRequest request, AuthenticationContext context,
+    protected boolean processAuthentication(HttpServletRequest request, AuthenticationContext context,
               HttpServletResponse response, String state, String idpId) throws IOException {
 
         String code = request.getParameter("code");
@@ -742,7 +741,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return Map of extracted claims, or empty map if extraction yields no results.
      */
     @Override
-    protected Map<String, Object> extractUserClaims(AuthenticationContext context) {
+    protected Map<String, Object> extractDebugData(AuthenticationContext context) {
 
         try {
             // Extract and validate ID token.
@@ -1046,7 +1045,6 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @return true if duplicate code detected, false otherwise.
      * @throws IOException If response cannot be sent.
      */
-    @Override
     protected boolean isAuthorizationCodeAlreadyProcessed(String authorizationCode, HttpServletRequest request,
               AuthenticationContext context, HttpServletResponse response, String state, String idpId) 
               throws IOException {
@@ -1078,7 +1076,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean handleClaimsExtractionResult(Map<String, Object> claims, AuthenticationContext context,
+    protected boolean validateDebugData(Map<String, Object> claims, AuthenticationContext context,
               HttpServletResponse response, String state, String idpId) throws IOException {
 
         if (claims == null || claims.isEmpty()) {
@@ -1370,7 +1368,8 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         List<String> missingClaims = new ArrayList<>();
         for (Map<String, Object> claim : mappedClaimsArray) {
             if ("Not Mapped".equals(claim.get("status"))) {
-                missingClaims.add(claim.get("isClaim") + " <- " + claim.get("idpClaim"));
+                missingClaims.add(claim.get(OAuth2DebugConstants.CLAIM_MAPPING_IDP_CLAIM) + " -> " + 
+                        claim.get(OAuth2DebugConstants.CLAIM_MAPPING_LOCAL_CLAIM));
             }
         }
         if (!missingClaims.isEmpty()) {
@@ -1416,9 +1415,9 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         
         // Add metadata.
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("step_claim_mapping_status", STATUS_SUCCESS);
-        metadata.put("step_authentication_status", STATUS_SUCCESS);
-        metadata.put("step_connection_status", STATUS_SUCCESS);
+        metadata.put(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        metadata.put(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
+        metadata.put(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
         debugResult.put("metadata", metadata);
     }
 
@@ -1601,7 +1600,6 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @param state The state parameter for session identification.
      * @param context AuthenticationContext.
      */
-    @Override
     protected void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
             String errorDetails, String state, AuthenticationContext context) {
 
@@ -1614,6 +1612,15 @@ public class OAuth2DebugProcessor extends DebugProcessor {
             if (errorDetails != null && !errorDetails.isEmpty()) {
                 errorResponse.put("error_details", errorDetails);
             }
+            
+            // Add external redirect URL if available.
+            String externalRedirectUrl = (String) context.getProperty(OAuth2DebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
+            if (externalRedirectUrl != null && !externalRedirectUrl.isEmpty()) {
+                errorResponse.put("externalRedirectUrl", externalRedirectUrl);
+            }
+            
+            // Add metadata placeholder for consistency with success response.
+            errorResponse.put("metadata", new HashMap<>());
             
             com.fasterxml.jackson.databind.ObjectMapper mapper = 
                     new com.fasterxml.jackson.databind.ObjectMapper();
@@ -1683,7 +1690,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
      * @throws IOException If response fails.
      */
     @Override
-    protected void redirectToDebugSuccess(HttpServletResponse response, String state, String idpId) throws IOException {
+    protected void sendDebugResponse(HttpServletResponse response, String state, String idpId) throws IOException {
 
         if (!response.isCommitted()) {
             String encodedState = encodeForUrl(state);
@@ -1716,13 +1723,13 @@ public class OAuth2DebugProcessor extends DebugProcessor {
                 return;
             }
             
-            logRestorationStart(state);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Restoring context from DebugSessionCache for state: " + state);
+            }
             restorePropertiesToContext(cachedContext, context);
-            logRestorationComplete();
             
         } catch (Exception e) {
             LOG.debug("Unable to restore context from DebugSessionCache: " + e.getMessage());
-            // Continue without restoration - will fall back to other methods
         }
     }
 
@@ -1735,7 +1742,7 @@ public class OAuth2DebugProcessor extends DebugProcessor {
     private Object getCacheInstance() throws ReflectiveOperationException {
 
         Class<?> sessionCacheClass = Class.forName(
-                "org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer$DebugSessionCache");
+                "org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugExecuter$DebugSessionCache");
         java.lang.reflect.Method getInstanceMethod = sessionCacheClass.getMethod("getInstance");
         return getInstanceMethod.invoke(null);
     }
@@ -1755,18 +1762,6 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         @SuppressWarnings("unchecked")
         Map<String, Object> cachedContext = (Map<String, Object>) getMethod.invoke(cacheInstance, state);
         return cachedContext;
-    }
-
-    /**
-     * Logs the start of context restoration process.
-     *
-     * @param state State parameter for context identification.
-     */
-    private void logRestorationStart(String state) {
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Restoring context from DebugSessionCache for state: " + state);
-        }
     }
 
     /**
@@ -1803,19 +1798,6 @@ public class OAuth2DebugProcessor extends DebugProcessor {
         Object value = cachedContext.get(property);
         if (value != null) {
             context.setProperty(property, value);
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Restored property from cache: " + property);
-            }
-        }
-    }
-
-    /**
-     * Logs the completion of context restoration process.
-     */
-    private void logRestorationComplete() {
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Context restoration from DebugSessionCache completed");
         }
     }
 

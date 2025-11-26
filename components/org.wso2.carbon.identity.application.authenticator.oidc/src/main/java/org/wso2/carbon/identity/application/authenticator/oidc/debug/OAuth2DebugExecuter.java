@@ -36,9 +36,9 @@ import java.util.Map;
  * Extends the framework's DebugExecutor to provide OAuth2-specific execution logic.
  * Generates OAuth2 Authorization URLs with PKCE parameters and handles debug state management.
  */
-public class OAuth2Executer extends DebugExecutor {
+public class OAuth2DebugExecuter extends DebugExecutor {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2Executer.class);
+    private static final Log LOG = LogFactory.getLog(OAuth2DebugExecuter.class);
     private static final String EXECUTOR_NAME = "OAuth2Executor";
     private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
@@ -113,9 +113,12 @@ public class OAuth2Executer extends DebugExecutor {
             // Generate PKCE parameters.
             String codeVerifier = generateCodeVerifier();
             String codeChallenge = generateCodeChallenge(codeVerifier);
-            String state = (String) context.getOrDefault("  ", generateState());
+            
+            // Use contextId as the state parameter to ensure consistency between initial response and callback.
+            // This ensures the session ID returned to the client matches what's cached during callback.
             String contextId = (String) context.getOrDefault(OAuth2DebugConstants.DEBUG_CONTEXT_ID, 
                     "debug-" + java.util.UUID.randomUUID().toString());
+            String state = contextId;  // Use contextId as state for consistency.
 
             context.put(OAuth2DebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
             context.put(OAuth2DebugConstants.DEBUG_STATE, state);
@@ -328,16 +331,6 @@ public class OAuth2Executer extends DebugExecutor {
             LOG.error("Error encoding parameter: " + e.getMessage(), e);
             throw new ExecutionException("Failed to URL-encode parameter: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Generates a random state parameter.
-     *
-     * @return Random state string.
-     */
-    private String generateState() {
-
-        return "debug-" + java.util.UUID.randomUUID().toString().replace("-", "");
     }
 
     /**

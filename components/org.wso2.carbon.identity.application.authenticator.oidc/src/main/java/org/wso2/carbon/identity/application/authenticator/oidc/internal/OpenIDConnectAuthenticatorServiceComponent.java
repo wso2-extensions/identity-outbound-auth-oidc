@@ -28,14 +28,12 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Htt
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityProcessor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugProtocolProvider;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
-import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
-import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
+import org.wso2.carbon.identity.debug.framework.core.DebugProtocolProvider;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;
@@ -68,12 +66,15 @@ public class OpenIDConnectAuthenticatorServiceComponent {
                     new LogoutResponseFactory(), null);
             componentContext.getBundleContext().registerService(Executor.class.getName(), new OpenIDConnectExecutor(), null);
 
-            // Register OAuth2 debug framework components.
-            // Register by framework interface types to allow API layer to look them up by interface.
-            // OAuth2ContextProvider extends DebugContextProvider - register as DebugContextProvider interface.
-            componentContext.getBundleContext().registerService(DebugContextProvider.class.getName(), new OAuth2ContextProvider(), null);
-            // OAuth2UrlBuilder extends DebugExecutor - register as DebugExecutor interface.
-            componentContext.getBundleContext().registerService(DebugExecutor.class.getName(), new OAuth2Executer(), null);
+            // Register OAuth2/OIDC debug protocol provider.
+            // The provider advertises the protocol's debug capabilities (context provider, executor, processor)
+            // without requiring reflection-based class loading. The debug-framework discovers providers
+            // dynamically via OSGi service lookups and remains agnostic of protocol implementations.
+            componentContext.getBundleContext().registerService(DebugProtocolProvider.class.getName(), 
+                    new OIDCDebugProtocolProvider(), null);
+            if (log.isDebugEnabled()) {
+                log.debug("Registered OIDCDebugProtocolProvider as DebugProtocolProvider service");
+            }
 
             if (log.isDebugEnabled()) {
                 log.debug("OpenID Connect Authenticator bundle is activated");

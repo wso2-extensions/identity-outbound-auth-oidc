@@ -25,7 +25,7 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2Executer;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugExecuter;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 
@@ -53,7 +53,7 @@ public class OIDCAuthenticatorServiceComponent {
     protected void activate(ComponentContext ctxt) {
         try {
             // Register OAuth2Executer as DebugExecutor service
-            OAuth2Executer oauth2Executor = new OAuth2Executer();
+            OAuth2DebugExecuter oauth2Executor = new OAuth2DebugExecuter();
             ctxt.getBundleContext().registerService(
                 new String[]{DebugExecutor.class.getName()}, 
                 oauth2Executor, 

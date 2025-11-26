@@ -402,16 +402,32 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             return null;
         }
 
-        // Try exact match if authenticator name is provided.
-        if (StringUtils.isNotEmpty(authenticatorName)) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Finding OAuth2 authenticator config with name: '" + authenticatorName + 
+                    "' for IdP: " + idp.getIdentityProviderName());
+        }
+
+        // Try exact match if authenticator name is provided and looks like a valid authenticator name.
+        if (StringUtils.isNotEmpty(authenticatorName) && !isResourceTypeIdentifier(authenticatorName)) {
             FederatedAuthenticatorConfig exactMatch = findExactAuthenticatorMatch(configs, authenticatorName);
             if (exactMatch != null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Found exact match for authenticator: " + authenticatorName);
+                }
                 return exactMatch;
             }
             
             // Check if authenticatorName is a generic protocol name for fallback.
             if (!isGenericProtocolName(authenticatorName)) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Authenticator name '" + authenticatorName + 
+                            "' is not a generic protocol name, stopping search");
+                }
                 return null;
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Authenticator name '" + authenticatorName + 
+                        "' is a generic protocol name, trying fallback matching");
             }
         }
 
@@ -448,6 +464,21 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             }
         }
         return null;
+    }
+
+    /**
+     * Checks if the provided string is a resource type identifier rather than an authenticator name.
+     * Resource type identifiers like "RESOURCE_DEBUG_REQUEST" should be ignored when searching for authenticators.
+     *
+     * @param authenticatorName Name to check.
+     * @return true if the string appears to be a resource type identifier.
+     */
+    private boolean isResourceTypeIdentifier(String authenticatorName) {
+        
+        return authenticatorName != null && 
+               (authenticatorName.contains("_REQUEST") || 
+                authenticatorName.contains("RESOURCE_") ||
+                authenticatorName.contains("DEBUG_"));
     }
 
     /**
