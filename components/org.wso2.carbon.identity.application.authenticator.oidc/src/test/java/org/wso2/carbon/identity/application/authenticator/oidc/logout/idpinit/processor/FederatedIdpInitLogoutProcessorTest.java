@@ -25,11 +25,10 @@ import net.minidev.json.JSONObject;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang.StringUtils;
 import org.mockito.Mock;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockTestCase;
-import org.powermock.reflect.internal.WhiteboxImpl;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -38,7 +37,7 @@ import org.wso2.carbon.identity.application.authentication.framework.UserSession
 import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.IdentityRequest;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
-import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
+import org.wso2.carbon.identity.application.authenticator.oidc.ReflectionTestUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.TestUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutClientException;
@@ -77,10 +76,10 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
-import static org.powermock.api.mockito.PowerMockito.when;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -90,13 +89,9 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCE
 /**
  * Unit test class for FederatedIdpInitLogoutProcessor.
  */
-@PrepareForTest({SignedJWT.class, IdentityProviderManager.class, JWTSignatureValidationUtils.class,
-        IdentityDatabaseUtil.class, FrameworkUtils.class, XMLInputFactory.class, DataSource.class,
-        UserSessionManagementService.class, OpenIDConnectAuthenticatorDataHolder.class, IdentityTenantUtil.class,
-        UserSessionStore.class, ServerSessionManagementService.class})
-@PowerMockIgnore({"jdk.internal.reflect.*", "com.sun.org.apache.xerces.*", "javax.xml.*", "org.w3c.*", "com.sun.org.apache.xalan.*"})
+
 @WithCarbonHome
-public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
+public class FederatedIdpInitLogoutProcessorTest {
 
     @Mock
     private IdentityRequest mockIdentityRequest;
@@ -111,6 +106,9 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     Property[] properties;
     FederatedAuthenticatorConfig federatedAuthenticatorConfig;
     IdentityProvider identityProvider;
+
+    MockedStatic<XMLInputFactory> xmlInputFactoryStatic;
+    private AutoCloseable openMocks;
 
     private static Map<String, BasicDataSource> dataSourceMap = new HashMap<>();
     private static final String DB_NAME = "testOIDCSLO";
@@ -131,11 +129,21 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     @BeforeMethod
     public void init() throws Exception {
 
+        openMocks = MockitoAnnotations.openMocks(this);
         logoutProcessor = new FederatedIdpInitLogoutProcessor();
-        mockStatic(XMLInputFactory.class);
+        xmlInputFactoryStatic = mockStatic(XMLInputFactory.class);
         when(XMLInputFactory.newInstance()).thenReturn(new WstxInputFactory());
         FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
         setupIdP();
+    }
+    
+    @AfterMethod
+    public void tearDown() throws Exception {
+
+        if (xmlInputFactoryStatic != null) {
+            xmlInputFactoryStatic.close();
+        }
+        openMocks.close();
     }
 
     @DataProvider(name = "requestDataHandler")
@@ -171,7 +179,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateAudience", auds,
                     mockIdentityProvider);
         } catch (LogoutClientException e) {
             fail();
@@ -191,7 +199,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         federatedAuthenticatorConfig.setProperties(properties);
         when(mockIdentityProvider.getDefaultAuthenticatorConfig()).thenReturn(federatedAuthenticatorConfig);
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateAudience", auds,
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateAudience", auds,
                     mockIdentityProvider);
             fail();
         } catch (LogoutClientException e) {
@@ -212,7 +220,8 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public void testValidateSid(String sid, String expectedValidateSId) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("sid", sid).build();
-        boolean validateSId = WhiteboxImpl.invokeMethod(logoutProcessor, "isSidClaimExists", claimsSet);
+        boolean validateSId = (boolean) ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "isSidClaimExists",
+                claimsSet);
         assertEquals(validateSId, Boolean.parseBoolean(expectedValidateSId));
     }
 
@@ -229,7 +238,8 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public void testValidateSub(String sub, String expectedValidateSId) throws Exception {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("sub", sub).build();
-        boolean validateSub = WhiteboxImpl.invokeMethod(logoutProcessor, "isSubClaimExists", claimsSet);
+        boolean validateSub = (boolean) ReflectionTestUtils
+                .invokePrivateMethod(logoutProcessor, "isSubClaimExists", claimsSet);
         assertEquals(validateSub, Boolean.parseBoolean(expectedValidateSId));
     }
 
@@ -249,7 +259,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         JSONObject jsonObject = new JSONObject();
         jsonObject.appendField(eventName, eventVal);
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateEventClaim", jsonObject);
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateEventClaim", jsonObject);
             assertTrue(true);
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
@@ -272,7 +282,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim(nonceName, nonceValue).build();
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateNonce", claimsSet);
         } catch (LogoutClientException e) {
             fail();
         }
@@ -283,7 +293,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().claim("nonce", "zdfatedf4t").build();
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateNonce", claimsSet);
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateNonce", claimsSet);
             fail();
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
@@ -295,7 +305,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
     public void testValidIat() throws Exception {
 
         try {
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat",
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateIat",
                     new Date());
         } catch (LogoutClientException e) {
             fail();
@@ -308,7 +318,7 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         try {
             Date currentDate = new Date();
             Date pastTime = new Date(currentDate.getTime() - (40 * 60 * 1000));
-            WhiteboxImpl.invokeMethod(logoutProcessor, "validateIat", pastTime);
+            ReflectionTestUtils.invokePrivateMethod(logoutProcessor, "validateIat", pastTime);
             fail();
         } catch (LogoutClientException e) {
             assertEquals(e.getMessage(),
@@ -367,10 +377,11 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         throw new RuntimeException("No datasource initiated for database: " + database);
     }
 
-    private void prepareConnection(Connection connection1, boolean b) {
+    private MockedStatic<IdentityDatabaseUtil> prepareConnection(Connection connection1, boolean b) {
 
-        mockStatic(IdentityDatabaseUtil.class);
-        PowerMockito.when(IdentityDatabaseUtil.getDBConnection(b)).thenReturn(connection1);
+        MockedStatic<IdentityDatabaseUtil> identityDatabaseUtilStatic = mockStatic(IdentityDatabaseUtil.class);
+        identityDatabaseUtilStatic.when(() -> IdentityDatabaseUtil.getDBConnection(b)).thenReturn(connection1);
+        return identityDatabaseUtilStatic;
     }
 
     private void setupSessionStore(String USER_ID, String USER_NAME, String SESSION_CONTEXT_KEY,
@@ -387,47 +398,50 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         int IDP_ID = 1;
 
         try (Connection connection1 = getConnection(DB_NAME)) {
-            prepareConnection(connection1, false);
+            try (MockedStatic<IdentityDatabaseUtil> ignored = prepareConnection(connection1, false)) {
 
-            String sql = "INSERT INTO IDN_FED_AUTH_SESSION_MAPPING " +
-                    "(IDP_SESSION_ID, SESSION_ID, IDP_NAME,  AUTHENTICATOR_ID, PROTOCOL_TYPE) VALUES ( '" +
-                    IDP_SESSION_INDEX + "' , '" + SESSION_CONTEXT_KEY + "' , '" + IDP_NAME + "' , '" +
-                    AUTHENTICATOR_ID +
-                    "', '" + PROTOCOL_TYPE + "');";
+                String sql = "INSERT INTO IDN_FED_AUTH_SESSION_MAPPING " +
+                        "(IDP_SESSION_ID, SESSION_ID, IDP_NAME,  AUTHENTICATOR_ID, PROTOCOL_TYPE) VALUES ( '" +
+                        IDP_SESSION_INDEX + "' , '" + SESSION_CONTEXT_KEY + "' , '" + IDP_NAME + "' , '" +
+                        AUTHENTICATOR_ID +
+                        "', '" + PROTOCOL_TYPE + "');";
 
-            String sql2 =
-                    "INSERT INTO IDN_AUTH_USER (USER_ID,USER_NAME,TENANT_ID,DOMAIN_NAME,IDP_ID) VALUES ('" + USER_ID +
-                            "','" + USER_NAME + "','" + TENANT_ID + "','" + DOMAIN_NAME + "','" + IDP_ID + "');";
+                String sql2 =
+                        "INSERT INTO IDN_AUTH_USER (USER_ID,USER_NAME,TENANT_ID,DOMAIN_NAME,IDP_ID) VALUES ('" +
+                                USER_ID + "','" + USER_NAME + "','" + TENANT_ID + "','" + DOMAIN_NAME + "','" + IDP_ID +
+                                "');";
 
-            PreparedStatement statement = connection1.prepareStatement(sql);
-            PreparedStatement statement2 = connection1.prepareStatement(sql2);
-            statement.execute();
-            statement2.execute();
+                PreparedStatement statement = connection1.prepareStatement(sql);
+                PreparedStatement statement2 = connection1.prepareStatement(sql2);
+                statement.execute();
+                statement2.execute();
+            }
         }
 
         try (Connection connection1 = getConnection(DB_NAME)) {
-            prepareConnection(connection1, false);
-            String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
-            PreparedStatement statement1 = connection1.prepareStatement(query);
-            statement1.setString(1, IDP_SESSION_INDEX);
-            ResultSet resultSet1 = statement1.executeQuery();
-            String result1 = null;
-            if (resultSet1.next()) {
-                result1 = resultSet1.getString("SESSION_ID");
-            }
-            assertEquals(SESSION_CONTEXT_KEY, result1, "Failed add auth session mapping into " +
-                    "IDN_FED_AUTH_SESSION_MAPPING table.");
+            try (MockedStatic<IdentityDatabaseUtil> ignored =  prepareConnection(connection1,false)) {
+                String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
+                PreparedStatement statement1 = connection1.prepareStatement(query);
+                statement1.setString(1, IDP_SESSION_INDEX);
+                ResultSet resultSet1 = statement1.executeQuery();
+                String result1 = null;
+                if (resultSet1.next()) {
+                    result1 = resultSet1.getString("SESSION_ID");
+                }
+                assertEquals(SESSION_CONTEXT_KEY, result1, "Failed add auth session mapping into " +
+                        "IDN_FED_AUTH_SESSION_MAPPING table.");
 
-            String query2 = "SELECT * FROM IDN_AUTH_USER WHERE USER_NAME=?";
-            PreparedStatement statement2 = connection1.prepareStatement(query2);
-            statement2.setString(1, USER_NAME);
-            ResultSet resultSet2 = statement2.executeQuery();
-            String result2 = null;
-            if (resultSet2.next()) {
-                result2 = resultSet2.getString("USER_ID");
+                String query2 = "SELECT * FROM IDN_AUTH_USER WHERE USER_NAME=?";
+                PreparedStatement statement2 = connection1.prepareStatement(query2);
+                statement2.setString(1, USER_NAME);
+                ResultSet resultSet2 = statement2.executeQuery();
+                String result2 = null;
+                if (resultSet2.next()) {
+                    result2 = resultSet2.getString("USER_ID");
+                }
+                assertEquals(USER_ID, result2, "Failed add user info into " +
+                        "IDN_AUTH_USER table.");
             }
-            assertEquals(USER_ID, result2, "Failed add user info into " +
-                    "IDN_AUTH_USER table.");
         }
     }
 
@@ -465,57 +479,64 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
         String IDP_SESSION_INDEX = "15043ffc-877d-4205-af41-9b107f7da38c";
 
         JWTClaimsSet jwtClaimsSet = generateLogoutToken(USER_NAME, true, IDP_SESSION_INDEX);
+        setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
 
         // Mock the logout token and claims.
-        mockStatic(SignedJWT.class);
-        SignedJWT signedJWT = mock(SignedJWT.class);
-        when(SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
-        when(SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
-        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
-        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
-        mockStatic(IdentityProviderManager.class);
-        IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
-        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
-        when(IdentityProviderManager.getInstance().getIdPByMetadataProperty(
-                IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
-                "carbon.super", false)).thenReturn(identityProvider);
+        try (MockedStatic<SignedJWT> signedJWTStatic = mockStatic(SignedJWT.class);
+             MockedStatic<IdentityProviderManager> idpManagerStatic = mockStatic(IdentityProviderManager.class);
+             MockedStatic<JWTSignatureValidationUtils> jwtSigStatic = mockStatic(JWTSignatureValidationUtils.class);
+             MockedStatic<IdentityDatabaseUtil> identityDatabaseUtilStatic =
+                     mockStatic(IdentityDatabaseUtil.class);
+             MockedStatic<OpenIDConnectAuthenticatorDataHolder> dataHolderStatic =
+                     mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+             MockedStatic<UserSessionStore> userSessionStoreStatic =
+                     mockStatic(UserSessionStore.class);
+             MockedStatic<IdentityTenantUtil> tenantUtilStatic =
+                     mockStatic(IdentityTenantUtil.class)) {
+            SignedJWT signedJWT = mock(SignedJWT.class);
+            signedJWTStatic.when(() -> SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
+            signedJWTStatic.when(() -> SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+            when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
+            when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
 
-        // Mock the signature validation.
-        mockStatic(JWTSignatureValidationUtils.class);
-        when(JWTSignatureValidationUtils.validateSignature(signedJWT,
-                identityProvider)).thenReturn(true);
+            IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
+            idpManagerStatic.when(IdentityProviderManager::getInstance).thenReturn(identityProviderManager);
+            when(identityProviderManager.getIdPByMetadataProperty(
+                    IdentityApplicationConstants.IDP_ISSUER_NAME,
+                    "https://federatedwso2.com:9444/oauth2/token",
+                    "carbon.super", false)).thenReturn(identityProvider);
 
-        // Setup session store.
-        setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
-        DataSource dataSource = mock(DataSource.class);
-        mockStatic(IdentityDatabaseUtil.class);
-        when(IdentityDatabaseUtil.getDataSource()).thenReturn(dataSource);
-        when(IdentityDatabaseUtil.getDBConnection(anyBoolean())).thenReturn(getConnection(DB_NAME));
-        when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
+            jwtSigStatic.when(() -> JWTSignatureValidationUtils.validateSignature(signedJWT, identityProvider)).thenReturn(true);
 
-        // Mock the server session management service.
-        mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
-        OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
-                mock(OpenIDConnectAuthenticatorDataHolder.class);
-        ServerSessionManagementService serverSessionManagementService = mock(ServerSessionManagementService.class);
-        when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
-        when(OpenIDConnectAuthenticatorDataHolder.getInstance().getServerSessionManagementService())
-                .thenReturn(serverSessionManagementService);
+            DataSource dataSource = mock(DataSource.class);
 
-        // Mock removeSession method.
-        when(serverSessionManagementService.removeSession(SESSION_CONTEXT_KEY)).thenReturn(true);
+            identityDatabaseUtilStatic.when(IdentityDatabaseUtil::getDataSource).thenReturn(dataSource);
+            identityDatabaseUtilStatic.when(() -> IdentityDatabaseUtil.getDBConnection(anyBoolean()))
+                    .thenReturn(getConnection(DB_NAME));
+            when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
 
-        mockStatic(UserSessionStore.class);
-        UserSessionStore userSessionStore = mock(UserSessionStore.class);
-        when(UserSessionStore.getInstance()).thenReturn(userSessionStore);
-        doNothing().when(userSessionStore).removeTerminatedSessionRecords(anyList());
+            OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
+                    mock(OpenIDConnectAuthenticatorDataHolder.class);
+            ServerSessionManagementService serverSessionManagementService =
+                    mock(ServerSessionManagementService.class);
+            dataHolderStatic.when(OpenIDConnectAuthenticatorDataHolder::getInstance).thenReturn(
+                    openIDConnectAuthenticatorDataHolder);
+            when(openIDConnectAuthenticatorDataHolder.
+                    getServerSessionManagementService()).thenReturn(serverSessionManagementService);
 
-        // Mock tenantID.
-        mockStatic(IdentityTenantUtil.class);
-        when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
+            // Mock removeSession method.
+            when(serverSessionManagementService.removeSession(SESSION_CONTEXT_KEY)).thenReturn(true);
 
-        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
-        verify(userSessionStore, times(1)).removeTerminatedSessionRecords(anyList());
+            UserSessionStore userSessionStore = mock(UserSessionStore.class);
+            userSessionStoreStatic.when(UserSessionStore::getInstance).thenReturn(userSessionStore);
+            doNothing().when(userSessionStore).removeTerminatedSessionRecords(anyList());
+
+            // Mock tenantID.
+            tenantUtilStatic.when(() -> IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
+
+            assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
+            verify(userSessionStore, times(1)).removeTerminatedSessionRecords(anyList());
+        }
     }
 
     @Test
@@ -528,49 +549,58 @@ public class FederatedIdpInitLogoutProcessorTest extends PowerMockTestCase {
 
         JWTClaimsSet jwtClaimsSet = generateLogoutToken(USER_NAME, false, IDP_SESSION_INDEX);
 
-        // Mock the logout token and claims.
-        mockStatic(SignedJWT.class);
-        SignedJWT signedJWT = mock(SignedJWT.class);
-        when(SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
-        when(SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
-        when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
-        when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
-        mockStatic(IdentityProviderManager.class);
-        IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
-        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
-        when(IdentityProviderManager.getInstance().getIdPByMetadataProperty(
-                IdentityApplicationConstants.IDP_ISSUER_NAME, "https://federatedwso2.com:9444/oauth2/token",
-                "carbon.super", false)).thenReturn(identityProvider);
-
-        // Mock the signature validation.
-        mockStatic(JWTSignatureValidationUtils.class);
-        when(JWTSignatureValidationUtils.validateSignature(signedJWT,
-                identityProvider)).thenReturn(true);
-
-        // Setup session store.
         setupSessionStore(USER_ID, USER_NAME, SESSION_CONTEXT_KEY, IDP_SESSION_INDEX);
-        DataSource dataSource = mock(DataSource.class);
-        mockStatic(IdentityDatabaseUtil.class);
-        when(IdentityDatabaseUtil.getDataSource()).thenReturn(dataSource);
-        when(IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
-        when(IdentityDatabaseUtil.getSessionDBConnection(false)).thenReturn(getConnection(DB_NAME));
-        when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
+        
+        // Mock the logout token and claims.
+        try (MockedStatic<SignedJWT> signedJWTStatic = mockStatic(SignedJWT.class);
+             MockedStatic<IdentityProviderManager> idpManagerStatic = mockStatic(IdentityProviderManager.class);
+             MockedStatic<JWTSignatureValidationUtils> jwtSigStatic = mockStatic(JWTSignatureValidationUtils.class);
+             MockedStatic<IdentityDatabaseUtil> identityDatabaseUtilStatic = mockStatic(IdentityDatabaseUtil.class);
+             MockedStatic<OpenIDConnectAuthenticatorDataHolder> dataHolderStatic =
+                     mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+             MockedStatic<IdentityTenantUtil> tenantUtilStatic =
+                     mockStatic(IdentityTenantUtil.class)) {
+            SignedJWT signedJWT = mock(SignedJWT.class);
+            signedJWTStatic.when(() -> SignedJWT.parse(logoutToken)).thenReturn(signedJWT);
+            signedJWTStatic.when(() -> SignedJWT.parse(logoutToken).getJWTClaimsSet()).thenReturn(jwtClaimsSet);
+            when(mockLogoutRequest.getParameter("logout_token")).thenReturn(logoutToken);
+            when(mockLogoutRequest.getTenantDomain()).thenReturn("carbon.super");
 
-        // Mock the user session management service.
-        UserSessionManagementService userSessionManagementService = mock(UserSessionManagementService.class);
-        mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
-        OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
-                mock(OpenIDConnectAuthenticatorDataHolder.class);
-        when(OpenIDConnectAuthenticatorDataHolder.getInstance()).thenReturn(openIDConnectAuthenticatorDataHolder);
-        when(OpenIDConnectAuthenticatorDataHolder.getInstance().getUserSessionManagementService())
-                .thenReturn(userSessionManagementService);
+            IdentityProviderManager identityProviderManager = mock(IdentityProviderManager.class);
+            idpManagerStatic.when(IdentityProviderManager::getInstance).thenReturn(identityProviderManager);
+            when(identityProviderManager.getIdPByMetadataProperty(
+                    IdentityApplicationConstants.IDP_ISSUER_NAME,
+                    "https://federatedwso2.com:9444/oauth2/token",
+                    "carbon.super", false)).thenReturn(identityProvider);
 
-        // Mock terminateSessionBySessionId method.
-        when(userSessionManagementService.terminateSessionBySessionId(USER_ID, SESSION_CONTEXT_KEY)).thenReturn(true);
+            // Mock the signature validation.
+            jwtSigStatic.when(() -> JWTSignatureValidationUtils.validateSignature(signedJWT,
+                    identityProvider)).thenReturn(true);
 
-        // Mock tenantID.
-        mockStatic(IdentityTenantUtil.class);
-        when(IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
-        assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
+            DataSource dataSource = mock(DataSource.class);
+            identityDatabaseUtilStatic.when(IdentityDatabaseUtil::getDataSource).thenReturn(dataSource);
+            identityDatabaseUtilStatic.when(() -> IdentityDatabaseUtil.getDBConnection(false)).thenReturn(getConnection(DB_NAME));
+            identityDatabaseUtilStatic.when(() -> IdentityDatabaseUtil.getSessionDBConnection(false)).thenReturn(getConnection(DB_NAME));
+            when(dataSource.getConnection()).thenReturn(getConnection(DB_NAME));
+
+            // Mock the user session management service.
+            UserSessionManagementService userSessionManagementService =
+                    mock(UserSessionManagementService.class);
+            OpenIDConnectAuthenticatorDataHolder openIDConnectAuthenticatorDataHolder =
+                    mock(OpenIDConnectAuthenticatorDataHolder.class);
+            dataHolderStatic.when(OpenIDConnectAuthenticatorDataHolder::getInstance).thenReturn(
+                    openIDConnectAuthenticatorDataHolder);
+            when(openIDConnectAuthenticatorDataHolder.
+                    getUserSessionManagementService()).thenReturn(userSessionManagementService);
+
+            // Mock terminateSessionBySessionId method.
+            when(userSessionManagementService.terminateSessionBySessionId(USER_ID,
+                    SESSION_CONTEXT_KEY)).thenReturn(true);
+
+            // Mock tenantID.
+            tenantUtilStatic.when(() -> IdentityTenantUtil.getTenantId(anyString())).thenReturn(-1234);
+            
+            assertNotNull(logoutProcessor.handleOIDCFederatedLogoutRequest(mockLogoutRequest));
+        }
     }
 }

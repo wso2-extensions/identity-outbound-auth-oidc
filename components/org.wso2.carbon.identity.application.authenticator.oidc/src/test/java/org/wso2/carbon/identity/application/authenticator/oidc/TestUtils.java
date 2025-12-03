@@ -28,7 +28,8 @@ public class TestUtils {
 
         if (StringUtils.isNotBlank(fileName)) {
             return Paths
-                    .get(System.getProperty("user.dir"), "src", "test", "resources", "conf", fileName).toString();
+                    .get(System.getProperty("user.dir"), "src", "test", "resources", "repository", "conf", "identity",
+                            fileName).toString();
         }
         return null;
     }

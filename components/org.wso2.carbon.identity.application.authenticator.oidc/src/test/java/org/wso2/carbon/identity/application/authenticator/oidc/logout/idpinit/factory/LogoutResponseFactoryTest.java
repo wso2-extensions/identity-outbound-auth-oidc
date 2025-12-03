@@ -22,7 +22,9 @@ import net.minidev.json.JSONObject;
 import net.minidev.json.parser.JSONParser;
 import net.minidev.json.parser.ParseException;
 import org.mockito.Mock;
-import org.powermock.modules.testng.PowerMockTestCase;
+import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
@@ -41,7 +43,7 @@ import static org.testng.Assert.assertTrue;
 /**
  * Unit test class for LogoutResponseFactory
  */
-public class LogoutResponseFactoryTest extends PowerMockTestCase {
+public class LogoutResponseFactoryTest {
 
     @Mock
     LogoutResponse mockLogoutResponse;
@@ -51,10 +53,18 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
 
     LogoutResponseFactory logoutResponseFactory;
 
+    private AutoCloseable openMocks;
+
     @BeforeTest
     public void init() {
 
+        openMocks = MockitoAnnotations.openMocks(this);
         logoutResponseFactory = new LogoutResponseFactory();
+    }
+    
+    @AfterTest
+    public void tearDown() throws Exception {
+        openMocks.close();
     }
 
     @Test
@@ -81,9 +91,9 @@ public class LogoutResponseFactoryTest extends PowerMockTestCase {
         HttpIdentityResponse.HttpIdentityResponseBuilder builder =
                 logoutResponseFactory.handleException(new LogoutServerException("Server Error"));
         JSONParser parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
-        JSONObject reponseBody = (JSONObject) parser.parse(builder.build().getBody());
-        assertEquals(reponseBody.get("code"), (long) HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        assertEquals(reponseBody.get("description"), ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
+        JSONObject responseBody = (JSONObject) parser.parse(builder.build().getBody());
+        assertEquals(responseBody.get("code"), (long) HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertEquals(responseBody.get("description"), ErrorMessages.LOGOUT_SERVER_EXCEPTION.getMessage());
     }
 
     @Test

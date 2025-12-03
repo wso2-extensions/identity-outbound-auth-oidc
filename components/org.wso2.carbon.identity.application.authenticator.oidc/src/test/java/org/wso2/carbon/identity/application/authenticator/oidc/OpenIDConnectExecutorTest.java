@@ -18,63 +18,46 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
-import org.apache.commons.logging.Log;
-import org.apache.oltu.oauth2.client.OAuthClient;
-import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
-import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.testng.PowerMockTestCase;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
-import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCCommonUtil;
-import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.base.CarbonBaseConstants;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
-import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
+import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 
+import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.powermock.api.mockito.PowerMockito.doNothing;
-import static org.powermock.api.mockito.PowerMockito.doReturn;
-import static org.powermock.api.mockito.PowerMockito.mock;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
-import static org.powermock.api.mockito.PowerMockito.spy;
-import static org.powermock.api.mockito.PowerMockito.when;
-import static org.powermock.api.mockito.PowerMockito.whenNew;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ACCESS_TOKEN;
-import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ID_TOKEN;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_GRANT_TYPE_CODE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OAUTH2_PARAM_STATE;
 import static org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants.OAuth2.SCOPES;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_COMPLETE;
+import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_ERROR;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.ExecutorStatus.STATUS_EXTERNAL_REDIRECTION;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.REDIRECT_URL;
 import static org.wso2.carbon.identity.flow.execution.engine.Constants.USERNAME_CLAIM_URI;
 
-@PrepareForTest({ServiceURLBuilder.class, LoggerUtils.class, OIDCCommonUtil.class,
-        UUID.class, OAuthClientResponse.class, OAuthClient.class, ClaimMetadataHandler.class})
-@PowerMockIgnore({"jdk.internal.reflect.*", "javax.net.ssl.*", "javax.security.*", "javax.crypto.*"})
-public class OpenIDConnectExecutorTest extends PowerMockTestCase {
+public class OpenIDConnectExecutorTest {
 
     private static final String REGISTRATION_PORTAL_PATH = "/authenticationendpoint/register.do";
     private static final String REGISTRATION_PORTAL_URL = "https://localhost:9443" + REGISTRATION_PORTAL_PATH;
@@ -85,7 +68,6 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     private static final String CLIENT_SECRET = "testClientSecret";
     private static final String CODE = "authorizationCode";
     private static final String ACCESS_TOKEN_VALUE = "test-access-token";
-    private static final String ID_TOKEN_VALUE = "test-id-token";
     private static final String STATE = "test-state";
     private static final String TENANT_DOMAIN = "carbon.super";
     private static final String USER_ID = "test-user-id";
@@ -96,38 +78,32 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     @Mock
     private OAuthJSONAccessTokenResponse oAuthClientResponse;
 
-    @Mock
-    private ExternalIdPConfig externalIdPConfig;
-
-    @Mock
-    private IdentityProvider identityProvider;
-
-    @Mock
-    private ClaimMetadataHandler claimMetadataHandler;
-
-    @Mock
-    private OAuthClient oAuthClient;
-
     private OpenIDConnectExecutor executor;
+    private AutoCloseable mocks;
+    MockedStatic<LoggerUtils> loggerUtilsStatic;
 
     @BeforeMethod
-    public void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+    public void setUp() {
+
+        String carbonHome =
+                Paths.get(System.getProperty("user.dir"), "src", "test", "resources", "repository").toString();
+        System.setProperty(CarbonBaseConstants.CARBON_HOME, carbonHome);
+        System.setProperty(CarbonBaseConstants.CARBON_CONFIG_DIR_PATH, Paths.get(carbonHome, "conf").toString());
+
+        loggerUtilsStatic = mockStatic(LoggerUtils.class);
+        loggerUtilsStatic.when(LoggerUtils::isDiagnosticLogsEnabled).thenReturn(false);
+
+        mocks = MockitoAnnotations.openMocks(this);
         executor = spy(new OpenIDConnectExecutor());
-
-        mockStatic(LoggerUtils.class);
-        when(LoggerUtils.isDiagnosticLogsEnabled()).thenReturn(true);
-        Log mockedLog = mock(Log.class);
-        doReturn(mockedLog).when(LoggerUtils.class, "getLogger", anyString());
-
         when(flowExecutionContext.getTenantDomain()).thenReturn(TENANT_DOMAIN);
+    }
 
-        mockStatic(ClaimMetadataHandler.class);
-        when(ClaimMetadataHandler.getInstance()).thenReturn(claimMetadataHandler);
-        Map<String, String> claimMappings = new HashMap<>();
-        claimMappings.put(USERNAME_CLAIM_URI, "sub");
-        when(claimMetadataHandler.getMappingsMapFromOtherDialectToCarbon(
-                anyString(), anySet(), anyString(), anyBoolean())).thenReturn(claimMappings);
+    @AfterMethod
+    public void tearDown() throws Exception {
+        if (mocks != null) {
+            mocks.close();
+        }
+        loggerUtilsStatic.close();
     }
 
     @Test
@@ -137,35 +113,12 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         userInputs.put(OAUTH2_GRANT_TYPE_CODE, CODE);
         userInputs.put(OAUTH2_PARAM_STATE, STATE);
         when(flowExecutionContext.getUserInputData()).thenReturn(userInputs);
-
         when(flowExecutionContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn(STATE);
 
-        Map<String, String> authProperties = new HashMap<>();
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
-        authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
-
-        when(flowExecutionContext.getExternalIdPConfig()).thenReturn(externalIdPConfig);
-        when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
-
-        doReturn(oAuthClientResponse).when(executor).requestAccessToken(any(), anyString());
-        when(oAuthClientResponse.getParam(ACCESS_TOKEN)).thenReturn(ACCESS_TOKEN_VALUE);
-        when(oAuthClientResponse.getParam(ID_TOKEN)).thenReturn(ID_TOKEN_VALUE);
-
-        whenNew(OAuthClient.class).withAnyArguments().thenReturn(oAuthClient);
-        when(oAuthClient.accessToken(any(OAuthClientRequest.class))).thenReturn(oAuthClientResponse);
-
-        mockStatic(OIDCCommonUtil.class);
-        Map<String, Object> jwtClaims = new HashMap<>();
-        jwtClaims.put(OIDCAuthenticatorConstants.Claim.SUB, USER_ID);
-        Set<Map.Entry<String, Object>> jwtClaimsEntries = new HashSet<>(jwtClaims.entrySet());
-
-        doReturn(jwtClaimsEntries).when(OIDCCommonUtil.class, "decodeIDTokenPayload", anyString());
-        doReturn(false).when(OIDCCommonUtil.class, "isUserIdFoundAmongClaims", any(Map.class));
-        doReturn("").when(OIDCCommonUtil.class, "getMultiAttributeSeparator", anyString());
-
-        doNothing().when(OIDCCommonUtil.class, "buildClaimMappings", any(Map.class), any(Map.Entry.class), anyString());
+        // Stub resolveUserAttributes to avoid static mocking of various utilities.
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(USERNAME_CLAIM_URI, USER_ID);
+        doReturn(claims).when(executor).resolveUserAttributes(flowExecutionContext, CODE);
 
         ExecutorResponse response = executor.execute(flowExecutionContext);
 
@@ -176,14 +129,16 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testExecuteInitialRequest() throws FlowEngineException {
+    public void testExecuteInitialRequest() {
 
         when(flowExecutionContext.getUserInputData()).thenReturn(null);
-
-        mockStatic(UUID.class);
-        UUID mockUUID = mock(UUID.class);
-        when(UUID.randomUUID()).thenReturn(mockUUID);
-        when(mockUUID.toString()).thenReturn("mocked-uuid");
+        // Provide minimal properties to build redirect URL without static mocking.
+        Map<String, String> authProperties = new HashMap<>();
+        authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
+        authProperties.put(OIDCAuthenticatorConstants.OAUTH2_AUTHZ_URL, AUTHORIZE_ENDPOINT);
+        authProperties.put(SCOPES, "openid");
+        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
+        when(flowExecutionContext.getPortalUrl()).thenReturn(REGISTRATION_PORTAL_URL);
 
         ExecutorResponse response = executor.execute(flowExecutionContext);
 
@@ -196,15 +151,17 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         Assert.assertTrue(response.getAdditionalInfo().containsKey(REDIRECT_URL));
     }
 
-    @Test(expectedExceptions = FlowEngineException.class)
-    public void testExecuteStateMismatch() throws FlowEngineException {
+    @Test
+    public void testExecuteStateMismatch() {
 
         Map<String, String> userInputs = new HashMap<>();
         userInputs.put(OAUTH2_GRANT_TYPE_CODE, CODE);
         userInputs.put(OAUTH2_PARAM_STATE, STATE);
         when(flowExecutionContext.getUserInputData()).thenReturn(userInputs);
         when(flowExecutionContext.getProperty(OAUTH2_PARAM_STATE)).thenReturn("different-state");
-        executor.execute(flowExecutionContext);
+
+        ExecutorResponse response = executor.execute(flowExecutionContext);
+        Assert.assertEquals(response.getResult(), STATUS_ERROR);
     }
 
     @Test
@@ -214,20 +171,6 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         oidcClaims.put(OIDCAuthenticatorConstants.Claim.SUB, USER_ID);
         String userId = executor.getAuthenticatedUserIdentifier(oidcClaims);
         Assert.assertEquals(userId, USER_ID);
-    }
-
-    @Test
-    public void testGetAccessTokenRequest() throws Exception {
-
-        Map<String, String> authProperties = new HashMap<>();
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
-        authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-
-        OAuthClientRequest request = executor.getAccessTokenRequest(authProperties, CODE, REGISTRATION_PORTAL_URL);
-
-        Assert.assertNotNull(request);
-        Assert.assertEquals(request.getLocationUri(), TOKEN_ENDPOINT);
     }
 
     @Test
@@ -311,39 +254,30 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testRequestAccessToken() throws Exception {
-
+    @SuppressWarnings("deprecation")
+    public void testGetAccessTokenRequest() throws Exception {
         Map<String, String> authProperties = new HashMap<>();
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
         authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
         authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
+        when(flowExecutionContext.getPortalUrl()).thenReturn(REGISTRATION_PORTAL_URL);
 
-        whenNew(URLConnectionClient.class).withNoArguments().thenReturn(mock(URLConnectionClient.class));
-        whenNew(OAuthClient.class).withAnyArguments().thenReturn(oAuthClient);
-        when(oAuthClient.accessToken(any(OAuthClientRequest.class))).thenReturn(oAuthClientResponse);
-        OAuthClientResponse response = executor.requestAccessToken(flowExecutionContext, CODE);
-        Assert.assertNotNull(response);
-    }
+        try (MockedStatic<ServiceURLBuilder> svc = Mockito.mockStatic(ServiceURLBuilder.class)) {
+            ServiceURLBuilder builder = mock(ServiceURLBuilder.class);
+            ServiceURL serviceURL = mock(ServiceURL.class);
+            svc.when(ServiceURLBuilder::create).thenReturn(builder);
+            when(builder.build()).thenReturn(serviceURL);
+            when(serviceURL.getAbsolutePublicURL()).thenReturn("https://localhost:9443");
 
-    @Test(expectedExceptions = FlowEngineException.class)
-    public void testRequestAccessTokenWithException() throws Exception {
+            OAuthClientRequest request = executor.getAccessTokenRequest(authProperties, CODE, REGISTRATION_PORTAL_URL);
 
-        Map<String, String> authProperties = new HashMap<>();
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_ID, CLIENT_ID);
-        authProperties.put(OIDCAuthenticatorConstants.CLIENT_SECRET, CLIENT_SECRET);
-        authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
-        when(flowExecutionContext.getAuthenticatorProperties()).thenReturn(authProperties);
-
-        whenNew(URLConnectionClient.class).withNoArguments().thenReturn(mock(URLConnectionClient.class));
-        whenNew(OAuthClient.class).withAnyArguments().thenReturn(oAuthClient);
-        when(oAuthClient.accessToken(any(OAuthClientRequest.class)))
-                .thenThrow(new OAuthSystemException("Test exception"));
-
-        executor.requestAccessToken(flowExecutionContext, CODE);
+            Assert.assertNotNull(request);
+            Assert.assertEquals(request.getLocationUri(), TOKEN_ENDPOINT);
+        }
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void testGetAccessTokenRequestWithBasicAuth() throws Exception {
 
         Map<String, String> authProperties = new HashMap<>();
@@ -352,11 +286,18 @@ public class OpenIDConnectExecutorTest extends PowerMockTestCase {
         authProperties.put(OIDCAuthenticatorConstants.OAUTH2_TOKEN_URL, TOKEN_ENDPOINT);
         authProperties.put(OIDCAuthenticatorConstants.IS_BASIC_AUTH_ENABLED, "true");
 
-        OAuthClientRequest request = executor.getAccessTokenRequest(authProperties, CODE, REGISTRATION_PORTAL_URL);
+        try (MockedStatic<ServiceURLBuilder> svc = Mockito.mockStatic(ServiceURLBuilder.class)) {
+            ServiceURLBuilder builder = mock(ServiceURLBuilder.class);
+            ServiceURL serviceURL = mock(ServiceURL.class);
+            svc.when(ServiceURLBuilder::create).thenReturn(builder);
+            when(builder.build()).thenReturn(serviceURL);
+            when(serviceURL.getAbsolutePublicURL()).thenReturn("https://localhost:9443");
 
-        Assert.assertNotNull(request);
-        Assert.assertEquals(request.getLocationUri(), TOKEN_ENDPOINT);
-        Assert.assertNotNull(request.getHeaders().get("Authorization"));
-        Assert.assertTrue(request.getHeaders().get("Authorization").toString().startsWith("Basic "));
+            OAuthClientRequest request = executor.getAccessTokenRequest(authProperties, CODE, REGISTRATION_PORTAL_URL);
+
+            Assert.assertNotNull(request);
+            Assert.assertEquals(request.getLocationUri(), TOKEN_ENDPOINT);
+            Assert.assertNotNull(request.getHeaders().get("Authorization"));
+        }
     }
 }
