@@ -1247,7 +1247,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throws AuthenticationFailedException {
 
         IdentityProvider identityProvider;
-        ErrorMessages errorMessages = ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER;
         try {
             identityProvider = IdentityProviderManager.getInstance().getIdPByMetadataProperty(
                     IdentityApplicationConstants.IDP_ISSUER_NAME, jwtIssuer, tenantDomain, false);
@@ -1261,11 +1260,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
 
                 if (identityProvider == null) {
-                    throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage());
+                    throw new AuthenticationFailedException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getCode(), 
+                            ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getMessage());
                 }
             }
         } catch (IdentityProviderManagementException e) {
-            throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage(), e);
+            throw new AuthenticationFailedException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getCode(), 
+                    ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getMessage(), e);
         }
         return identityProvider;
     }
