@@ -26,7 +26,6 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang.StringUtils;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -143,7 +142,9 @@ public class FederatedIdpInitLogoutProcessorTest {
         if (xmlInputFactoryStatic != null) {
             xmlInputFactoryStatic.close();
         }
-        openMocks.close();
+        if (openMocks != null) {
+            openMocks.close();
+        }
     }
 
     @DataProvider(name = "requestDataHandler")
@@ -398,49 +399,49 @@ public class FederatedIdpInitLogoutProcessorTest {
         int IDP_ID = 1;
 
         try (Connection connection1 = getConnection(DB_NAME)) {
-            try (MockedStatic<IdentityDatabaseUtil> ignored = prepareConnection(connection1, false)) {
+            String sql = "INSERT INTO IDN_FED_AUTH_SESSION_MAPPING " +
+                    "(IDP_SESSION_ID, SESSION_ID, IDP_NAME,  AUTHENTICATOR_ID, PROTOCOL_TYPE) VALUES ( '" +
+                    IDP_SESSION_INDEX + "' , '" + SESSION_CONTEXT_KEY + "' , '" + IDP_NAME + "' , '" +
+                    AUTHENTICATOR_ID +
+                    "', '" + PROTOCOL_TYPE + "');";
 
-                String sql = "INSERT INTO IDN_FED_AUTH_SESSION_MAPPING " +
-                        "(IDP_SESSION_ID, SESSION_ID, IDP_NAME,  AUTHENTICATOR_ID, PROTOCOL_TYPE) VALUES ( '" +
-                        IDP_SESSION_INDEX + "' , '" + SESSION_CONTEXT_KEY + "' , '" + IDP_NAME + "' , '" +
-                        AUTHENTICATOR_ID +
-                        "', '" + PROTOCOL_TYPE + "');";
-
-                String sql2 =
-                        "INSERT INTO IDN_AUTH_USER (USER_ID,USER_NAME,TENANT_ID,DOMAIN_NAME,IDP_ID) VALUES ('" +
-                                USER_ID + "','" + USER_NAME + "','" + TENANT_ID + "','" + DOMAIN_NAME + "','" + IDP_ID +
-                                "');";
-
-                PreparedStatement statement = connection1.prepareStatement(sql);
-                PreparedStatement statement2 = connection1.prepareStatement(sql2);
+            String sql2 =
+                    "INSERT INTO IDN_AUTH_USER (USER_ID,USER_NAME,TENANT_ID,DOMAIN_NAME,IDP_ID) VALUES ('" +
+                            USER_ID + "','" + USER_NAME + "','" + TENANT_ID + "','" + DOMAIN_NAME + "','" + IDP_ID +
+                            "');";
+            try (MockedStatic<IdentityDatabaseUtil> ignored = prepareConnection(connection1, false);
+                 PreparedStatement statement = connection1.prepareStatement(sql);
+                 PreparedStatement statement2 = connection1.prepareStatement(sql2)) {
+                
                 statement.execute();
                 statement2.execute();
             }
         }
 
         try (Connection connection1 = getConnection(DB_NAME)) {
-            try (MockedStatic<IdentityDatabaseUtil> ignored =  prepareConnection(connection1,false)) {
-                String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
-                PreparedStatement statement1 = connection1.prepareStatement(query);
+            String query = "SELECT * FROM IDN_FED_AUTH_SESSION_MAPPING WHERE IDP_SESSION_ID=?";
+            try (MockedStatic<IdentityDatabaseUtil> ignored =  prepareConnection(connection1,false);
+                 PreparedStatement statement1 = connection1.prepareStatement(query)) {
                 statement1.setString(1, IDP_SESSION_INDEX);
-                ResultSet resultSet1 = statement1.executeQuery();
-                String result1 = null;
-                if (resultSet1.next()) {
-                    result1 = resultSet1.getString("SESSION_ID");
-                }
-                assertEquals(SESSION_CONTEXT_KEY, result1, "Failed add auth session mapping into " +
-                        "IDN_FED_AUTH_SESSION_MAPPING table.");
+                try (ResultSet resultSet1 = statement1.executeQuery()) {
+                    String result1 = null;
+                    if (resultSet1.next()) {
+                        result1 = resultSet1.getString("SESSION_ID");
+                    }
+                    assertEquals(SESSION_CONTEXT_KEY, result1, "Failed add auth session mapping into " +
+                            "IDN_FED_AUTH_SESSION_MAPPING table.");
 
-                String query2 = "SELECT * FROM IDN_AUTH_USER WHERE USER_NAME=?";
-                PreparedStatement statement2 = connection1.prepareStatement(query2);
-                statement2.setString(1, USER_NAME);
-                ResultSet resultSet2 = statement2.executeQuery();
-                String result2 = null;
-                if (resultSet2.next()) {
-                    result2 = resultSet2.getString("USER_ID");
+                    String query2 = "SELECT * FROM IDN_AUTH_USER WHERE USER_NAME=?";
+                    PreparedStatement statement2 = connection1.prepareStatement(query2);
+                    statement2.setString(1, USER_NAME);
+                    ResultSet resultSet2 = statement2.executeQuery();
+                    String result2 = null;
+                    if (resultSet2.next()) {
+                        result2 = resultSet2.getString("USER_ID");
+                    }
+                    assertEquals(USER_ID, result2, "Failed add user info into " +
+                            "IDN_AUTH_USER table.");
                 }
-                assertEquals(USER_ID, result2, "Failed add user info into " +
-                        "IDN_AUTH_USER table.");
             }
         }
     }

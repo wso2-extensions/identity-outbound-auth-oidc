@@ -24,8 +24,7 @@ import net.minidev.json.parser.ParseException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.HttpIdentityResponse;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.exception.LogoutClientException;
@@ -55,14 +54,14 @@ public class LogoutResponseFactoryTest {
 
     private AutoCloseable openMocks;
 
-    @BeforeTest
+    @BeforeMethod
     public void init() {
 
         openMocks = MockitoAnnotations.openMocks(this);
         logoutResponseFactory = new LogoutResponseFactory();
     }
     
-    @AfterTest
+    @AfterMethod
     public void tearDown() throws Exception {
         openMocks.close();
     }

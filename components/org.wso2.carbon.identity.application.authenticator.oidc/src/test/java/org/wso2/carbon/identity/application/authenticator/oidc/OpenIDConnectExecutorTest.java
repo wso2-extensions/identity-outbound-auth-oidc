@@ -33,7 +33,6 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationConst
 import org.wso2.carbon.identity.central.log.mgt.utils.LoggerUtils;
 import org.wso2.carbon.identity.core.ServiceURL;
 import org.wso2.carbon.identity.core.ServiceURLBuilder;
-import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
@@ -103,7 +102,9 @@ public class OpenIDConnectExecutorTest {
         if (mocks != null) {
             mocks.close();
         }
-        loggerUtilsStatic.close();
+        if (loggerUtilsStatic != null) {
+            loggerUtilsStatic.close();
+        }
     }
 
     @Test
