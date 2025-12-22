@@ -27,7 +27,7 @@
     <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>identity-application-auth-oidc</artifactId>
-    <version>5.12.37-SNAPSHOT</version>
+    <version>5.12.38-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>WSO2 Carbon - OpenID Connect Application Authenticator Feature Aggregator Module</name>
     <description>
@@ -154,34 +154,9 @@
                 <version>${testng.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-testng</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-testng-common</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
                 <version>${mockito.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-api-mockito2</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <!-- https://mvnrepository.com/artifact/org.powermock/powermock-core -->
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-core</artifactId>
-                <version>${powermock.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -339,9 +314,8 @@
         <org.slf4j.verison>1.6.1</org.slf4j.verison>
         <testng.version>7.10.1</testng.version>
         <jacoco.version>0.8.4</jacoco.version>
-        <maven.surefire.plugin.version>2.22.2</maven.surefire.plugin.version>
-        <mockito.version>3.10.0</mockito.version>
-        <powermock.version>2.0.2</powermock.version>
+        <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+        <mockito.version>5.3.1</mockito.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
         <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
 
