@@ -63,6 +63,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 import javax.servlet.http.HttpServletResponse;
@@ -295,7 +296,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             validateSignature(signedJWT, identityProvider);
             validateAudience(claimsSet.getAudience(), identityProvider);
             validateIat(claimsSet.getIssueTime());
-            validateEventClaim((JSONObject) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS));
+            Map<String, Object> eventsClaim =
+                    (Map<String, Object>) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
+            validateEventClaim(eventsClaim != null? new JSONObject(eventsClaim) : null);
             validateNonce(claimsSet);
         } catch (ParseException e) {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
