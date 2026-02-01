@@ -1224,6 +1224,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private void validateJWTToken(AuthenticationContext context, String idToken) throws ParseException,
             AuthenticationFailedException, JOSEException, IdentityOAuth2Exception {
 
+        if (StringUtils.isNotBlank(idToken)) {
+            IdentityUtil.validateX5CLength(idToken);
+        }
         SignedJWT signedJWT = SignedJWT.parse(idToken);
         JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
         OIDCTokenValidationUtil.validateIssuerClaim(claimsSet);
