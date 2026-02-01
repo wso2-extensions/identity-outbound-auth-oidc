@@ -1429,7 +1429,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
         if (entry.getValue() instanceof ArrayList) {
-            ArrayList<Object> array = (ArrayList) entry.getValue();
+            ArrayList<Object> array = OIDCCommonUtil.convertToJSONArray((List<Object>) entry.getValue());
             if (array != null && !array.isEmpty()) {
                 Iterator attributeIterator = array.iterator();
                 while (attributeIterator.hasNext()) {

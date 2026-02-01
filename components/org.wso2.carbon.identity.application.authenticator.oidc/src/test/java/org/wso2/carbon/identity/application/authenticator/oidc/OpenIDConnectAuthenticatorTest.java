@@ -95,6 +95,7 @@ import javax.servlet.http.HttpServletResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -1114,6 +1115,8 @@ public class OpenIDConnectAuthenticatorTest {
         // Mock OIDCCommonUtil to avoid outbound HTTPS calls
         oidcCommonUtilStatic.when(() -> OIDCCommonUtil.triggerRequest(anyString(), anyString())).thenReturn("{}");
         oidcCommonUtilStatic.when(() -> OIDCCommonUtil.parseIDToken(anyString())).thenCallRealMethod();
+        oidcCommonUtilStatic.when(() -> OIDCCommonUtil.convertToJSONObject(anyMap())).thenCallRealMethod();
+        oidcCommonUtilStatic.when(() -> OIDCCommonUtil.convertToJSONArray(anyList())).thenCallRealMethod();
         // Mock URL connection used by sendRequest() to avoid SSL handshakes
         MockedConstruction<URL> urlConstruction = addConstruction(URL.class, (mock, ctx) -> {
             when(mock.openConnection()).thenReturn(mockConnection);
