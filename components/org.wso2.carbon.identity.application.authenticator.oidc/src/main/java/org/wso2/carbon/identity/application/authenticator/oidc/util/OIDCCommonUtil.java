@@ -80,7 +80,7 @@ public class OIDCCommonUtil {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
         if (entry.getValue() instanceof List) {
-            JSONArray jsonArray = convertToJSONArray((List) entry.getValue());
+            JSONArray jsonArray = IdentityUtil.convertToJSONArray((List) entry.getValue());
             if (jsonArray != null && !jsonArray.isEmpty()) {
                 Iterator attributeIterator = jsonArray.iterator();
                 while (attributeIterator.hasNext()) {
@@ -283,7 +283,7 @@ public class OIDCCommonUtil {
 
         String base64Body = idToken.split("\\.")[1];
         byte[] decoded = Base64.decodeBase64(base64Body.getBytes());
-        return convertToJSONObject(JSONObjectUtils.parseJSONObject(new String(decoded))).entrySet();
+        return IdentityUtil.convertToJSONObject(JSONObjectUtils.parseJSONObject(new String(decoded))).entrySet();
     }
 
     /**
@@ -326,64 +326,5 @@ public class OIDCCommonUtil {
             }
         }
         return claims;
-    }
-
-    /**
-     * Convert a List to a JSONArray, recursively converting any nested Maps or Lists.
-     * @param list The List to convert.
-     * @return The resulting JSONArray.
-     */
-    public static JSONArray convertToJSONArray(List<Object> list) {
-
-        JSONArray jsonArray = new JSONArray();
-        jsonArray.addAll(list);
-        recursivelyConvertToJSONArray(jsonArray);
-        return jsonArray;
-    }
-
-    /**
-     * Convert a Map to a JSONObject, recursively converting any nested Maps or Lists.
-     * @param map The Map to convert.
-     * @return The resulting JSONObject.
-     */
-    public static JSONObject convertToJSONObject(Map<String, Object> map) {
-
-        JSONObject jsonObject = new JSONObject(map);
-        recursivelyConvertToJSONObject(jsonObject);
-        return jsonObject;
-    }
-
-    private static void recursivelyConvertToJSONObject(JSONObject jsonObject) {
-
-        for (String key : jsonObject.keySet()) {
-            Object value = jsonObject.get(key);
-            if (value instanceof Map) {
-                JSONObject child = new JSONObject((Map<String, Object>) value);
-                recursivelyConvertToJSONObject(child);
-                jsonObject.put(key, child);
-            } else if (value instanceof List) {
-                JSONArray jsonArray = new JSONArray();
-                jsonArray.addAll((List<?>) value);
-                recursivelyConvertToJSONArray(jsonArray);
-                jsonObject.put(key, jsonArray);
-            }
-        }
-    }
-
-    private static void recursivelyConvertToJSONArray(JSONArray jsonArray) {
-
-        for (int i = 0; i < jsonArray.size(); i++) {
-            Object element = jsonArray.get(i);
-            if (element instanceof Map) {
-                JSONObject child = new JSONObject((Map<String, Object>) element);
-                recursivelyConvertToJSONObject(child);
-                jsonArray.set(i, child);
-            } else if (element instanceof List) {
-                JSONArray childArray = new JSONArray();
-                childArray.addAll((List<?>) element);
-                recursivelyConvertToJSONArray(childArray);
-                jsonArray.set(i, childArray);
-            }
-        }
     }
 }
