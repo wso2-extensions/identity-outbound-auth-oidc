@@ -97,7 +97,7 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.orbit.org.apache.oltu.oauth2</groupId>
-                <artifactId>oltu</artifactId>
+                <artifactId>oltu-jdk21</artifactId>
                 <version>${oltu.version}</version>
             </dependency>
             <dependency>
@@ -283,12 +283,12 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.1</version>
+                <version>3.14.1</version>
                 <inherited>true</inherited>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>21</source>
+                    <target>21</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -305,7 +305,7 @@
         </identity.application.auth.oidc.package.export.version>
 
         <carbon.identity.framework.version>7.8.675</carbon.identity.framework.version>
-        <oltu.version>1.0.0.wso2v3</oltu.version>
+        <oltu.version>1.0.0.wso2v1</oltu.version>
         <json-smart.version>2.4.11</json-smart.version>
         <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
         <carbon.kernel.version>4.9.10</carbon.kernel.version>
