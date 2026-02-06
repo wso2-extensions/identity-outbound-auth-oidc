@@ -539,7 +539,7 @@ public class OpenIDConnectAuthenticatorTest {
                     (claimMetadataManagementService);
             when(mockAuthenticationContext.getExternalIdP()).thenReturn(externalIdPConfig);
 
-            try (MockedConstruction<OAuthClient> ignored 
+            try (MockedConstruction<OAuthClient> ignored
                     = addConstruction(OAuthClient.class, (mock, context) -> {
                 when(mock.accessToken(ArgumentMatchers.any())).thenReturn(mockOAuthJSONAccessTokenResponse);
             })) {
@@ -1115,8 +1115,8 @@ public class OpenIDConnectAuthenticatorTest {
         // Mock OIDCCommonUtil to avoid outbound HTTPS calls
         oidcCommonUtilStatic.when(() -> OIDCCommonUtil.triggerRequest(anyString(), anyString())).thenReturn("{}");
         oidcCommonUtilStatic.when(() -> OIDCCommonUtil.parseIDToken(anyString())).thenCallRealMethod();
-        oidcCommonUtilStatic.when(() -> OIDCCommonUtil.convertToJSONObject(anyMap())).thenCallRealMethod();
-        oidcCommonUtilStatic.when(() -> OIDCCommonUtil.convertToJSONArray(anyList())).thenCallRealMethod();
+        identityUtilStatic.when(() -> IdentityUtil.convertToJSONObject(anyMap())).thenCallRealMethod();
+        identityUtilStatic.when(() -> IdentityUtil.convertToJSONArray(anyList())).thenCallRealMethod();
         // Mock URL connection used by sendRequest() to avoid SSL handshakes
         MockedConstruction<URL> urlConstruction = addConstruction(URL.class, (mock, ctx) -> {
             when(mock.openConnection()).thenReturn(mockConnection);
@@ -1548,6 +1548,8 @@ public class OpenIDConnectAuthenticatorTest {
                 .thenReturn(COMMA_SEPARATOR);
         identityUtilStatic.when(() -> IdentityUtil.getServerURL("", false, false))
                 .thenReturn(HTTPS_LOCALHOST_9443);
+        identityUtilStatic.when(() -> IdentityUtil.convertToJSONObject(anyMap())).thenCallRealMethod();
+        identityUtilStatic.when(() -> IdentityUtil.convertToJSONArray(anyList())).thenCallRealMethod();
 
         serviceURLBuilderStatic.when(ServiceURLBuilder::create).thenReturn(serviceURLBuilder);
         when(serviceURLBuilder.addPath(anyString())).thenReturn(serviceURLBuilder);
