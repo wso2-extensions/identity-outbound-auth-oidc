@@ -721,6 +721,9 @@ public class OpenIDConnectAuthenticatorTest {
             when(externalIdPConfig.getIdentityProvider()).thenReturn(identityProvider);
             when(identityProvider.getIdpProperties()).thenReturn(identityProviderProperties);
 
+            MockedConstruction<CustomURLConnectionClient> customClientConstruction
+                    = addConstruction(CustomURLConnectionClient.class, (mock, context) -> {
+            });
             MockedConstruction<OAuthClient> ignored 
                     = addConstruction(OAuthClient.class, (mock, context) -> {
                 when(mock.accessToken(any())).thenReturn(mockOAuthJSONAccessTokenResponse);
