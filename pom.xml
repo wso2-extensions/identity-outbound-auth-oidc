@@ -299,7 +299,7 @@
         </identity.application.auth.oidc.package.export.version>
 
         <carbon.identity.framework.version>5.25.728</carbon.identity.framework.version>
-        <oltu.version>1.0.0.wso2v3</oltu.version>
+        <oltu.version>1.0.0.wso2v4</oltu.version>
         <json-smart.version>2.6.0</json-smart.version>
         <json.wso2.version>3.0.0.wso2v7</json.wso2.version>
         <carbon.kernel.version>4.9.0</carbon.kernel.version>
@@ -328,7 +328,7 @@
         <carbon.kernel.package.import.version.range>[4.4.0, 5.0.0)</carbon.kernel.package.import.version.range>
         <net.minidev.json.imp.pkg.version.range>[2.3.0, 3.0.0)</net.minidev.json.imp.pkg.version.range>
         <oltu.package.import.version.range>[1.0.0, 2.0.0)</oltu.package.import.version.range>
-        <imp.pkg.version.javax.servlet>[2.6.0, 3.0.0)</imp.pkg.version.javax.servlet>
+        <imp.pkg.version.javax.servlet>[3.1.0, 4.0.0)</imp.pkg.version.javax.servlet>
         <carbon.user.api.imp.pkg.version.range>[1.0.1, 2.0.0)</carbon.user.api.imp.pkg.version.range>
         <commons-logging.osgi.version.range>[1.2,2.0)</commons-logging.osgi.version.range>
         <commons-codec.wso2.osgi.version.range>[1.4.0,2.0.0)</commons-codec.wso2.osgi.version.range>
