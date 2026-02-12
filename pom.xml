@@ -97,7 +97,7 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.orbit.org.apache.oltu.oauth2</groupId>
-                <artifactId>oltu</artifactId>
+                <artifactId>oltu-jdk21</artifactId>
                 <version>${oltu.version}</version>
             </dependency>
             <dependency>
@@ -201,7 +201,7 @@
                 <plugin>
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>5.1.9</version>
                     <extensions>true</extensions>
                     <configuration>
                         <obrRepository>NONE</obrRepository>
@@ -283,12 +283,12 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.1</version>
+                <version>3.14.1</version>
                 <inherited>true</inherited>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>21</source>
+                    <target>21</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -305,7 +305,7 @@
         </identity.application.auth.oidc.package.export.version>
 
         <carbon.identity.framework.version>7.8.675</carbon.identity.framework.version>
-        <oltu.version>1.0.0.wso2v3</oltu.version>
+        <oltu.version>1.0.0.wso2v1</oltu.version>
         <json-smart.version>2.4.11</json-smart.version>
         <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
         <carbon.kernel.version>4.9.10</carbon.kernel.version>
@@ -335,7 +335,7 @@
         <carbon.kernel.package.import.version.range>[4.4.0, 5.0.0)</carbon.kernel.package.import.version.range>
         <net.minidev.json.imp.pkg.version.range>[2.3.0, 3.0.0)</net.minidev.json.imp.pkg.version.range>
         <oltu.package.import.version.range>[1.0.0, 2.0.0)</oltu.package.import.version.range>
-        <imp.pkg.version.javax.servlet>[2.6.0, 3.0.0)</imp.pkg.version.javax.servlet>
+        <imp.pkg.version.javax.servlet>[3.1.0, 4.0.0)</imp.pkg.version.javax.servlet>
         <carbon.user.api.imp.pkg.version.range>[1.0.1, 2.0.0)</carbon.user.api.imp.pkg.version.range>
         <commons-logging.osgi.version.range>[1.2,2.0)</commons-logging.osgi.version.range>
         <commons-codec.wso2.osgi.version.range>[1.4.0,2.0.0)</commons-codec.wso2.osgi.version.range>
