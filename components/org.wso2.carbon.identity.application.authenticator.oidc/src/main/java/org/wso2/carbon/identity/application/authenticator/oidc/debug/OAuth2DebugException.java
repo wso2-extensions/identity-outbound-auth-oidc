@@ -18,15 +18,16 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
+import org.wso2.carbon.identity.debug.framework.exception.DebugFrameworkException;
+
 /**
  * Exception thrown during OAuth2 debug operations.
- * This exception extends the pattern of the generic debug framework exceptions.
+ * Extends the framework's base exception to integrate with the exception
+ * hierarchy.
  */
-public class OAuth2DebugException extends Exception {
+public class OAuth2DebugException extends DebugFrameworkException {
 
     private static final long serialVersionUID = 1L;
-
-    private String errorCode;
 
     /**
      * Constructs an OAuth2DebugException with a message.
@@ -58,27 +59,6 @@ public class OAuth2DebugException extends Exception {
      */
     public OAuth2DebugException(String errorCode, String message, Throwable cause) {
 
-        super(message, cause);
-        this.errorCode = errorCode;
-    }
-
-    /**
-     * Get the error code.
-     *
-     * @return The error code.
-     */
-    public String getErrorCode() {
-
-        return errorCode;
-    }
-
-    /**
-     * Set the error code.
-     *
-     * @param errorCode The error code to set.
-     */
-    public void setErrorCode(String errorCode) {
-        
-        this.errorCode = errorCode;
+        super(errorCode, message, cause);
     }
 }

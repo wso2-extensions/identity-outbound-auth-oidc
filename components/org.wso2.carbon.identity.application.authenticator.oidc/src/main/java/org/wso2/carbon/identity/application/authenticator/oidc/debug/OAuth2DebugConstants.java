@@ -18,20 +18,39 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
+
 /**
- * OAuth2 debug extension constants.
- * Protocol-specific constants for OAuth2 debug operations using the generic debug framework.
+ * OAuth2/OIDC debug extension constants.
+ * 
+ * This class contains protocol-specific constants for OAuth2 debug operations.
+ * For generic debug framework constants, use {@link DebugFrameworkConstants}.
+ * 
+ * Constants are organized into categories:
+ * OAuth2 Configuration Parameters (endpoints, client credentials)
+ * OAuth2 Flow Parameters (PKCE, state, nonce)
+ * OAuth2 Response Parameters (tokens, userinfo)
+ * OAuth2 Error Codes
+ * Debug Flow Steps
+ * Debug Context Keys
+ * 
+ * @see DebugFrameworkConstants for generic debug constants
  */
-public class OAuth2DebugConstants {
+public final class OAuth2DebugConstants {
 
     private OAuth2DebugConstants() {
-
         // Prevent instantiation
     }
 
     // OAuth2 Debug Extension Identifiers
+
+    /** Extension identifier for OAuth2 debug. */
     public static final String OAUTH2_DEBUG_EXTENSION = "oauth2.debug.extension";
+
+    /** Context identifier for OAuth2 debug. */
     public static final String OAUTH2_DEBUG_CONTEXT = "oauth2.debug.context";
+
+    /** Executor identifier for OAuth2 debug. */
     public static final String OAUTH2_DEBUG_EXECUTOR = "oauth2.debug.executor";
 
     // OAuth2 Configuration Parameters
@@ -93,7 +112,7 @@ public class OAuth2DebugConstants {
     public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
     public static final String STEP_CLAIM_EXTRACTION_STATUS = "claimExtractionStatus";
 
-    // status values
+    // Status Values
     public static final String STATUS_STARTED = "started";
     public static final String STATUS_SUCCESS = "success";
     public static final String STATUS_FAILED = "failed";
@@ -113,13 +132,14 @@ public class OAuth2DebugConstants {
     public static final String IS_DEBUG_FLOW = "isDebugFlow";
     public static final String ADDITIONAL_OAUTH_PARAMS = "additionalOAuthParams";
 
-    //Auth Status 
-    public static final String DEBUG_AUTH_ERROR = "debug_auth_error";
-    public static final String DEBUG_AUTH_SUCCESS = "debug_auth_success";
+    // Auth Status - References to framework-level constants.
+    // Use DebugFrameworkConstants directly where possible.
 
-    // Boolean Values
-    public static final String TRUE = "true";
-    public static final String FALSE = "false";
+    /** Auth error indicator. Delegates to DebugFrameworkConstants. */
+    public static final String DEBUG_AUTH_ERROR = DebugFrameworkConstants.DEBUG_AUTH_ERROR;
+
+    /** Auth success indicator. Delegates to DebugFrameworkConstants. */
+    public static final String DEBUG_AUTH_SUCCESS = DebugFrameworkConstants.DEBUG_AUTH_SUCCESS;
 
     // Debug Context Property Keys
     public static final String DEBUG_STATE = "DEBUG_STATE";
@@ -133,7 +153,6 @@ public class OAuth2DebugConstants {
     public static final String DEBUG_CONTEXT_ID = "DEBUG_CONTEXT_ID";
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
-    public static final String DEBUG_INCOMING_CLAIMS_KEY = "DEBUG_INCOMING_CLAIMS";
     public static final String DEBUG_CUSTOM_ACCESS_TYPE = "DEBUG_CUSTOM_access_type";
     public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
 
@@ -152,4 +171,7 @@ public class OAuth2DebugConstants {
 
     // JSON/Response Property Keys
     public static final String RESPONSE_SUCCESS = "success";
+
+    // Protocol Type Identifier
+    public static final String PROTOCOL_TYPE = "OAuth2/OIDC";
 }

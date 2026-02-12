@@ -18,84 +18,92 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
-import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
-import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
-import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
-import org.wso2.carbon.identity.debug.framework.core.DebugProtocolProvider;
+import org.wso2.carbon.identity.debug.framework.extension.DebugContextProvider;
+import org.wso2.carbon.identity.debug.framework.extension.DebugExecutor;
+import org.wso2.carbon.identity.debug.framework.extension.DebugProcessor;
+import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
 /**
  * OAuth2/OIDC implementation of DebugProtocolProvider.
  * 
- * Registered with OSGi by OpenIDConnectAuthenticatorServiceComponent to advertise
- * the OIDC module's debug capabilities (context provider, executor, and processor).
+ * Registered with OSGi by OpenIDConnectAuthenticatorServiceComponent to
+ * advertise
+ * the OIDC module's debug capabilities (context provider, executor, and
+ * processor).
  * 
  * This approach eliminates the need for reflection-based class loading
- * (Class.forName) in DebugProtocolRouter. Instead, DebugProtocolRouter discovers
+ * (Class.forName) in DebugProtocolRouter. Instead, DebugProtocolRouter
+ * discovers
  * providers dynamically via OSGi service lookups.
  * 
  * The debug-framework remains agnostic of specific protocol implementations;
- * it simply uses whatever DebugProtocolProvider services are registered at runtime.
+ * it simply uses whatever DebugProtocolProvider services are registered at
+ * runtime.
  */
 public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
 
-    private static final String PROTOCOL_TYPE = "OAuth2/OIDC";
+    private final DebugContextProvider contextProvider = new OAuth2ContextProvider();
+    private final DebugExecutor executor = new OAuth2DebugExecutor();
+    private final DebugProcessor processor = new OAuth2DebugProcessor();
 
     /**
      * Gets the protocol type identifier.
      *
-     * @return "OAuth2/OIDC"
+     * @return "OAuth2/OIDC".
      */
     @Override
     public String getProtocolType() {
 
-        return PROTOCOL_TYPE;
+        return OAuth2DebugConstants.PROTOCOL_TYPE;
     }
 
     /**
      * Gets the OAuth2/OIDC context provider.
-     * The context provider resolves OAuth2/OIDC configuration and creates the debug context.
+     * The context provider resolves OAuth2/OIDC configuration and creates the debug
+     * context.
      *
-     * @return OAuth2ContextProvider instance
+     * @return OAuth2ContextProvider instance.
      */
     @Override
     public DebugContextProvider getContextProvider() {
 
-        return new OAuth2ContextProvider();
+        return contextProvider;
     }
 
     /**
      * Gets the OAuth2/OIDC executor.
      * The executor generates the OAuth2 Authorization URL with PKCE support.
      *
-     * @return OAuth2DebugExecuter instance
+     * @return OAuth2DebugExecutor instance.
      */
     @Override
     public DebugExecutor getExecutor() {
 
-        return new OAuth2DebugExecuter();
+        return executor;
     }
 
     /**
      * Gets the OAuth2/OIDC processor.
      * The processor handles OAuth2 authorization code callbacks and token exchange.
      *
-     * @return OAuth2DebugProcessor instance
+     * @return OAuth2DebugProcessor instance.
      */
     @Override
     public DebugProcessor getProcessor() {
 
-        return new OAuth2DebugProcessor();
+        return processor;
     }
 
     /**
      * Checks if this provider supports the given protocol type.
      *
      * @param protocolType The protocol type to check.
-     * @return true if protocolType is "OAuth2/OIDC" (case-insensitive), false otherwise.
+     * @return true if protocolType is "OAuth2/OIDC" (case-insensitive), false
+     *         otherwise.
      */
     @Override
     public boolean supports(String protocolType) {
 
-        return PROTOCOL_TYPE.equalsIgnoreCase(protocolType);
+        return OAuth2DebugConstants.PROTOCOL_TYPE.equalsIgnoreCase(protocolType);
     }
 }

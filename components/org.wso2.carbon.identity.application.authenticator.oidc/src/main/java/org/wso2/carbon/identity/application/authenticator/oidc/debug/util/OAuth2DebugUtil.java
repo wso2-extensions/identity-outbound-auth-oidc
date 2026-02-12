@@ -18,8 +18,6 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug.util;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -28,18 +26,22 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Utility class for OAuth2 debug operations.
- * Provides utilities for PKCE, URL building, parameter extraction, and state management.
+ * Provides utilities for PKCE, URL building, parameter extraction, and state
+ * management.
  */
 public class OAuth2DebugUtil {
 
     private static final Log LOG = LogFactory.getLog(OAuth2DebugUtil.class);
     private static final String SHA256 = "SHA-256";
-      
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private OAuth2DebugUtil() {
 
         // Prevent instantiation
@@ -52,10 +54,9 @@ public class OAuth2DebugUtil {
      */
     public static String generatePKCECodeVerifier() {
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Generating PKCE code verifier.");
-        }
-        return RandomStringUtils.randomAlphanumeric(128);
+        byte[] randomBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     /**
@@ -66,25 +67,14 @@ public class OAuth2DebugUtil {
      */
     public static String generatePKCECodeChallenge(String codeVerifier) {
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Generating PKCE code challenge from verifier using S256 method.");
-        }
-
         if (StringUtils.isEmpty(codeVerifier)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Code verifier is empty. Returning null.");
-            }
             return null;
         }
 
         try {
             MessageDigest messageDigest = MessageDigest.getInstance(SHA256);
             byte[] hash = messageDigest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
-            String challenge = Base64.encodeBase64URLSafeString(hash);
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("PKCE code challenge generated successfully.");
-            }
-            return challenge;
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
             LOG.error("Error generating PKCE code challenge: SHA-256 algorithm not available.", e);
             throw new IllegalStateException("SHA-256 algorithm not available for PKCE code challenge generation", e);
@@ -98,10 +88,9 @@ public class OAuth2DebugUtil {
      */
     public static String generateRandomState() {
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Generating random state parameter.");
-        }
-        return RandomStringUtils.randomAlphanumeric(32);
+        byte[] randomBytes = new byte[16];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     /**
@@ -111,17 +100,16 @@ public class OAuth2DebugUtil {
      */
     public static String generateRandomNonce() {
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Generating random nonce.");
-        }
-        return RandomStringUtils.randomAlphanumeric(32);
+        byte[] randomBytes = new byte[16];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     /**
      * Build OAuth2 authorization URL from endpoint and parameters.
      *
      * @param authorizationEndpoint The authorization endpoint URL.
-     * @param parameters The OAuth2 parameters map.
+     * @param parameters            The OAuth2 parameters map.
      * @return Complete authorization URL.
      */
     public static String buildAuthorizationURL(String authorizationEndpoint, Map<String, String> parameters) {
@@ -150,7 +138,7 @@ public class OAuth2DebugUtil {
                     urlBuilder.append(entry.getKey()).append("=").append(encodedValue);
                 } catch (UnsupportedEncodingException e) {
                     // StandardCharsets.UTF_8 should always be available, but handle just in case.
-                    LOG.error("UTF-8 encoding not available for URL parameter: " + entry.getKey() + ". " + 
+                    LOG.error("UTF-8 encoding not available for URL parameter: " + entry.getKey() + ". " +
                             e.getMessage(), e);
                     // Fail fast to prevent inconsistent URL encoding.
                     throw new IllegalStateException("UTF-8 encoding failed for OAuth2 parameter", e);
@@ -188,21 +176,22 @@ public class OAuth2DebugUtil {
         }
 
         String queryString = url.substring(queryIndex + 1);
-            String[] pairs = queryString.split("&");
-            for (String pair : pairs) {
-                String[] keyValue = pair.split("=", 2);
-                if (keyValue.length == 2) {
-                    try {
-                        String key = java.net.URLDecoder.decode(keyValue[0], StandardCharsets.UTF_8.name());
-                        String value = java.net.URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8.name());
-                        parameters.put(key, value);
-                    } catch (UnsupportedEncodingException e) {
-                        // StandardCharsets.UTF_8 should always be available, but handle just in case.
-                        LOG.error("UTF-8 encoding not available for query parameter: " + pair + ". " + 
-                                e.getMessage(), e);
-                    }
+        String[] pairs = queryString.split("&");
+        for (String pair : pairs) {
+            String[] keyValue = pair.split("=", 2);
+            if (keyValue.length == 2) {
+                try {
+                    String key = java.net.URLDecoder.decode(keyValue[0], StandardCharsets.UTF_8.name());
+                    String value = java.net.URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8.name());
+                    parameters.put(key, value);
+                } catch (UnsupportedEncodingException e) {
+                    // StandardCharsets.UTF_8 should always be available, but handle just in case.
+                    LOG.error("UTF-8 encoding not available for query parameter: " + pair + ". " +
+                            e.getMessage(), e);
                 }
-            }        if (LOG.isDebugEnabled()) {
+            }
+        }
+        if (LOG.isDebugEnabled()) {
             LOG.debug("Query parameters extracted successfully. Count: " + parameters.size());
         }
         return parameters;
