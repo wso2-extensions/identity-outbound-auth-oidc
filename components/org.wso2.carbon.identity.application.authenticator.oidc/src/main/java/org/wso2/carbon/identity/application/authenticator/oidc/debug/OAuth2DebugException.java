@@ -59,6 +59,6 @@ public class OAuth2DebugException extends DebugFrameworkException {
      */
     public OAuth2DebugException(String errorCode, String message, Throwable cause) {
 
-        super(errorCode, message, cause);
+        super(errorCode, message, message, cause);
     }
 }

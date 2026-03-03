@@ -18,9 +18,9 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
-import org.wso2.carbon.identity.debug.framework.extension.DebugContextProvider;
-import org.wso2.carbon.identity.debug.framework.extension.DebugExecutor;
-import org.wso2.carbon.identity.debug.framework.extension.DebugProcessor;
+import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
+import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
+import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
 /**

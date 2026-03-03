@@ -30,11 +30,15 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugProtocolProvider;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugExecutor;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
+import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
+import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;
@@ -76,12 +80,12 @@ public class OpenIDConnectAuthenticatorServiceComponent {
                     new OIDCDebugProtocolProvider(), null);
 
             // Register OAuth2DebugExecutor as DebugExecutor service (for legacy compatibility)
-            componentContext.getBundleContext().registerService(org.wso2.carbon.identity.debug.framework.extension.DebugExecutor.class.getName(),
-                    new org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugExecutor(), null);
+            componentContext.getBundleContext().registerService(DebugExecutor.class.getName(),
+                    new OAuth2DebugExecutor(), null);
 
             // Register OAuth2ContextProvider as DebugContextProvider service (for legacy compatibility)
-            componentContext.getBundleContext().registerService(org.wso2.carbon.identity.debug.framework.extension.DebugContextProvider.class.getName(),
-                    new org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider(), null);
+            componentContext.getBundleContext().registerService(DebugContextProvider.class.getName(),
+                    new OAuth2ContextProvider(), null);
 
             if (log.isDebugEnabled()) {
                 log.debug("Registered OIDCDebugProtocolProvider and legacy debug services");

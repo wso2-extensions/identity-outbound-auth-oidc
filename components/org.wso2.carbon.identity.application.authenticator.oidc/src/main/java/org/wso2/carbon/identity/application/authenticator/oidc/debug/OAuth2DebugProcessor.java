@@ -30,8 +30,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OAuth2
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
-import org.wso2.carbon.identity.debug.framework.cache.DebugResultCache;
-import org.wso2.carbon.identity.debug.framework.extension.DebugProcessor;
+import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -1455,9 +1454,9 @@ public class OAuth2DebugProcessor extends DebugProcessor {
     private void persistDebugResultToCache(String state, String contextId, String resultJson) {
 
         try {
-            DebugResultCache.add(state, resultJson);
+            DebugSessionCache.getInstance().putResult(state, resultJson);
             if (contextId != null && !contextId.equals(state)) {
-                DebugResultCache.add(contextId, resultJson);
+                DebugSessionCache.getInstance().putResult(contextId, resultJson);
             }
 
             if (LOG.isDebugEnabled()) {
