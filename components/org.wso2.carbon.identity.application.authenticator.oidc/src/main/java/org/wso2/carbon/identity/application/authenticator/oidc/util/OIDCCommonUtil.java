@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minidev.json.JSONArray;
+import net.minidev.json.JSONObject;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -78,8 +79,8 @@ public class OIDCCommonUtil {
         if (StringUtils.isBlank(separator)) {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
-        if (entry.getValue() instanceof JSONArray) {
-            JSONArray jsonArray = (JSONArray) entry.getValue();
+        if (entry.getValue() instanceof List) {
+            JSONArray jsonArray = IdentityUtil.convertToJSONArray((List) entry.getValue());
             if (jsonArray != null && !jsonArray.isEmpty()) {
                 Iterator attributeIterator = jsonArray.iterator();
                 while (attributeIterator.hasNext()) {
@@ -282,7 +283,7 @@ public class OIDCCommonUtil {
 
         String base64Body = idToken.split("\\.")[1];
         byte[] decoded = Base64.decodeBase64(base64Body.getBytes());
-        return JSONObjectUtils.parseJSONObject(new String(decoded)).entrySet();
+        return IdentityUtil.convertToJSONObject(JSONObjectUtils.parseJSONObject(new String(decoded))).entrySet();
     }
 
     /**

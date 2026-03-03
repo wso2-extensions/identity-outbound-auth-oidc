@@ -1209,7 +1209,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
             // Create OAuth client that uses custom http client under the hood.
-            OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
+            OAuthClient oAuthClient = new OAuthClient(new CustomURLConnectionClient());
             oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
             if (oAuthResponse != null) {
                 processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));
@@ -1224,6 +1224,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     private void validateJWTToken(AuthenticationContext context, String idToken) throws ParseException,
             AuthenticationFailedException, JOSEException, IdentityOAuth2Exception {
 
+        IdentityUtil.validateX5CLength(idToken);
         SignedJWT signedJWT = SignedJWT.parse(idToken);
         JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
         OIDCTokenValidationUtil.validateIssuerClaim(claimsSet);
@@ -1247,7 +1248,6 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             throws AuthenticationFailedException {
 
         IdentityProvider identityProvider;
-        ErrorMessages errorMessages = ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER;
         try {
             identityProvider = IdentityProviderManager.getInstance().getIdPByMetadataProperty(
                     IdentityApplicationConstants.IDP_ISSUER_NAME, jwtIssuer, tenantDomain, false);
@@ -1261,11 +1261,13 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 identityProvider = getResidentIDPForIssuer(tenantDomain, jwtIssuer);
 
                 if (identityProvider == null) {
-                    throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage());
+                    throw new AuthenticationFailedException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getCode(), 
+                            ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getMessage());
                 }
             }
         } catch (IdentityProviderManagementException e) {
-            throw new AuthenticationFailedException(errorMessages.getCode(), errorMessages.getMessage(), e);
+            throw new AuthenticationFailedException(ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getCode(), 
+                    ErrorMessages.NO_REGISTERED_IDP_FOR_ISSUER.getMessage(), e);
         }
         return identityProvider;
     }
@@ -1427,10 +1429,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         if (StringUtils.isBlank(separator)) {
             separator = IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR_DEFAULT;
         }
-        if (entry.getValue() instanceof JSONArray) {
-            JSONArray jsonArray = (JSONArray) entry.getValue();
-            if (jsonArray != null && !jsonArray.isEmpty()) {
-                Iterator attributeIterator = jsonArray.iterator();
+        if (entry.getValue() instanceof ArrayList) {
+            ArrayList<Object> array = IdentityUtil.convertToJSONArray((List<Object>) entry.getValue());
+            if (array != null && !array.isEmpty()) {
+                Iterator attributeIterator = array.iterator();
                 while (attributeIterator.hasNext()) {
                     if (claimValue == null) {
                         claimValue = new StringBuilder(attributeIterator.next().toString());

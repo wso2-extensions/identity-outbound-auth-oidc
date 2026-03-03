@@ -27,7 +27,7 @@
     <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>identity-application-auth-oidc</artifactId>
-    <version>5.12.37-SNAPSHOT</version>
+    <version>5.15.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>WSO2 Carbon - OpenID Connect Application Authenticator Feature Aggregator Module</name>
     <description>
@@ -97,7 +97,7 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.orbit.org.apache.oltu.oauth2</groupId>
-                <artifactId>oltu</artifactId>
+                <artifactId>oltu-jdk21</artifactId>
                 <version>${oltu.version}</version>
             </dependency>
             <dependency>
@@ -154,34 +154,9 @@
                 <version>${testng.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-testng</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-testng-common</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
                 <version>${mockito.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-api-mockito2</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <!-- https://mvnrepository.com/artifact/org.powermock/powermock-core -->
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-core</artifactId>
-                <version>${powermock.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -226,7 +201,7 @@
                 <plugin>
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>5.1.9</version>
                     <extensions>true</extensions>
                     <configuration>
                         <obrRepository>NONE</obrRepository>
@@ -308,12 +283,12 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.1</version>
+                <version>3.14.1</version>
                 <inherited>true</inherited>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>21</source>
+                    <target>21</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -329,8 +304,8 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
-        <carbon.identity.framework.version>7.8.338</carbon.identity.framework.version>
-        <oltu.version>1.0.0.wso2v3</oltu.version>
+        <carbon.identity.framework.version>7.8.675</carbon.identity.framework.version>
+        <oltu.version>1.0.0.wso2v1</oltu.version>
         <json-smart.version>2.4.11</json-smart.version>
         <json.wso2.version>3.0.0.wso2v4</json.wso2.version>
         <carbon.kernel.version>4.9.10</carbon.kernel.version>
@@ -339,9 +314,8 @@
         <org.slf4j.verison>1.6.1</org.slf4j.verison>
         <testng.version>7.10.1</testng.version>
         <jacoco.version>0.8.4</jacoco.version>
-        <maven.surefire.plugin.version>2.22.2</maven.surefire.plugin.version>
-        <mockito.version>3.10.0</mockito.version>
-        <powermock.version>2.0.2</powermock.version>
+        <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+        <mockito.version>5.3.1</mockito.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
         <carbon.identity.oauth.version>6.4.158</carbon.identity.oauth.version>
 
@@ -361,7 +335,7 @@
         <carbon.kernel.package.import.version.range>[4.4.0, 5.0.0)</carbon.kernel.package.import.version.range>
         <net.minidev.json.imp.pkg.version.range>[2.3.0, 3.0.0)</net.minidev.json.imp.pkg.version.range>
         <oltu.package.import.version.range>[1.0.0, 2.0.0)</oltu.package.import.version.range>
-        <imp.pkg.version.javax.servlet>[2.6.0, 3.0.0)</imp.pkg.version.javax.servlet>
+        <imp.pkg.version.javax.servlet>[3.1.0, 4.0.0)</imp.pkg.version.javax.servlet>
         <carbon.user.api.imp.pkg.version.range>[1.0.1, 2.0.0)</carbon.user.api.imp.pkg.version.range>
         <commons-logging.osgi.version.range>[1.2,2.0)</commons-logging.osgi.version.range>
         <commons-codec.wso2.osgi.version.range>[1.4.0,2.0.0)</commons-codec.wso2.osgi.version.range>
@@ -373,9 +347,9 @@
         <pax.logging.api.version>1.10.1</pax.logging.api.version>
         <apache.felix.scr.ds.annotations.version>1.2.4</apache.felix.scr.ds.annotations.version>
         <maven.scr.plugin.version>1.22.0</maven.scr.plugin.version>
-        <nimbusds.version>7.3.0.wso2v1</nimbusds.version>
+        <nimbusds.version>10.3.0.wso2v1</nimbusds.version>
         <nimbusds.oauth.version>8.28.3</nimbusds.oauth.version>
-        <nimbusds.osgi.version.range>[7.3.0,8.0.0)</nimbusds.osgi.version.range>
+        <nimbusds.osgi.version.range>[10.0.0,11.0.0)</nimbusds.osgi.version.range>
         <h2database.version>2.2.220</h2database.version>
     </properties>
 

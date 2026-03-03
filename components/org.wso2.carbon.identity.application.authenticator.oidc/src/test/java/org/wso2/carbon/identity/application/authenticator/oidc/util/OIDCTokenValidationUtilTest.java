@@ -21,12 +21,14 @@ package org.wso2.carbon.identity.application.authenticator.oidc.util;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.mockito.Mock;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.core.classloader.annotations.SuppressStaticInitializationFor;
-import org.powermock.modules.testng.PowerMockTestCase;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.wso2.carbon.base.CarbonBaseConstants;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
@@ -36,33 +38,22 @@ import org.wso2.carbon.identity.application.common.util.IdentityApplicationManag
 import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
-import static org.powermock.api.mockito.PowerMockito.when;
 
 /***
  * Unit test class for OIDCTokenValidationUtil class.
  */
-@PrepareForTest({
-        JWTSignatureValidationUtils.class,
-        IdentityProviderManager.class,
-        IdentityApplicationManagementUtil.class
-})
-@SuppressStaticInitializationFor({
-        "org.wso2.carbon.idp.mgt.IdentityProviderManager",
-        "org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException"
-})
-public class OIDCTokenValidationUtilTest extends PowerMockTestCase {
+public class OIDCTokenValidationUtilTest {
+
+    private AutoCloseable openMocks;
 
     @Mock
     private IdentityProvider identityProvider;
-
-    @Mock
-    private IdentityProviderManager identityProviderManager;
 
     @Mock
     private FederatedAuthenticatorConfig mockedOauthAuthenticatorConfig;
@@ -86,10 +77,24 @@ public class OIDCTokenValidationUtilTest extends PowerMockTestCase {
     private static String tenantDomain = "carbon.super";
     private static String alias = "https://localhost:9444/oauth2/token";
 
-    @BeforeTest
-    public void init() throws Exception {
+    @BeforeMethod
+    public void setUp() {
 
+        String carbonHome =
+                Paths.get(System.getProperty("user.dir"), "src", "test", "resources", "repository").toString();
+        System.setProperty(CarbonBaseConstants.CARBON_HOME, carbonHome);
+        System.setProperty(CarbonBaseConstants.CARBON_CONFIG_DIR_PATH, Paths.get(carbonHome, "conf").toString());
+        
+        openMocks = MockitoAnnotations.openMocks(this);
     }
+
+    @AfterMethod
+    public void tearDown() throws Exception {
+        if (openMocks != null) {
+            openMocks.close();
+        }
+    }
+
     @Test
     public void testGetIssuer() throws Exception {
 
@@ -102,36 +107,38 @@ public class OIDCTokenValidationUtilTest extends PowerMockTestCase {
     @Test
     public void testPassValidateAudienceResident() throws Exception {
 
-        when(identityProvider.getIdentityProviderName()).thenReturn("LOCAL");
+        Mockito.when(identityProvider.getIdentityProviderName()).thenReturn("LOCAL");
 
-        mockStatic(IdentityProviderManager.class);
-        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
-        when(identityProviderManager.getResidentIdP(tenantDomain)).thenReturn(identityProvider);
-        FederatedAuthenticatorConfig[] fedAuthnConfigs = new FederatedAuthenticatorConfig[1];
-        fedAuthnConfigs[0] = mockedOauthAuthenticatorConfig;
-        when(identityProvider.getFederatedAuthenticatorConfigs()).thenReturn(fedAuthnConfigs);
+        try (MockedStatic<IdentityProviderManager> idpManagerStatic = Mockito.mockStatic(IdentityProviderManager.class);
+             MockedStatic<IdentityApplicationManagementUtil> appMgmtStatic = Mockito.mockStatic(IdentityApplicationManagementUtil.class)) {
+            IdentityProviderManager identityProviderManager = Mockito.mock(IdentityProviderManager.class);
+            idpManagerStatic.when(IdentityProviderManager::getInstance).thenReturn(identityProviderManager);
+            Mockito.when(identityProviderManager.getResidentIdP(tenantDomain)).thenReturn(identityProvider);
+            FederatedAuthenticatorConfig[] fedAuthnConfigs = new FederatedAuthenticatorConfig[1];
+            fedAuthnConfigs[0] = mockedOauthAuthenticatorConfig;
+            Mockito.when(identityProvider.getFederatedAuthenticatorConfigs()).thenReturn(fedAuthnConfigs);
 
-        mockStatic(IdentityApplicationManagementUtil.class);
-        when(IdentityApplicationManagementUtil.class, "getFederatedAuthenticator",
-                any(FederatedAuthenticatorConfig[].class),
-                eq(IdentityApplicationConstants.Authenticator.OIDC.NAME)).thenReturn(mockedOauthAuthenticatorConfig);
-        Property[] properties = new Property[]{new Property()};
-        when(mockedOauthAuthenticatorConfig.getProperties()).thenReturn(properties);
-        when(IdentityApplicationManagementUtil.getProperty(any(Property[].class),
-                eq(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_TOKEN_URL))).thenReturn(mockedOauthTokenURL);
-        when(mockedOauthTokenURL.getValue()).thenReturn(alias);
+            appMgmtStatic.when(() -> IdentityApplicationManagementUtil.getFederatedAuthenticator(
+                    any(FederatedAuthenticatorConfig[].class),
+                    eq(IdentityApplicationConstants.Authenticator.OIDC.NAME))).thenReturn(mockedOauthAuthenticatorConfig);
+            Property[] properties = new Property[]{new Property()};
+            Mockito.when(mockedOauthAuthenticatorConfig.getProperties()).thenReturn(properties);
+            appMgmtStatic.when(() -> IdentityApplicationManagementUtil.getProperty(any(Property[].class),
+                    eq(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_TOKEN_URL))).thenReturn(mockedOauthTokenURL);
+            Mockito.when(mockedOauthTokenURL.getValue()).thenReturn(alias);
 
-        List<String> audienceList = new ArrayList<>();
-        audienceList.add(alias);
+            List<String> audienceList = new ArrayList<>();
+            audienceList.add(alias);
 
-        OIDCTokenValidationUtil.validateAudience(audienceList, identityProvider, tenantDomain);
+            OIDCTokenValidationUtil.validateAudience(audienceList, identityProvider, tenantDomain);
+        }
     }
 
     @Test
     public void testPassValidateAudienceExternal() throws Exception {
 
-        when(identityProvider.getIdentityProviderName()).thenReturn("Google");
-        when(identityProvider.getAlias()).thenReturn(alias);
+        Mockito.when(identityProvider.getIdentityProviderName()).thenReturn("Google");
+        Mockito.when(identityProvider.getAlias()).thenReturn(alias);
 
         List<String> audienceList = new ArrayList<>();
         audienceList.add(alias);
@@ -142,38 +149,40 @@ public class OIDCTokenValidationUtilTest extends PowerMockTestCase {
     @Test
     public void testFailValidateAudienceResident() throws Exception {
 
-        when(identityProvider.getIdentityProviderName()).thenReturn("LOCAL");
+        Mockito.when(identityProvider.getIdentityProviderName()).thenReturn("LOCAL");
 
-        mockStatic(IdentityProviderManager.class);
-        when(IdentityProviderManager.getInstance()).thenReturn(identityProviderManager);
-        when(identityProviderManager.getResidentIdP(tenantDomain)).thenReturn(identityProvider);
-        FederatedAuthenticatorConfig[] fedAuthnConfigs = new FederatedAuthenticatorConfig[1];
-        fedAuthnConfigs[0] = mockedOauthAuthenticatorConfig;
-        when(identityProvider.getFederatedAuthenticatorConfigs()).thenReturn(fedAuthnConfigs);
+        try (MockedStatic<IdentityProviderManager> idpManagerStatic = Mockito.mockStatic(IdentityProviderManager.class);
+             MockedStatic<IdentityApplicationManagementUtil> appMgmtStatic = Mockito.mockStatic(IdentityApplicationManagementUtil.class)) {
+            IdentityProviderManager identityProviderManager = Mockito.mock(IdentityProviderManager.class);
+            idpManagerStatic.when(IdentityProviderManager::getInstance).thenReturn(identityProviderManager);
+            Mockito.when(identityProviderManager.getResidentIdP(tenantDomain)).thenReturn(identityProvider);
+            FederatedAuthenticatorConfig[] fedAuthnConfigs = new FederatedAuthenticatorConfig[1];
+            fedAuthnConfigs[0] = mockedOauthAuthenticatorConfig;
+            Mockito.when(identityProvider.getFederatedAuthenticatorConfigs()).thenReturn(fedAuthnConfigs);
 
-        mockStatic(IdentityApplicationManagementUtil.class);
-        when(IdentityApplicationManagementUtil.class, "getFederatedAuthenticator",
-                any(FederatedAuthenticatorConfig[].class),
-                eq(IdentityApplicationConstants.Authenticator.OIDC.NAME)).thenReturn(mockedOauthAuthenticatorConfig);
-        Property[] properties = new Property[]{new Property()};
-        when(mockedOauthAuthenticatorConfig.getProperties()).thenReturn(properties);
-        when(IdentityApplicationManagementUtil.getProperty(any(Property[].class),
-                eq(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_TOKEN_URL))).thenReturn(mockedOauthTokenURL);
-        when(mockedOauthTokenURL.getValue()).thenReturn(alias);
+            appMgmtStatic.when(() -> IdentityApplicationManagementUtil.getFederatedAuthenticator(
+                    any(FederatedAuthenticatorConfig[].class),
+                    eq(IdentityApplicationConstants.Authenticator.OIDC.NAME))).thenReturn(mockedOauthAuthenticatorConfig);
+            Property[] properties = new Property[]{new Property()};
+            Mockito.when(mockedOauthAuthenticatorConfig.getProperties()).thenReturn(properties);
+            appMgmtStatic.when(() -> IdentityApplicationManagementUtil.getProperty(any(Property[].class),
+                    eq(IdentityApplicationConstants.Authenticator.OIDC.OAUTH2_TOKEN_URL))).thenReturn(mockedOauthTokenURL);
+            Mockito.when(mockedOauthTokenURL.getValue()).thenReturn(alias);
 
-        List<String> audienceList = new ArrayList<>();
+            List<String> audienceList = new ArrayList<>();
 
-        Assert.assertThrows(
-                AuthenticationFailedException.class,
-                () -> OIDCTokenValidationUtil.validateAudience(audienceList, identityProvider, tenantDomain)
-        );
+            Assert.assertThrows(
+                    AuthenticationFailedException.class,
+                    () -> OIDCTokenValidationUtil.validateAudience(audienceList, identityProvider, tenantDomain)
+            );
+        }
     }
 
     @Test
     public void testFailValidateAudienceExternal() throws Exception {
 
-        when(identityProvider.getIdentityProviderName()).thenReturn("Google");
-        when(identityProvider.getAlias()).thenReturn(alias);
+        Mockito.when(identityProvider.getIdentityProviderName()).thenReturn("Google");
+        Mockito.when(identityProvider.getAlias()).thenReturn(alias);
 
         List<String> audienceList = new ArrayList<>();
 
@@ -187,25 +196,26 @@ public class OIDCTokenValidationUtilTest extends PowerMockTestCase {
     public void testPassValidateSignature() throws Exception {
 
         SignedJWT signedJWT = SignedJWT.parse(idToken);
-        mockStatic(JWTSignatureValidationUtils.class);
-        when(JWTSignatureValidationUtils.class, "validateSignature", signedJWT, identityProvider)
-                .thenReturn(true);
-
-        OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider);
+        try (MockedStatic<JWTSignatureValidationUtils> sigStatic = Mockito.mockStatic(JWTSignatureValidationUtils.class)) {
+            sigStatic.when(() -> JWTSignatureValidationUtils.validateSignature(signedJWT, identityProvider))
+                    .thenReturn(true);
+            OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider);
+        }
     }
 
     @Test
     public void testFailValidateSignature() throws Exception {
 
         SignedJWT signedJWT = SignedJWT.parse(idToken);
-        mockStatic(JWTSignatureValidationUtils.class);
-        when(JWTSignatureValidationUtils.class, "validateSignature", signedJWT, identityProvider)
-                .thenReturn(false);
+        try (MockedStatic<JWTSignatureValidationUtils> sigStatic = Mockito.mockStatic(JWTSignatureValidationUtils.class)) {
+            sigStatic.when(() -> JWTSignatureValidationUtils.validateSignature(signedJWT, identityProvider))
+                    .thenReturn(false);
 
-        Assert.assertThrows(
-                AuthenticationFailedException.class,
-                () -> OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider)
-        );
+            Assert.assertThrows(
+                    AuthenticationFailedException.class,
+                    () -> OIDCTokenValidationUtil.validateSignature(signedJWT, identityProvider)
+            );
+        }
     }
 
     @Test

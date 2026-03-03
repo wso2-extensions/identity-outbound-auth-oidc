@@ -53,6 +53,7 @@ import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationManagementUtil;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
+import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.util.JWTSignatureValidationUtils;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
@@ -63,6 +64,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 import javax.servlet.http.HttpServletResponse;
@@ -110,6 +112,7 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
                 log.debug("Handling the OIDC federated IdP Initiated logout request for the obtained logout token: " +
                         logoutToken);
             }
+            IdentityUtil.validateX5CLength(logoutToken);
             // Get the claim set from the logout token.
             SignedJWT signedJWT = SignedJWT.parse(logoutToken);
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
@@ -295,7 +298,9 @@ public class FederatedIdpInitLogoutProcessor extends IdentityProcessor {
             validateSignature(signedJWT, identityProvider);
             validateAudience(claimsSet.getAudience(), identityProvider);
             validateIat(claimsSet.getIssueTime());
-            validateEventClaim((JSONObject) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS));
+            Map<String, Object> eventsClaim =
+                    (Map<String, Object>) claimsSet.getClaim(OIDCAuthenticatorConstants.Claim.EVENTS);
+            validateEventClaim(eventsClaim != null? new JSONObject(eventsClaim) : null);
             validateNonce(claimsSet);
         } catch (ParseException e) {
             throw handleLogoutClientException(ErrorMessages.LOGOUT_TOKEN_PARSING_FAILURE, e);
