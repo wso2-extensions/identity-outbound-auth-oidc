@@ -66,6 +66,7 @@ public class OIDCAuthenticatorConstants {
         }
 
         public static final String DEFAULT_IDP_CONFIG = "DefaultIdPConfig";
+        public static final String EXCLUDED_CLAIM_ATTRIBUTES = "excludedClaimAttributes";
     }
 
     public class IdPConfParams {

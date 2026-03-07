@@ -74,6 +74,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -524,9 +525,10 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
 
             String authenticatedUserId = getAuthenticatedUserId(context, oAuthResponse, jwtAttributeMap);
             String attributeSeparator = getMultiAttributeSeparator(context, authenticatedUserId);
+            String[] excludedAttributes = getExcludedClaimAttributes();
 
             jwtAttributeMap.entrySet().stream()
-                    .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
+                    .filter(entry -> !ArrayUtils.contains(excludedAttributes, entry.getKey()))
                     .forEach(entry -> buildClaimMappings(claimsMap, entry, attributeSeparator));
 
             authenticatedUser = AuthenticatedUser
@@ -1259,5 +1261,40 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         }
 
         return null;
+    }
+
+    /**
+     * Get the list of claim attributes to be excluded from user attributes.
+     * If configured in application-authentication.xml, returns the configured list.
+     * Otherwise, returns the default list.
+     *
+     * @return Array of claim attributes to exclude.
+     */
+    private String[] getExcludedClaimAttributes() {
+
+        String configuredAttributes = getAuthenticatorConfig().getParameterMap()
+                .get(OIDCAuthenticatorConstants.AuthenticatorConfParams.EXCLUDED_CLAIM_ATTRIBUTES);
+        
+        if (configuredAttributes == null) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Using default non-user attributes as excluded claim attributes.");
+            }
+            return NON_USER_ATTRIBUTES;
+        }
+        
+        if (configuredAttributes.isBlank()) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Using empty array for excluded claim attributes.");
+            }
+            return new String[0];
+        }
+        
+        String[] attributes = Arrays.stream(configuredAttributes.split(","))
+                .map(String::trim)
+                .toArray(String[]::new);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Using configured excluded claim attributes: " + configuredAttributes);
+        }
+        return attributes;
     }
 }

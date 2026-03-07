@@ -18,9 +18,9 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc;
 
+import com.ctc.wstx.stax.WstxInputFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthAuthzResponse;
@@ -30,6 +30,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.mockito.Matchers;
 import org.mockito.Mock;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockTestCase;
 import org.powermock.reflect.Whitebox;
@@ -39,6 +40,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.ObjectFactory;
 import org.testng.annotations.Test;
+import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
@@ -68,6 +70,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.stream.XMLInputFactory;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
@@ -86,9 +89,11 @@ import static org.testng.Assert.assertTrue;
 /***
  * Unit test class for OpenIDConnectAuthenticatorTest class.
  */
-@PrepareForTest({LogFactory.class, OAuthClient.class, URL.class, FrameworkUtils.class,
+@PrepareForTest({OAuthClient.class, URL.class, FrameworkUtils.class,
         OpenIDConnectAuthenticatorDataHolder.class, OAuthAuthzResponse.class, OAuthClientRequest.class,
-        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class})
+        OAuthClientResponse.class, IdentityUtil.class, OpenIDConnectAuthenticator.class, ServiceURLBuilder.class,
+        XMLInputFactory.class})
+@PowerMockIgnore({"org.wso2.carbon.identity.application.authentication.framework.handler.*"})
 public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
 
     @Mock
@@ -636,6 +641,10 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(serviceURLBuilder.addPath(anyString())).thenReturn(serviceURLBuilder);
         when(serviceURLBuilder.addParameter(anyString(), anyString())).thenReturn(serviceURLBuilder);
         when(serviceURLBuilder.build()).thenReturn(serviceURL);
+
+        mockStatic(XMLInputFactory.class);
+        when(XMLInputFactory.newInstance()).thenReturn(new WstxInputFactory());
+        FileBasedConfigurationBuilder.getInstance(TestUtils.getFilePath("application-authentication.xml"));
     }
 
     private void setParametersForOAuthClientResponse(OAuthClientResponse mockOAuthClientResponse,
