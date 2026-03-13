@@ -108,6 +108,7 @@ import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthen
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_NAME;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.CIBA_AUTH_CODE_KEY_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.OIDC_FEDERATION_NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_PARAM;
@@ -1395,6 +1396,77 @@ public class OpenIDConnectAuthenticatorTest {
                     && ((StringUtils.isBlank(shareTokeAdaptiveScriptParam) &&
                     Boolean.parseBoolean(shareTokenQueryParameter)) ||
                     Boolean.parseBoolean(shareTokeAdaptiveScriptParam))) {
+                assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
+
+                if (authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) != null &&
+                        authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) instanceof List) {
+                    List<FederatedToken> federatedToken = (List<FederatedToken>) authenticationContext.getProperty(
+                            FrameworkConstants.FEDERATED_TOKENS);
+                    assertEquals(federatedToken.get(0).getAccessToken(), accessToken, "No access token found");
+                    assertEquals(federatedToken.get(0).getRefreshToken(), refreshToken, "No refresh token found");
+                    assertEquals(federatedToken.get(0).getTokenValidityPeriod(), expiresIn, "No expiry time found");
+                    assertEquals(federatedToken.get(0).getScope(), scope, "No scope found");
+                }
+            } else {
+                assertNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
+            }
+        }
+    }
+
+    /**
+     * This data provider generates test criteria for CIBA flow federated token sharing.
+     * Tests the behavior when the authCodeKey parameter is present or absent in the request,
+     * combined with different ShareFederatedToken IDP configurations.
+     *
+     * @return Object[][] The test criteria.
+     */
+    @DataProvider(name = "cibaFlowFederatedTokenParams")
+    public Object[][] cibaFlowFederatedTokenParams() {
+
+        return new Object[][]{
+                // CIBA flow (authCodeKey present) - tokens should be added regardless of IDP config.
+                {"CIBA flow with ShareFederatedToken enabled", "true", true, true},
+                {"CIBA flow with ShareFederatedToken disabled", "false", true, true},
+                {"CIBA flow with no ShareFederatedToken config", null, true, true},
+                // Non-CIBA flow (authCodeKey absent) - tokens should follow ShareFederatedToken config.
+                {"Non-CIBA flow with ShareFederatedToken disabled and no share request",
+                        "false", false, false},
+                {"Non-CIBA flow with no ShareFederatedToken config and no share request",
+                        null, false, false}
+        };
+    }
+
+    @Test(dataProvider = "cibaFlowFederatedTokenParams")
+    public void testFederatedTokenSharingForCibaFlow(String errorMessage,
+                                                      String enableShareTokenIDPConfig,
+                                                      boolean isCibaFlow,
+                                                      boolean expectFederatedTokens)
+            throws Exception {
+
+        try (MockedStatic<OAuthAuthzResponse> authzResponseStatic = Mockito.mockStatic(OAuthAuthzResponse.class);
+             MockedStatic<OpenIDConnectAuthenticatorDataHolder> dataHolderStatic
+                     = Mockito.mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+             MockedStatic<IdentityUtil> identityUtilStatic = Mockito.mockStatic(IdentityUtil.class);
+             MockedStatic<ServiceURLBuilder> serviceURLBuilderStatic = Mockito.mockStatic(ServiceURLBuilder.class);
+             MockedStatic<LoggerUtils> loggerUtilsStatic = Mockito.mockStatic(LoggerUtils.class)) {
+            String authenticator = "Google Calender";
+            mockServiceVariables(authzResponseStatic, dataHolderStatic, identityUtilStatic,
+                    serviceURLBuilderStatic, loggerUtilsStatic);
+
+            AuthenticationRequest authenticationRequest = new AuthenticationRequest();
+            if (isCibaFlow) {
+                // Add the CIBA auth code key parameter to simulate a CIBA flow.
+                authenticationRequest.addRequestQueryParam(CIBA_AUTH_CODE_KEY_PARAM,
+                        new String[]{"test-ciba-auth-code"});
+            }
+            AuthenticationContext authenticationContext =
+                    getAuthenticationContext(authenticator, authenticationRequest, enableShareTokenIDPConfig);
+            mockIDPAuthentication();
+
+            openIDConnectAuthenticator.processAuthenticationResponse(mockServletRequest, mockServletResponse,
+                    authenticationContext);
+
+            if (expectFederatedTokens) {
                 assertNotNull(authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS), errorMessage);
 
                 if (authenticationContext.getProperty(FrameworkConstants.FEDERATED_TOKENS) != null &&
