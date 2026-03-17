@@ -68,7 +68,7 @@ public class CustomURLConnectionClient implements HttpClient {
                 // Use default JVM truststore (same behavior as HttpsURLConnection defaults)
                 tmf.init((KeyStore) null);
 
-                SSLContext sc = SSLContext.getInstance("TLS");
+                SSLContext sc = SSLContext.getInstance("TLS", "SunJSSE");
                 // KeyManagers = null => no client certificate will ever be presented
                 sc.init(null, tmf.getTrustManagers(), new SecureRandom());
 
