@@ -63,7 +63,7 @@ public class CustomURLConnectionClient implements HttpClient {
                 HttpsURLConnection https = (HttpsURLConnection) c;
 
                 TrustManagerFactory tmf = TrustManagerFactory.getInstance(
-                        TrustManagerFactory.getDefaultAlgorithm()
+                        TrustManagerFactory.getDefaultAlgorithm(), "SunJSSE"
                 );
                 // Use default JVM truststore (same behavior as HttpsURLConnection defaults)
                 tmf.init((KeyStore) null);
