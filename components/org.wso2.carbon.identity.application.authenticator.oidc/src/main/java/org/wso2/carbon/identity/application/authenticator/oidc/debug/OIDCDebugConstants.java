@@ -18,6 +18,8 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
+
 /**
  * OIDC debug extension constants.
  * 
@@ -46,8 +48,6 @@ public final class OIDCDebugConstants {
     public static final String REDIRECT_URI = "redirectUri";
     public static final String IDP_SCOPE = "idpScope";
     public static final String RESPONSE_TYPE = "responseType";
-    public static final String OPENID_CONNECT_AUTHENTICATOR = "OpenIDConnectAuthenticator";
-    public static final String OIDC_OPENID_CONNECT_AUTHENTICATOR = "OIDCOpenIDConnectAuthenticator";
     public static final String IDP_CONFIG = "idpConfig";
     public static final String DEBUG_IDP_NAME = "debugIdpName";
 
@@ -138,5 +138,5 @@ public final class OIDCDebugConstants {
     public static final String RESPONSE_SUCCESS = "success";
 
     // Protocol Type Identifier
-    public static final String PROTOCOL_TYPE = "OIDC";
+    public static final String PROTOCOL_TYPE = DebugFrameworkConstants.PROTOCOL_TYPE_OIDC;
 }

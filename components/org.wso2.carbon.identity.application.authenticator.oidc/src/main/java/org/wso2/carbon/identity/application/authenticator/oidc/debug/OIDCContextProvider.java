@@ -26,6 +26,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCCo
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.Property;
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.exception.ContextResolutionException;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
@@ -311,8 +312,7 @@ public class OIDCContextProvider extends DebugContextProvider {
      */
     private String mapAuthenticatorToExecutor(String authenticatorName) {
 
-        if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
-                OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+        if (isKnownOidcImplementation(authenticatorName)) {
             return OpenIDConnectExecutor.class.getName();
         }
         return null;
@@ -504,8 +504,7 @@ public class OIDCContextProvider extends DebugContextProvider {
         for (FederatedAuthenticatorConfig config : configs) {
             if (config != null && config.isEnabled()) {
                 String configName = config.getName();
-                if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(configName) ||
-                        OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(configName)) {
+                if (isKnownOidcImplementation(configName)) {
                     return config;
                 }
             }
@@ -616,11 +615,16 @@ public class OIDCContextProvider extends DebugContextProvider {
      */
     private OpenIDConnectExecutor createExecutorForAuthenticator(String authenticatorName) {
 
-        if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
-                OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+        if (isKnownOidcImplementation(authenticatorName)) {
             return new OpenIDConnectExecutor();
         }
         return null;
+    }
+
+    private boolean isKnownOidcImplementation(String implementationName) {
+
+        return DebugFrameworkConstants.IMPLEMENTATION_OPENID_CONNECT.equals(implementationName)
+                || DebugFrameworkConstants.IMPLEMENTATION_GOOGLE_OIDC.equals(implementationName);
     }
 
     /**

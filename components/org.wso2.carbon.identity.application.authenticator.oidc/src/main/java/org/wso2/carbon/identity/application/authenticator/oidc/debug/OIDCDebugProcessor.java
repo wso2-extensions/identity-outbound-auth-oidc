@@ -24,6 +24,7 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfiguration;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfigurationExtractor;
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.OAuth2TokenClient;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.TokenResponse;
@@ -220,12 +221,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
      */
     private boolean validateAndExtractPrerequisites(String code, String state, AuthenticationContext context) {
 
-        IdentityProvider idp = (IdentityProvider) context.getProperty(OIDCDebugConstants.IDP_CONFIG);
+        IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
 
         // Try to restore properties from session cache if IDP_CONFIG not found
         if (idp == null) {
             restoreContextFromSessionCache(state, context);
-            idp = (IdentityProvider) context.getProperty(OIDCDebugConstants.IDP_CONFIG);
+            idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         }
 
         // Last resort: try to resolve IdP from cached IdP name or resource ID
@@ -300,6 +301,58 @@ public class OIDCDebugProcessor extends DebugProcessor {
     }
 
     /**
+     * Deserializes an IdentityProvider object from potentially serialized format.
+     * Handles conversion from LinkedHashMap (from JSON deserialization) to IdentityProvider.
+     *
+     * @param idpObject The object to deserialize, which may be IdentityProvider or LinkedHashMap.
+     * @return IdentityProvider if deserialization succeeds, null otherwise.
+     */
+    private IdentityProvider deserializeIdentityProvider(Object idpObject) {
+
+        if (idpObject == null) {
+            return null;
+        }
+
+        // If already an IdentityProvider instance, return as-is.
+        if (idpObject instanceof IdentityProvider) {
+            return (IdentityProvider) idpObject;
+        }
+
+        // Handle LinkedHashMap from JSON deserialization.
+        if (idpObject instanceof LinkedHashMap) {
+            try {
+                IdentityProvider idp = OBJECT_MAPPER.convertValue(idpObject, IdentityProvider.class);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Successfully deserialized IdentityProvider from LinkedHashMap");
+                }
+                return idp;
+            } catch (Exception e) {
+                LOG.error("Failed to deserialize IdentityProvider from LinkedHashMap: " + e.getMessage(), e);
+                return null;
+            }
+        }
+
+        // Handle Map interface.
+        if (idpObject instanceof Map) {
+            try {
+                IdentityProvider idp = OBJECT_MAPPER.convertValue(idpObject, IdentityProvider.class);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Successfully deserialized IdentityProvider from Map");
+                }
+                return idp;
+            } catch (Exception e) {
+                LOG.error("Failed to deserialize IdentityProvider from Map: " + e.getMessage(), e);
+                return null;
+            }
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Cannot deserialize IdentityProvider: unexpected type " + idpObject.getClass().getName());
+        }
+        return null;
+    }
+
+    /**
      * Extracts OIDC configuration from context and IdP settings.
      * First tries context (set by OIDCContextResolver), then falls back to IdP
      * config.
@@ -312,7 +365,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private OIDCConfiguration extractOIDCConfiguration(AuthenticationContext context, HttpServletRequest request) {
 
         OIDCConfiguration config = new OIDCConfiguration();
-        IdentityProvider idp = (IdentityProvider) context.getProperty(OIDCDebugConstants.IDP_CONFIG);
+        IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         String idpName = idp != null ? idp.getIdentityProviderName() : "Unknown";
         config.setIdpName(idpName);
         config.setCodeVerifier((String) context.getProperty(OIDCDebugConstants.DEBUG_CODE_VERIFIER));
@@ -930,7 +983,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         Map<String, Object> debugResult = new HashMap<>();
         debugResult.put("state", state);
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SUCCESS, true);
-        debugResult.put("authenticator", "OpenIDConnectAuthenticator");
+        debugResult.put("authenticator", DebugFrameworkConstants.IMPLEMENTATION_OPENID_CONNECT);
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_IDPNAME,
                 context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SESSIONID,
@@ -989,7 +1042,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private void processClaimMappingsAndDiagnostics(AuthenticationContext context,
             Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
 
-        IdentityProvider idp = (IdentityProvider) context.getProperty(OIDCDebugConstants.IDP_CONFIG);
+        IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         Map<String, Map<String, String>> idpClaimMappings = extractIdPClaimMappings(idp);
 
         if (LOG.isDebugEnabled()) {

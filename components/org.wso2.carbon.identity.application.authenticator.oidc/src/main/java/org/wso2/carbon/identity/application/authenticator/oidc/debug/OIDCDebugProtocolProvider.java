@@ -21,6 +21,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
+import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
 /**
@@ -28,13 +29,8 @@ import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
  * 
  * Registered with OSGi by OpenIDConnectAuthenticatorServiceComponent to
  * advertise
- * the OIDC module's debug capabilities (context provider, executor, and
- * processor).
- * 
- * This approach eliminates the need for reflection-based class loading
- * (Class.forName) in DebugProtocolRouter. Instead, DebugProtocolRouter
- * discovers
- * providers dynamically via OSGi service lookups.
+ * the OIDC module's debug capabilities (context provider, executor, processor,
+ * and callback handler).
  * 
  * The debug-framework remains agnostic of specific protocol implementations;
  * it simply uses whatever DebugProtocolProvider services are registered at
@@ -45,6 +41,7 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     private final DebugContextProvider contextProvider = new OIDCContextProvider();
     private final DebugExecutor executor = new OIDCDebugExecutor();
     private final DebugProcessor processor = new OIDCDebugProcessor();
+    private final DebugCallbackHandler callbackHandler = new OIDCDebugCallbackHandler(processor);
 
     /**
      * Gets the protocol type identifier.
@@ -92,6 +89,17 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     public DebugProcessor getProcessor() {
 
         return processor;
+    }
+
+    /**
+     * Gets the OIDC callback handler.
+     *
+     * @return OIDCDebugCallbackHandler instance.
+     */
+    @Override
+    public DebugCallbackHandler getCallbackHandler() {
+
+        return callbackHandler;
     }
 
     /**
