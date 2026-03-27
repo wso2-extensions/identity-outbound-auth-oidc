@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -24,7 +24,7 @@ import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
 /**
- * OAuth2/OIDC implementation of DebugProtocolProvider.
+ * OIDC/OIDC implementation of DebugProtocolProvider.
  * 
  * Registered with OSGi by OpenIDConnectAuthenticatorServiceComponent to
  * advertise
@@ -42,27 +42,27 @@ import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
  */
 public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
 
-    private final DebugContextProvider contextProvider = new OAuth2ContextProvider();
-    private final DebugExecutor executor = new OAuth2DebugExecutor();
-    private final DebugProcessor processor = new OAuth2DebugProcessor();
+    private final DebugContextProvider contextProvider = new OIDCContextProvider();
+    private final DebugExecutor executor = new OIDCDebugExecutor();
+    private final DebugProcessor processor = new OIDCDebugProcessor();
 
     /**
      * Gets the protocol type identifier.
      *
-     * @return "OAuth2/OIDC".
+     * @return "OIDC".
      */
     @Override
     public String getProtocolType() {
 
-        return OAuth2DebugConstants.PROTOCOL_TYPE;
+        return OIDCDebugConstants.PROTOCOL_TYPE;
     }
 
     /**
-     * Gets the OAuth2/OIDC context provider.
-     * The context provider resolves OAuth2/OIDC configuration and creates the debug
+     * Gets the OIDC/OIDC context provider.
+     * The context provider resolves OIDC/OIDC configuration and creates the debug
      * context.
      *
-     * @return OAuth2ContextProvider instance.
+     * @return OIDCContextProvider instance.
      */
     @Override
     public DebugContextProvider getContextProvider() {
@@ -71,10 +71,10 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OAuth2/OIDC executor.
-     * The executor generates the OAuth2 Authorization URL with PKCE support.
+     * Gets the OIDC/OIDC executor.
+     * The executor generates the OIDC Authorization URL with PKCE support.
      *
-     * @return OAuth2DebugExecutor instance.
+     * @return OIDCDebugExecutor instance.
      */
     @Override
     public DebugExecutor getExecutor() {
@@ -83,10 +83,10 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OAuth2/OIDC processor.
-     * The processor handles OAuth2 authorization code callbacks and token exchange.
+     * Gets the OIDC/OIDC processor.
+     * The processor handles OIDC authorization code callbacks and token exchange.
      *
-     * @return OAuth2DebugProcessor instance.
+     * @return OIDCDebugProcessor instance.
      */
     @Override
     public DebugProcessor getProcessor() {
@@ -98,12 +98,12 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
      * Checks if this provider supports the given protocol type.
      *
      * @param protocolType The protocol type to check.
-     * @return true if protocolType is "OAuth2/OIDC" (case-insensitive), false
+     * @return true if protocolType is "OIDC/OIDC" (case-insensitive), false
      *         otherwise.
      */
     @Override
     public boolean supports(String protocolType) {
 
-        return OAuth2DebugConstants.PROTOCOL_TYPE.equalsIgnoreCase(protocolType);
+        return OIDCDebugConstants.PROTOCOL_TYPE.equalsIgnoreCase(protocolType);
     }
 }

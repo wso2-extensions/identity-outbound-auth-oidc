@@ -25,7 +25,7 @@ import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugConstants;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,7 +54,7 @@ public class OAuth2TokenClient {
      */
     public TokenResponse exchangeCodeForTokens(String authorizationCode, String tokenEndpoint, String clientId,
             String clientSecret, String redirectUri, String codeVerifier, String idpName) {
-        
+
         // Validate all required parameters.
         TokenResponse validationError = validateRequiredParameters(authorizationCode, tokenEndpoint, clientId,
                 clientSecret, redirectUri);
@@ -67,7 +67,7 @@ public class OAuth2TokenClient {
                     authorizationCode, codeVerifier, idpName);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Exchanging authorization code for tokens at endpoint: " + tokenEndpoint + 
+                LOG.debug("Exchanging authorization code for tokens at endpoint: " + tokenEndpoint +
                         " for IdP: " + idpName);
             }
 
@@ -94,23 +94,23 @@ public class OAuth2TokenClient {
             String clientId, String clientSecret, String redirectUri) {
 
         if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
-            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
+            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
                     "Authorization code parameter was null or empty");
         }
         if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
-            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
+            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
                     "Token endpoint URL was null or empty");
         }
         if (clientId == null || clientId.trim().isEmpty()) {
-            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
+            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
                     "Client ID was null or empty");
         }
         if (clientSecret == null || clientSecret.trim().isEmpty()) {
-            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
+            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
                     "Client secret was null or empty");
         }
         if (redirectUri == null || redirectUri.trim().isEmpty()) {
-            return new TokenResponse(OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
+            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
                     "Redirect URI was null or empty");
         }
         return null;
@@ -188,10 +188,10 @@ public class OAuth2TokenClient {
         String enhancedDetails = buildDetailedErrorDescription(e, errorCode);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Token exchange failed with error code: " + errorCode + ", message: " + errorMessage + 
+            LOG.debug("Token exchange failed with error code: " + errorCode + ", message: " + errorMessage +
                     ". IdP: " + idpName);
         }
-        LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode + 
+        LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode +
                 ", Message: " + errorMessage, e);
 
         return new TokenResponse(errorCode, errorMessage, enhancedDetails);
@@ -216,7 +216,7 @@ public class OAuth2TokenClient {
         } else if (exceptionMessage.contains("unauthorized")) {
             return "UNAUTHORIZED";
         } else if (exceptionMessage.contains("invalid_request")) {
-            return OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST;
+            return OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST;
         } else if (exceptionMessage.contains("unsupported_grant_type")) {
             return "UNSUPPORTED_GRANT_TYPE";
         } else if (exceptionMessage.contains("connection")) {
@@ -236,13 +236,12 @@ public class OAuth2TokenClient {
      *
      * @param e The exception that occurred.
      * @param errorCode The error code extracted from the exception.
-     * @param idpName The Identity Provider name for context in error message.
      * @return A detailed error description with troubleshooting hints.
      */
     private String buildDetailedErrorDescription(Exception e, String errorCode) {
 
         StringBuilder details = new StringBuilder();
-        
+
         // Add context-specific troubleshooting hints.
         switch (errorCode) {
             case "INVALID_CLIENT":
@@ -254,7 +253,7 @@ public class OAuth2TokenClient {
                     .append("or was already used. Start the authentication process again to get a new ")
                     .append("authorization code.");
                 break;
-            case OAuth2DebugConstants.ERROR_CODE_INVALID_REQUEST:
+            case OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST:
                 details.append("The token request is malformed. Verify redirect URI and PKCE parameters ")
                     .append("are configured correctly.");
                 break;
@@ -283,7 +282,7 @@ public class OAuth2TokenClient {
                 details.append("An error occurred during token exchange.")
                     .append(" Check the error code and message for details: ").append(e.getMessage());
         }
-        
+
         return details.toString();
     }
 

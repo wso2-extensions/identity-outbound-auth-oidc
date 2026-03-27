@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -22,12 +22,15 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfigurationExtractor;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.exception.ContextResolutionException;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
+import org.wso2.carbon.idp.mgt.IdentityProviderManager;
+import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,21 +38,21 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 
 /**
- * OAuth2 context resolver for debug operations.
- * Extends the framework's DebugContextProvider to provide OAuth2-specific
+ * OIDC context resolver for debug operations.
+ * Extends the framework's DebugContextProvider to provide OIDC-specific
  * context resolution.
- * Resolves OAuth2-specific context from IdP configuration.
+ * Resolves OIDC-specific context from IdP configuration.
  */
-public class OAuth2ContextProvider extends DebugContextProvider {
+public class OIDCContextProvider extends DebugContextProvider {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2ContextProvider.class);
+    private static final Log LOG = LogFactory.getLog(OIDCContextProvider.class);
 
     /**
-     * Resolves and creates an OAuth2 debug context from the given HTTP request.
+     * Resolves and creates an OIDC debug context from the given HTTP request.
      *
      * @param request HTTP servlet request containing debug parameters (idpId,
      *                authenticator).
-     * @return Map containing resolved OAuth2 debug context data.
+     * @return Map containing resolved OIDC debug context data.
      * @throws ContextResolutionException If context resolution fails.
      */
     @Override
@@ -82,24 +85,24 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
             return resolveContext(idpId, authenticatorName);
         } catch (ContextResolutionException e) {
-            LOG.error("Error resolving OAuth2 debug context from request: " + e.getMessage(), e);
+            LOG.error("Error resolving OIDC debug context from request: " + e.getMessage(), e);
             throw e;
         } catch (Exception e) {
-            LOG.error("Unexpected error resolving OAuth2 debug context from request: " + e.getMessage(), e);
-            throw new ContextResolutionException("CTX-50001", "Error resolving OAuth2 debug context",
+            LOG.error("Unexpected error resolving OIDC debug context from request: " + e.getMessage(), e);
+            throw new ContextResolutionException("CTX-50001", "Error resolving OIDC debug context",
                     e.getMessage(), e);
         }
     }
 
     /**
-     * Resolves and creates an OAuth2 debug context from a provided Map input.
+     * Resolves and creates an OIDC debug context from a provided Map input.
      * This method is used by the API layer which invokes the resolver reflectively
      * with a Map argument containing keys such as `idpName` and
      * `authenticatorName`.
      *
      * @param input Map containing debug request parameters (idpName,
      *              authenticatorName, etc.).
-     * @return Map containing resolved OAuth2 debug context data.
+     * @return Map containing resolved OIDC debug context data.
      * @throws ContextResolutionException If context resolution fails.
      */
     public Map<String, Object> resolveContext(Map<String, Object> input) throws ContextResolutionException {
@@ -126,19 +129,19 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Resolves and creates an OAuth2 debug context with specific parameters.
+     * Resolves and creates an OIDC debug context with specific parameters.
      *
      * @param idpId         Identity Provider resource ID or name.
      * @param authenticator Optional authenticator name (defaults to first enabled
-     *                      OAuth2 authenticator).
-     * @return Map containing resolved OAuth2 debug context data.
+     *                      OIDC authenticator).
+     * @return Map containing resolved OIDC debug context data.
      * @throws ContextResolutionException If context resolution fails.
      */
     @Override
     public Map<String, Object> resolveContext(String idpId, String authenticator) throws ContextResolutionException {
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Resolving OAuth2 debug context for IdP: " + idpId + " with authenticator: " + authenticator);
+            LOG.debug("Resolving OIDC debug context for IdP: " + idpId + " with authenticator: " + authenticator);
         }
 
         if (StringUtils.isEmpty(idpId)) {
@@ -154,31 +157,31 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             // Set IdP-specific context properties
             populateIdpContextProperties(context, idp);
 
-            // Find and extract OAuth2 authenticator configuration
-            FederatedAuthenticatorConfig authenticatorConfig = findOAuth2AuthenticatorConfig(idp, authenticator);
+            // Find and extract OIDC authenticator configuration
+            FederatedAuthenticatorConfig authenticatorConfig = findOIDCAuthenticatorConfig(idp, authenticator);
             if (authenticatorConfig == null) {
                 logAvailableAuthenticators(idp);
-                throw new ContextResolutionException("No OAuth2 authenticator configuration found for IdP: " +
+                throw new ContextResolutionException("No OIDC authenticator configuration found for IdP: " +
                         idp.getIdentityProviderName());
             }
 
-            // Extract OAuth2 parameters and set authenticator details
-            extractOAuth2Parameters(authenticatorConfig, context);
+            // Extract OIDC parameters and set authenticator details
+            extractOIDCParameters(authenticatorConfig, context);
             populateAuthenticatorContextProperties(context, authenticatorConfig);
             populateDebugSessionProperties(context, tenantDomain);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("OAuth2 debug context resolved successfully for IdP: " + idp.getIdentityProviderName());
+                LOG.debug("OIDC debug context resolved successfully for IdP: " + idp.getIdentityProviderName());
             }
 
             return context;
 
         } catch (ContextResolutionException e) {
-            LOG.error("Error resolving OAuth2 debug context: " + e.getMessage(), e);
+            LOG.error("Error resolving OIDC debug context: " + e.getMessage(), e);
             throw e;
         } catch (Exception e) {
-            LOG.error("Unexpected error resolving OAuth2 debug context: " + e.getMessage(), e);
-            throw new ContextResolutionException("CTX-50001", "Error resolving OAuth2 debug context",
+            LOG.error("Unexpected error resolving OIDC debug context: " + e.getMessage(), e);
+            throw new ContextResolutionException("CTX-50001", "Error resolving OIDC debug context",
                     e.getMessage(), e);
         }
     }
@@ -195,11 +198,26 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             throws ContextResolutionException {
 
         try {
-            // TODO: Implement IdP retrieval using IdpManager service
-            // For now, return a stub to allow compilation
-            IdentityProvider idp = new IdentityProvider();
-            idp.setIdentityProviderName(idpId);
+            IdentityProviderManager idpManager = IdentityProviderManager.getInstance();
+            
+            // First, try to retrieve by resource ID (UUID).
+            IdentityProvider idp = idpManager.getIdPByResourceId(idpId, tenantDomain, false);
+            
+            // If not found by ID, try by name.
+            if (idp == null) {
+                idp = idpManager.getIdPByName(idpId, tenantDomain, false);
+            }
+            
+            if (idp == null) {
+                throw new ContextResolutionException("CTX-40401", "IdP not found: " + idpId, 
+                        "Identity Provider with ID or name '" + idpId + "' does not exist.");
+            }
+            
             return idp;
+        } catch (ContextResolutionException e) {
+            throw e;
+        } catch (IdentityProviderManagementException e) {
+            throw new ContextResolutionException("CTX-40401", "IdP not found: " + idpId, e.getMessage(), e);
         } catch (Exception e) {
             throw new ContextResolutionException("CTX-40401", "IdP not found: " + idpId, e.getMessage(), e);
         }
@@ -214,7 +232,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     private void validateIdpIsEnabled(IdentityProvider idp) throws ContextResolutionException {
 
         if (!idp.isEnable()) {
-            throw new ContextResolutionException("IdP is disabled: " + idp.getIdentityProviderName());
+            throw new ContextResolutionException("IdP is not available: " + idp.getIdentityProviderName());
         }
     }
 
@@ -226,12 +244,15 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     private void populateIdpContextProperties(Map<String, Object> context, IdentityProvider idp) {
 
-        // Populate context with IdP details
+        // Populate context with IdP details.
         if (idp != null) {
-            context.put(OAuth2DebugConstants.DEBUG_IDP_NAME, idp.getIdentityProviderName());
+            context.put(OIDCDebugConstants.DEBUG_IDP_NAME, idp.getIdentityProviderName());
             context.put("DEBUG_IDP_RESOURCE_ID", idp.getIdentityProviderName());
             context.put("DEBUG_IDP_DESCRIPTION", idp.getIdentityProviderDescription());
-            context.put(OAuth2DebugConstants.IDP_CONFIG, idp.getFederatedAuthenticatorConfigs());
+            // Store the full IdentityProvider so that OIDCDebugProcessor.validateAndExtractPrerequisites()
+            // can cast it correctly. Previously this stored only getFederatedAuthenticatorConfigs() which
+            // caused a ClassCastException when the processor tried to cast it to IdentityProvider.
+            context.put(OIDCDebugConstants.IDP_CONFIG, idp);
         }
     }
 
@@ -270,11 +291,11 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     private void populateAuthenticatorContextProperties(Map<String, Object> context,
             FederatedAuthenticatorConfig authenticatorConfig) {
 
-        context.put(OAuth2DebugConstants.DEBUG_AUTHENTICATOR_NAME, authenticatorConfig.getName());
+        context.put(OIDCDebugConstants.DEBUG_AUTHENTICATOR_NAME, authenticatorConfig.getName());
 
         String executorClass = mapAuthenticatorToExecutor(authenticatorConfig.getName());
         if (executorClass != null) {
-            context.put(OAuth2DebugConstants.DEBUG_EXECUTOR_CLASS, executorClass);
+            context.put(OIDCDebugConstants.DEBUG_EXECUTOR_CLASS, executorClass);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Mapped authenticator '" + authenticatorConfig.getName() +
                         "' to executor '" + executorClass + "'.");
@@ -290,8 +311,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     private String mapAuthenticatorToExecutor(String authenticatorName) {
 
-        if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
-                OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+        if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
+                OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
             return OpenIDConnectExecutor.class.getName();
         }
         return null;
@@ -305,16 +326,16 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     private void populateDebugSessionProperties(Map<String, Object> context, String tenantDomain) {
 
-        context.put(OAuth2DebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
-        context.put(OAuth2DebugConstants.DEBUG_SESSION_ID, java.util.UUID.randomUUID().toString());
-        context.put(OAuth2DebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
-        context.put(OAuth2DebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
-        context.put(OAuth2DebugConstants.DEBUG_CONTEXT_ID, "debug-" + java.util.UUID.randomUUID().toString());
+        context.put(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
+        context.put(OIDCDebugConstants.DEBUG_SESSION_ID, java.util.UUID.randomUUID().toString());
+        context.put(OIDCDebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
+        context.put(OIDCDebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
+        context.put(OIDCDebugConstants.DEBUG_CONTEXT_ID, "debug-" + java.util.UUID.randomUUID().toString());
     }
 
     /**
      * Validates if this resolver can handle the given IdP.
-     * Returns true if the IdP has at least one enabled OAuth2/OIDC authenticator.
+     * Returns true if the IdP has at least one enabled OIDC/OIDC authenticator.
      *
      * @param idpId Identity Provider ID to check.
      * @return true if this resolver can handle the IdP, false otherwise.
@@ -334,8 +355,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
                 return false;
             }
 
-            // Check if IdP has at least one enabled OAuth2/OIDC authenticator.
-            return findOAuth2AuthenticatorConfig(idp, null) != null;
+            // Check if IdP has at least one enabled OIDC/OIDC authenticator.
+            return findOIDCAuthenticatorConfig(idp, null) != null;
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error checking if resolver can handle IdP: " + e.getMessage());
@@ -355,29 +376,29 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     private IdentityProvider retrieveIdpForCanResolve(String idpId, String tenantDomain) {
 
         try {
-            // TODO: Implement IdP retrieval using IdpManager service
-            // For now, return a stub to allow compilation
-            IdentityProvider idp = new IdentityProvider();
-            idp.setIdentityProviderName(idpId);
-            return idp;
+            return retrieveIdentityProvider(idpId, tenantDomain);
+        } catch (ContextResolutionException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failed to resolve IdP for canResolve: " + e.getMessage());
+            }
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Failed to resolve IdP: " + e.getMessage());
+                LOG.debug("Unexpected error resolving IdP for canResolve: " + e.getMessage());
             }
-            return null;
         }
+        return null;
     }
 
     /**
-     * Finds the OAuth2/OIDC authenticator configuration in the IdP.
+     * Finds the OIDC/OIDC authenticator configuration in the IdP.
      * If authenticatorName is provided, finds the specific authenticator.
-     * Otherwise, returns the first enabled OAuth2 authenticator.
+     * Otherwise, returns the first enabled OIDC authenticator.
      *
      * @param idp Identity Provider.
      * @param authenticatorName Optional specific authenticator name.
      * @return FederatedAuthenticatorConfig or null if not found.
      */
-    private FederatedAuthenticatorConfig findOAuth2AuthenticatorConfig(IdentityProvider idp,
+    private FederatedAuthenticatorConfig findOIDCAuthenticatorConfig(IdentityProvider idp,
             String authenticatorName) {
 
         FederatedAuthenticatorConfig[] configs = idp.getFederatedAuthenticatorConfigs();
@@ -386,7 +407,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Finding OAuth2 authenticator config with name: '" + authenticatorName +
+            LOG.debug("Finding OIDC authenticator config with name: '" + authenticatorName +
                     "' for IdP: " + idp.getIdentityProviderName());
         }
 
@@ -402,21 +423,21 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             }
         }
 
-        // Try known OAuth2/OIDC implementations.
-        FederatedAuthenticatorConfig knownMatch = findKnownOAuth2Authenticator(configs);
+        // Try known OIDC/OIDC implementations.
+        FederatedAuthenticatorConfig knownMatch = findKnownOIDCAuthenticator(configs);
         if (knownMatch != null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Found known OAuth2/OIDC authenticator: " + knownMatch.getName());
+                LOG.debug("Found known OIDC/OIDC authenticator: " + knownMatch.getName());
             }
             return knownMatch;
         }
 
-        // Try OAuth2/OIDC-based authenticators by suffix matching (Google, GitHub,
+        // Try OIDC/OIDC-based authenticators by suffix matching (Google, GitHub,
         // etc.).
-        FederatedAuthenticatorConfig suffixMatch = findOAuth2AuthenticatorBySuffix(configs);
+        FederatedAuthenticatorConfig suffixMatch = findOIDCAuthenticatorBySuffix(configs);
         if (suffixMatch != null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Found OAuth2 authenticator by suffix match: " + suffixMatch.getName());
+                LOG.debug("Found OIDC authenticator by suffix match: " + suffixMatch.getName());
             }
             return suffixMatch;
         }
@@ -473,18 +494,18 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Finds known OAuth2/OIDC authenticator implementations.
+     * Finds known OIDC/OIDC authenticator implementations.
      *
      * @param configs Authenticator configurations.
-     * @return First known OAuth2 authenticator or null.
+     * @return First known OIDC authenticator or null.
      */
-    private FederatedAuthenticatorConfig findKnownOAuth2Authenticator(FederatedAuthenticatorConfig[] configs) {
+    private FederatedAuthenticatorConfig findKnownOIDCAuthenticator(FederatedAuthenticatorConfig[] configs) {
 
         for (FederatedAuthenticatorConfig config : configs) {
             if (config != null && config.isEnabled()) {
                 String configName = config.getName();
-                if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(configName) ||
-                        OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(configName)) {
+                if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(configName) ||
+                        OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(configName)) {
                     return config;
                 }
             }
@@ -493,21 +514,21 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Finds OAuth2/OIDC authenticator by name suffix (e.g.,
+     * Finds OIDC/OIDC authenticator by name suffix (e.g.,
      * GoogleOIDCAuthenticator).
      *
      * @param configs Authenticator configurations.
      * @return First matching config or null.
      */
-    private FederatedAuthenticatorConfig findOAuth2AuthenticatorBySuffix(FederatedAuthenticatorConfig[] configs) {
+    private FederatedAuthenticatorConfig findOIDCAuthenticatorBySuffix(FederatedAuthenticatorConfig[] configs) {
 
         for (FederatedAuthenticatorConfig config : configs) {
             if (config != null && config.isEnabled()) {
                 String configName = config.getName();
                 if (StringUtils.isNotEmpty(configName) &&
-                        (configName.endsWith("OIDCAuthenticator") || configName.endsWith("OAuth2Authenticator"))) {
+                        configName.endsWith("OIDCAuthenticator")) {
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Using OAuth2-based authenticator as fallback: " + configName);
+                        LOG.debug("Using OIDC-based authenticator as fallback: " + configName);
                     }
                     return config;
                 }
@@ -517,7 +538,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Logs warning when no OAuth2 authenticator is found.
+     * Logs warning when no OIDC authenticator is found.
      *
      * @param idp Identity Provider.
      * @param configs Available authenticator configurations.
@@ -526,7 +547,7 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append("No OAuth2 authenticator matched for IdP '").append(idp.getIdentityProviderName())
+            sb.append("No OIDC authenticator matched for IdP '").append(idp.getIdentityProviderName())
                     .append("'. Available configs:");
             for (FederatedAuthenticatorConfig cfg : configs) {
                 if (cfg == null) {
@@ -543,14 +564,14 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Extracts OAuth2 parameters from the authenticator configuration and stores
+     * Extracts OIDC parameters from the authenticator configuration and stores
      * them in context.
      *
      * @param config Authenticator configuration.
      * @param context Map to store extracted parameters.
      * @throws ContextResolutionException If required parameters are missing.
      */
-    private void extractOAuth2Parameters(FederatedAuthenticatorConfig config, Map<String, Object> context)
+    private void extractOIDCParameters(FederatedAuthenticatorConfig config, Map<String, Object> context)
             throws ContextResolutionException {
 
         Property[] properties = config.getProperties();
@@ -559,37 +580,32 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         }
 
         Map<String, String> propertyMap = buildPropertyMap(properties);
-        OpenIDConnectExecutor executor = createExecutorForAuthenticator(config.getName());
+    OpenIDConnectExecutor executor = createExecutorForAuthenticator(config.getName());
 
         // Extract required parameters.
         extractAndStoreClientId(propertyMap, context);
-        extractAndStoreAuthorizationEndpoint(propertyMap, executor, context);
-        extractAndStoreTokenEndpoint(propertyMap, executor, context);
-        extractAndStoreScope(propertyMap, executor, context);
+    extractAndStoreAuthorizationEndpoint(propertyMap, executor, context);
+    extractAndStoreTokenEndpoint(propertyMap, executor, context);
+    extractAndStoreScope(propertyMap, executor, context);
 
         // Extract optional parameters.
-        extractAndStoreOptionalParameters(propertyMap, context);
+    extractAndStoreOptionalParameters(propertyMap, context);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("OAuth2 parameters extracted successfully. ClientId: FOUND");
+            LOG.debug("OIDC parameters extracted successfully. ClientId: FOUND");
         }
     }
 
     /**
      * Builds a property map from Property array.
+     * Delegates to {@link OIDCConfigurationExtractor#buildPropertyMap(Property[])} to avoid duplication.
      *
      * @param properties Array of Property objects.
      * @return Map of property names to values.
      */
     private Map<String, String> buildPropertyMap(Property[] properties) {
 
-        Map<String, String> propertyMap = new HashMap<>();
-        for (Property prop : properties) {
-            if (prop != null && prop.getName() != null) {
-                propertyMap.put(prop.getName(), prop.getValue());
-            }
-        }
-        return propertyMap;
+        return OIDCConfigurationExtractor.buildPropertyMap(properties);
     }
 
     /**
@@ -600,8 +616,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      */
     private OpenIDConnectExecutor createExecutorForAuthenticator(String authenticatorName) {
 
-        if (OAuth2DebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
-                OAuth2DebugConstants.OAUTH2_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
+        if (OIDCDebugConstants.OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName) ||
+                OIDCDebugConstants.OIDC_OPENID_CONNECT_AUTHENTICATOR.equals(authenticatorName)) {
             return new OpenIDConnectExecutor();
         }
         return null;
@@ -609,6 +625,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
     /**
      * Extracts and stores the client ID from properties.
+     * Uses {@link OIDCConfigurationExtractor#CLIENT_ID_PROPERTY_NAMES} as the single source of truth
+     * for recognized property key variants.
      *
      * @param propertyMap Property map.
      * @param context Context to store result.
@@ -617,15 +635,18 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     private void extractAndStoreClientId(Map<String, String> propertyMap, Map<String, Object> context)
             throws ContextResolutionException {
 
-        String clientId = getOrNull(propertyMap, "ClientId", "client_id", "OAuth2ClientId");
+        String clientId = OIDCConfigurationExtractor.findPropertyValue(
+                propertyMap, OIDCConfigurationExtractor.CLIENT_ID_PROPERTY_NAMES);
         if (StringUtils.isEmpty(clientId)) {
             throw new ContextResolutionException("Client ID not found in authenticator configuration");
         }
-        context.put(OAuth2DebugConstants.CLIENT_ID, clientId);
+        context.put(OIDCDebugConstants.CLIENT_ID, clientId);
     }
 
     /**
      * Extracts and stores the authorization endpoint.
+     * Uses {@link OIDCConfigurationExtractor#AUTHZ_ENDPOINT_PROPERTY_NAMES} as the single source of truth
+     * for recognized property key variants, with executor-based resolution as the primary strategy.
      *
      * @param propertyMap Property map.
      * @param executor Executor instance (can be null).
@@ -633,21 +654,23 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @throws ContextResolutionException If endpoint is not found.
      */
     private void extractAndStoreAuthorizationEndpoint(Map<String, String> propertyMap, OpenIDConnectExecutor executor,
-            Map<String, Object> context) throws ContextResolutionException {
+        Map<String, Object> context) throws ContextResolutionException {
 
         String authzEndpoint = getAuthorizationEndpointFromExecutor(executor, propertyMap);
         if (StringUtils.isEmpty(authzEndpoint)) {
-            authzEndpoint = getOrNull(propertyMap, "AuthorizationEndpoint", "Authorization Endpoint",
-                    "OAuth2AuthzEPUrl", "authorization_endpoint");
+            authzEndpoint = OIDCConfigurationExtractor.findPropertyValue(
+                    propertyMap, OIDCConfigurationExtractor.AUTHZ_ENDPOINT_PROPERTY_NAMES);
         }
         if (StringUtils.isEmpty(authzEndpoint)) {
             throw new ContextResolutionException("Authorization endpoint not found in authenticator configuration");
         }
-        context.put(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT, authzEndpoint);
+        context.put(OIDCDebugConstants.AUTHORIZATION_ENDPOINT, authzEndpoint);
     }
 
     /**
      * Extracts and stores the token endpoint.
+     * Uses {@link OIDCConfigurationExtractor#TOKEN_ENDPOINT_PROPERTY_NAMES} as the single source of truth
+     * for recognized property key variants, with executor-based resolution as the primary strategy.
      *
      * @param propertyMap Property map.
      * @param executor    Executor instance (can be null).
@@ -655,12 +678,12 @@ public class OAuth2ContextProvider extends DebugContextProvider {
      * @throws ContextResolutionException If endpoint is not found.
      */
     private void extractAndStoreTokenEndpoint(Map<String, String> propertyMap, OpenIDConnectExecutor executor,
-            Map<String, Object> context) throws ContextResolutionException {
+        Map<String, Object> context) throws ContextResolutionException {
 
         String tokenEndpoint = getTokenEndpointFromExecutor(executor, propertyMap);
         if (StringUtils.isEmpty(tokenEndpoint)) {
-            tokenEndpoint = getOrNull(propertyMap, "TokenEndpoint", "Token Endpoint",
-                    "OAuth2TokenEPUrl", "token_endpoint");
+            tokenEndpoint = OIDCConfigurationExtractor.findPropertyValue(
+                    propertyMap, OIDCConfigurationExtractor.TOKEN_ENDPOINT_PROPERTY_NAMES);
         }
         if (StringUtils.isEmpty(tokenEndpoint)) {
             throw new ContextResolutionException("Token endpoint not found in authenticator configuration");
@@ -668,11 +691,11 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolved token endpoint: " + tokenEndpoint);
         }
-        context.put(OAuth2DebugConstants.TOKEN_ENDPOINT, tokenEndpoint);
+        context.put(OIDCDebugConstants.TOKEN_ENDPOINT, tokenEndpoint);
     }
 
     /**
-     * Extracts and stores the OAuth2 scope parameter.
+     * Extracts and stores the OIDC scope parameter.
      *
      * @param propertyMap Property map.
      * @param executor    Executor instance (can be null).
@@ -685,11 +708,13 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Final resolved scope for authorization URL: " + scope);
         }
-        context.put(OAuth2DebugConstants.IDP_SCOPE, scope);
+        context.put(OIDCDebugConstants.IDP_SCOPE, scope);
     }
 
     /**
      * Extracts scope from authenticator properties using multiple strategies.
+     * Uses {@link OIDCConfigurationExtractor#SCOPE_PROPERTY_NAMES} as the single source of truth
+     * for recognized property key variants.
      *
      * @param propertyMap Configuration properties.
      * @param executor    Executor instance.
@@ -698,8 +723,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     private String extractScope(Map<String, String> propertyMap, OpenIDConnectExecutor executor) {
 
         // Strategy 1: Check standard scope properties.
-        String scope = getOrNull(propertyMap, "Scope", "scope", "SCOPE", "scopes",
-                "requestedScope", "requestedScopes");
+        String scope = OIDCConfigurationExtractor.findPropertyValue(
+                propertyMap, OIDCConfigurationExtractor.SCOPE_PROPERTY_NAMES);
         if (StringUtils.isNotEmpty(scope)) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Found scope in property");
@@ -738,47 +763,37 @@ public class OAuth2ContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Extracts and stores optional OAuth2 parameters.
+     * Extracts and stores optional OIDC parameters.
+     * Uses {@link OIDCConfigurationExtractor} arrays as the single source of truth for
+     * recognized property key variants.
      *
      * @param propertyMap Property map.
      * @param context     Context to store results.
      */
     private void extractAndStoreOptionalParameters(Map<String, String> propertyMap,
-            Map<String, Object> context) {
+        Map<String, Object> context) {
 
-        String userInfoEndpoint = getOrNull(propertyMap, "UserInfoEndpoint", "User Info Endpoint",
-                "userinfo_endpoint");
+        String userInfoEndpoint = OIDCConfigurationExtractor.findPropertyValue(
+                propertyMap, OIDCConfigurationExtractor.USERINFO_ENDPOINT_PROPERTY_NAMES);
         if (StringUtils.isNotEmpty(userInfoEndpoint)) {
-            context.put(OAuth2DebugConstants.USERINFO_ENDPOINT, userInfoEndpoint);
+            context.put(OIDCDebugConstants.USERINFO_ENDPOINT, userInfoEndpoint);
         }
 
-        String clientSecret = getOrNull(propertyMap, "ClientSecret", "client_secret");
+        String clientSecret = OIDCConfigurationExtractor.findPropertyValue(
+                propertyMap, OIDCConfigurationExtractor.CLIENT_SECRET_PROPERTY_NAMES);
         if (StringUtils.isNotEmpty(clientSecret)) {
-            context.put(OAuth2DebugConstants.CLIENT_SECRET, clientSecret);
+            context.put(OIDCDebugConstants.CLIENT_SECRET, clientSecret);
         }
 
         String responseType = propertyMap.get("ResponseType");
         if (StringUtils.isEmpty(responseType)) {
             responseType = "code";
         }
-        context.put(OAuth2DebugConstants.RESPONSE_TYPE, responseType);
+        context.put(OIDCDebugConstants.RESPONSE_TYPE, responseType);
 
         // PKCE is REQUIRED for debug flow.
-        context.put(OAuth2DebugConstants.PKCE_ENABLED, true);
-        context.put(OAuth2DebugConstants.PKCE_METHOD, OAuth2DebugConstants.PKCE_METHOD_S256);
-    }
-
-    /**
-     * Creates an OpenIDConnectExecutor instance directly.
-     * No longer uses reflection since the class is in the same module.
-     *
-     * @param executorClassName Fully qualified executor class name (unused, kept
-     *                          for API).
-     * @return Executor instance.
-     */
-    private OpenIDConnectExecutor createExecutor(String executorClassName) {
-
-        return new OpenIDConnectExecutor();
+        context.put(OIDCDebugConstants.PKCE_ENABLED, true);
+        context.put(OIDCDebugConstants.PKCE_METHOD, OIDCDebugConstants.PKCE_METHOD_S256);
     }
 
     /**
@@ -812,6 +827,8 @@ public class OAuth2ContextProvider extends DebugContextProvider {
 
     /**
      * Gets the token endpoint using executor instance and its fallback logic.
+     * Falls back to {@link OIDCConfigurationExtractor#TOKEN_ENDPOINT_PROPERTY_NAMES} for direct
+     * property lookup to avoid duplicating key variants here.
      *
      * @param executor                Executor instance (can be null).
      * @param authenticatorProperties Authenticator properties map.
@@ -833,23 +850,9 @@ public class OAuth2ContextProvider extends DebugContextProvider {
             }
         }
 
-        // Fallback to direct property lookup.
-        String tokenEndpoint = authenticatorProperties.get("OAuth2TokenEPUrl");
-        if (StringUtils.isNotEmpty(tokenEndpoint)) {
-            return tokenEndpoint;
-        }
-
-        tokenEndpoint = authenticatorProperties.get("TokenEndpoint");
-        if (StringUtils.isNotEmpty(tokenEndpoint)) {
-            return tokenEndpoint;
-        }
-
-        tokenEndpoint = authenticatorProperties.get("token_endpoint");
-        if (StringUtils.isNotEmpty(tokenEndpoint)) {
-            return tokenEndpoint;
-        }
-
-        return null;
+        // Fallback to direct property lookup using the shared canonical key list.
+        return OIDCConfigurationExtractor.findPropertyValue(
+                authenticatorProperties, OIDCConfigurationExtractor.TOKEN_ENDPOINT_PROPERTY_NAMES);
     }
 
     /**
@@ -933,27 +936,5 @@ public class OAuth2ContextProvider extends DebugContextProvider {
         }
 
         return scopeBuilder.toString().trim();
-    }
-
-    /**
-     * Helper to get first non-empty value from property map for multiple key
-     * variants.
-     *
-     * @param map Property map.
-     * @param keys Possible key names to check (in order).
-     * @return First non-empty value or null.
-     */
-    private String getOrNull(Map<String, String> map, String... keys) {
-
-        if (map == null || keys == null) {
-            return null;
-        }
-        for (String key : keys) {
-            String value = map.get(key);
-            if (StringUtils.isNotEmpty(value)) {
-                return value;
-            }
-        }
-        return null;
     }
 }

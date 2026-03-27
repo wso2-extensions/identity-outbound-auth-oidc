@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -23,7 +23,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OAuth2DebugUtil;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.exception.ExecutionException;
@@ -36,25 +36,25 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * OAuth2 debug flow executor.
- * Extends the framework's DebugExecutor to provide OAuth2-specific execution
+ * OIDC debug flow executor.
+ * Extends the framework's DebugExecutor to provide OIDC-specific execution
  * logic.
- * Generates OAuth2 Authorization URLs with PKCE parameters and handles debug
+ * Generates OIDC Authorization URLs with PKCE parameters and handles debug
  * state management.
  *
- * PKCE generation is delegated to {@link OAuth2DebugUtil} (single source of
+ * PKCE generation is delegated to {@link OIDCDebugUtil} (single source of
  * truth).
  * Session caching is delegated to {@link DebugSessionCache} (standalone class).
  */
-public class OAuth2DebugExecutor extends DebugExecutor {
+public class OIDCDebugExecutor extends DebugExecutor {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2DebugExecutor.class);
-    private static final String EXECUTOR_NAME = "OAuth2Executor";
+    private static final Log LOG = LogFactory.getLog(OIDCDebugExecutor.class);
+    private static final String EXECUTOR_NAME = "OIDCExecutor";
 
     /**
-     * Executes OAuth2 debug flow and generates authorization URL.
-     * Reads resolved OAuth2 parameters from context map (populated by
-     * OAuth2ContextProvider) and generates a complete Authorization URL with PKCE
+     * Executes OIDC debug flow and generates authorization URL.
+     * Reads resolved OIDC parameters from context map (populated by
+     * OIDCContextProvider) and generates a complete Authorization URL with PKCE
      * parameters.
      *
      * @param context DebugContext containing debug configuration and state (prepared by
@@ -72,20 +72,19 @@ public class OAuth2DebugExecutor extends DebugExecutor {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Executing OAuth2 authorization URL generation");
+            LOG.debug("Executing OIDC authorization URL generation");
         }
 
         try {
             // Initialize step status.
-            context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_STARTED);
-            context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_STARTED);
-            context.setProperty(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_STARTED);
+            context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_STARTED);
+            context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_STARTED);
+            context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_STARTED);
 
-            // Validate required parameters from context (populated by
-            // DebugContextProvider).
-            String clientId = (String) context.getProperty(OAuth2DebugConstants.CLIENT_ID);
-            String authzEndpoint = (String) context.getProperty(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT);
-            String redirectUri = (String) context.getProperty(OAuth2DebugConstants.REDIRECT_URI);
+            // Validate required parameters from context (populated by DebugContextProvider).
+            String clientId = (String) context.getProperty(OIDCDebugConstants.CLIENT_ID);
+            String authzEndpoint = (String) context.getProperty(OIDCDebugConstants.AUTHORIZATION_ENDPOINT);
+            String redirectUri = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
 
             // Use default callback URI if custom one not provided.
             if (StringUtils.isEmpty(redirectUri)) {
@@ -95,27 +94,26 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             validateRequiredParams(context, clientId, authzEndpoint, redirectUri);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("OAuth2 configuration validated from context - ClientId: FOUND, AuthzEndpoint: " +
+                LOG.debug("OIDC configuration validated from context - ClientId: FOUND, AuthzEndpoint: " +
                         authzEndpoint);
             }
 
             // Generate PKCE parameters using the single source of truth.
-            String codeVerifier = OAuth2DebugUtil.generatePKCECodeVerifier();
-            String codeChallenge = OAuth2DebugUtil.generatePKCECodeChallenge(codeVerifier);
+            String codeVerifier = OIDCDebugUtil.generatePKCECodeVerifier();
+            String codeChallenge = OIDCDebugUtil.generatePKCECodeChallenge(codeVerifier);
 
-            // Use contextId as the state parameter for consistency between initial response
-            // and callback.
-            String contextId = (String) context.getProperty(OAuth2DebugConstants.DEBUG_CONTEXT_ID);
+            // Use contextId as the state parameter for consistency between initial response and callback.
+            String contextId = (String) context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID);
             if (contextId == null) {
                 contextId = "debug-" + UUID.randomUUID().toString();
             }
             String state = contextId;
 
-            context.setProperty(OAuth2DebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
-            context.setProperty(OAuth2DebugConstants.DEBUG_STATE, state);
-            context.setProperty(OAuth2DebugConstants.DEBUG_CONTEXT_ID, contextId);
+            context.setProperty(OIDCDebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
+            context.setProperty(OIDCDebugConstants.DEBUG_STATE, state);
+            context.setProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID, contextId);
 
-            // Build OAuth2 Authorization URL.
+            // Build OIDC Authorization URL.
             String authorizationUrl = buildAuthorizationUrl(authzEndpoint, clientId, redirectUri, state,
                     codeChallenge, context);
 
@@ -125,13 +123,13 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             }
 
             // Store authorization URL in context.
-            context.setProperty(OAuth2DebugConstants.DEBUG_EXTERNAL_REDIRECT_URL, authorizationUrl);
-            context.setProperty("isDebugFlow", "true");
+            context.setProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL, authorizationUrl);
+            context.setProperty(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
 
             // Update step status.
-            context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
-            context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_SUCCESS);
-            context.setProperty(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
+            context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
+            context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
+            context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
 
             // Cache authentication context for retrieval during callback.
             cacheDebugContext(context);
@@ -146,10 +144,10 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             result.addMetadata("sessionId", contextId);
             result.addMetadata("state", state);
             result.addMetadata("codeVerifier", codeVerifier);
-            result.addMetadata("idpName", context.getProperty(OAuth2DebugConstants.DEBUG_IDP_NAME));
+            result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("OAuth2 Authorization URL result: sessionId=" + contextId +
+                LOG.debug("OIDC Authorization URL result: sessionId=" + contextId +
                         ", state=" + state + ", authorizationUrl present: true");
             }
 
@@ -159,14 +157,14 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             markAllStepsFailed(context);
             throw e;
         } catch (Exception e) {
-            LOG.error("Unexpected error generating OAuth2 Authorization URL: " + e.getMessage(), e);
+            LOG.error("Unexpected error generating OIDC Authorization URL: " + e.getMessage(), e);
             markAllStepsFailed(context);
             throw new ExecutionException("Error generating authorization URL: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Executes OAuth2 debug flow using a map-based context.
+     * Executes OIDC debug flow using a map-based context.
      *
      * @param context Map-based debug context.
      * @return DebugResult containing execution output.
@@ -187,10 +185,10 @@ public class OAuth2DebugExecutor extends DebugExecutor {
     @Override
     public boolean canExecute(DebugContext debugContext) {
 
-        return debugContext != null && 
-                debugContext.getProperty(OAuth2DebugConstants.CLIENT_ID) != null &&
-                debugContext.getProperty(OAuth2DebugConstants.AUTHORIZATION_ENDPOINT) != null &&
-                debugContext.getProperty(OAuth2DebugConstants.IDP_SCOPE) != null;
+        return debugContext != null &&
+                debugContext.getProperty(OIDCDebugConstants.CLIENT_ID) != null &&
+                debugContext.getProperty(OIDCDebugConstants.AUTHORIZATION_ENDPOINT) != null &&
+                debugContext.getProperty(OIDCDebugConstants.IDP_SCOPE) != null;
     }
 
     /**
@@ -242,13 +240,13 @@ public class OAuth2DebugExecutor extends DebugExecutor {
      */
     private void markAllStepsFailed(DebugContext context) {
 
-        context.setProperty(OAuth2DebugConstants.STEP_CONNECTION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
-        context.setProperty(OAuth2DebugConstants.STEP_AUTHENTICATION_STATUS, OAuth2DebugConstants.STATUS_FAILED);
-        context.setProperty(OAuth2DebugConstants.STEP_CLAIM_MAPPING_STATUS, OAuth2DebugConstants.STATUS_FAILED);
+        context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_FAILED);
+        context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_FAILED);
+        context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_FAILED);
     }
 
     /**
-     * Builds the complete OAuth2 Authorization URL with PKCE parameters.
+     * Builds the complete OIDC Authorization URL with PKCE parameters.
      */
     private String buildAuthorizationUrl(String authzEndpoint, String clientId, String redirectUri,
             String state, String codeChallenge, DebugContext context) throws ExecutionException {
@@ -260,7 +258,7 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             urlBuilder.append("&client_id=").append(encodeParam(clientId));
             urlBuilder.append("&redirect_uri=").append(encodeParam(redirectUri));
 
-            String scope = (String) context.getProperty(OAuth2DebugConstants.IDP_SCOPE);
+            String scope = (String) context.getProperty(OIDCDebugConstants.IDP_SCOPE);
             if (StringUtils.isEmpty(scope)) {
                 throw new ExecutionException("Scope not found in context");
             }
@@ -272,13 +270,13 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             urlBuilder.append("&code_challenge_method=S256");
 
             // Add optional access_type for refresh token support.
-            String accessType = (String) context.getProperty(OAuth2DebugConstants.DEBUG_CUSTOM_ACCESS_TYPE);
+            String accessType = (String) context.getProperty(OIDCDebugConstants.DEBUG_CUSTOM_ACCESS_TYPE);
             if (StringUtils.isNotEmpty(accessType)) {
                 urlBuilder.append("&access_type=").append(encodeParam(accessType));
             }
 
             // Add login_hint if username is available.
-            String username = (String) context.getProperty(OAuth2DebugConstants.DEBUG_USERNAME);
+            String username = (String) context.getProperty(OIDCDebugConstants.DEBUG_USERNAME);
             if (StringUtils.isNotEmpty(username)) {
                 urlBuilder.append("&login_hint=").append(encodeParam(username));
             }
@@ -287,8 +285,8 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             appendAdditionalParams(urlBuilder, context);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Generated OAuth2 Authorization URL with PKCE for IdP: " +
-                        context.getProperty(OAuth2DebugConstants.DEBUG_IDP_NAME));
+                LOG.debug("Generated OIDC Authorization URL with PKCE for IdP: " +
+                        context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
             }
 
             return urlBuilder.toString();
@@ -306,7 +304,7 @@ public class OAuth2DebugExecutor extends DebugExecutor {
     private void appendAdditionalParams(StringBuilder urlBuilder, DebugContext context)
             throws ExecutionException {
 
-        Object additionalParamsObj = context.getProperty(OAuth2DebugConstants.ADDITIONAL_OAUTH_PARAMS);
+        Object additionalParamsObj = context.getProperty(OIDCDebugConstants.ADDITIONAL_OIDC_PARAMS);
         if (additionalParamsObj instanceof Map) {
             Map<String, String> additionalParams = (Map<String, String>) additionalParamsObj;
             for (Map.Entry<String, String> entry : additionalParams.entrySet()) {
@@ -332,11 +330,11 @@ public class OAuth2DebugExecutor extends DebugExecutor {
 
     /**
      * Gets the default redirect URI for debug callback.
-     * Configurable via system property 'debug.oauth2.redirect.uri'.
+     * Configurable via system property 'debug.OIDC.redirect.uri'.
      */
     private String getDefaultRedirectUri() {
 
-        String customUri = System.getProperty("debug.oauth2.redirect.uri");
+        String customUri = System.getProperty("debug.OIDC.redirect.uri");
         if (StringUtils.isNotEmpty(customUri)) {
             return customUri;
         }
@@ -351,7 +349,7 @@ public class OAuth2DebugExecutor extends DebugExecutor {
     private void cacheDebugContext(DebugContext context) {
 
         try {
-            String state = (String) context.getProperty(OAuth2DebugConstants.DEBUG_STATE);
+            String state = (String) context.getProperty(OIDCDebugConstants.DEBUG_STATE);
             if (state == null) {
                 LOG.warn("Cannot cache debug context - state parameter is null");
                 return;
@@ -360,9 +358,9 @@ public class OAuth2DebugExecutor extends DebugExecutor {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Caching debug context with state: " + state +
                         ", TOKEN_ENDPOINT=" +
-                        (context.getProperty(OAuth2DebugConstants.TOKEN_ENDPOINT) != null ? "FOUND" : "null") +
+                        (context.getProperty(OIDCDebugConstants.TOKEN_ENDPOINT) != null ? "FOUND" : "null") +
                         ", CLIENT_ID=" +
-                        (context.getProperty(OAuth2DebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
+                        (context.getProperty(OIDCDebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
             }
 
             DebugSessionCache.getInstance().put(state, context);

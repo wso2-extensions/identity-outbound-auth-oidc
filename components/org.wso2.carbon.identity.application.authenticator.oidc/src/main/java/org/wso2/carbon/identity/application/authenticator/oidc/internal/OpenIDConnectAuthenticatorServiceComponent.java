@@ -30,8 +30,8 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugProtocolProvider;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2DebugExecutor;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OAuth2ContextProvider;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugExecutor;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCContextProvider;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
@@ -69,23 +69,16 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             componentContext.getBundleContext().registerService(Executor.class.getName(), new OpenIDConnectExecutor(),
                     null);
 
-            // Register OAuth2/OIDC debug protocol provider.
-            // The provider advertises the protocol's debug capabilities (context provider,
-            // executor, processor)
-            // without requiring reflection-based class loading. The debug-framework
-            // discovers providers
-            // dynamically via OSGi service lookups and remains agnostic of protocol
-            // implementations.
             componentContext.getBundleContext().registerService(DebugProtocolProvider.class.getName(),
                     new OIDCDebugProtocolProvider(), null);
 
-            // Register OAuth2DebugExecutor as DebugExecutor service (for legacy compatibility)
+            // Register OIDCDebugExecutor as DebugExecutor service (for legacy compatibility)
             componentContext.getBundleContext().registerService(DebugExecutor.class.getName(),
-                    new OAuth2DebugExecutor(), null);
+                    new OIDCDebugExecutor(), null);
 
-            // Register OAuth2ContextProvider as DebugContextProvider service (for legacy compatibility)
+            // Register OIDCContextProvider as DebugContextProvider service (for legacy compatibility)
             componentContext.getBundleContext().registerService(DebugContextProvider.class.getName(),
-                    new OAuth2ContextProvider(), null);
+                    new OIDCContextProvider(), null);
 
             if (log.isDebugEnabled()) {
                 log.debug("Registered OIDCDebugProtocolProvider and legacy debug services");

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -31,30 +31,36 @@ import java.util.Map;
  * Provides centralized, testable configuration extraction with multiple fallback strategies.
  * Separates OAuth2 configuration logic from authentication/protocol flow logic.
  */
-public class OAuth2ConfigurationExtractor {
+public class OIDCConfigurationExtractor {
 
-    private static final Log LOG = LogFactory.getLog(OAuth2ConfigurationExtractor.class);
+    private static final Log LOG = LogFactory.getLog(OIDCConfigurationExtractor.class);
 
     /**
      * Private constructor to prevent instantiation of utility class.
      */
-    private OAuth2ConfigurationExtractor() {
+    private OIDCConfigurationExtractor() {
         
         // Prevent instantiation
     }
 
     /**
-     * Property name variations for OAuth2 configuration parameters.
+     * Property name variations for OAuth2/OIDC configuration parameters.
+     * These arrays are the single source of truth for property key lookups used by
+     * both this extractor and OIDCContextProvider.
      */
-    private static final String[] CLIENT_ID_PROPERTY_NAMES = {"ClientId", "client_id", "OAuth2ClientId"};
-    private static final String[] CLIENT_SECRET_PROPERTY_NAMES = {"ClientSecret", "client_secret"};
-    private static final String[] TOKEN_ENDPOINT_PROPERTY_NAMES = {"TokenEndpoint", "Token Endpoint", 
-                                                                   "OAuth2TokenEPUrl", "token_endpoint"};
-    private static final String[] AUTHZ_ENDPOINT_PROPERTY_NAMES = {"AuthorizationEndpoint", 
-                                                                   "Authorization Endpoint", 
-                                                                   "OAuth2AuthzEPUrl", "authorization_endpoint"};
-    private static final String[] USERINFO_ENDPOINT_PROPERTY_NAMES = {"UserInfoEndpoint", "User Info Endpoint", 
-                                                                      "userinfo_endpoint"};
+    public static final String[] CLIENT_ID_PROPERTY_NAMES = {
+            "ClientId", "client_id", "OAuth2ClientId", "OIDCClientId"};
+    public static final String[] CLIENT_SECRET_PROPERTY_NAMES = {
+            "ClientSecret", "client_secret"};
+    public static final String[] TOKEN_ENDPOINT_PROPERTY_NAMES = {
+            "TokenEndpoint", "Token Endpoint", "OAuth2TokenEPUrl", "OIDCTokenEPUrl", "token_endpoint"};
+    public static final String[] AUTHZ_ENDPOINT_PROPERTY_NAMES = {
+            "AuthorizationEndpoint", "Authorization Endpoint",
+            "OAuth2AuthzEPUrl", "OIDCAuthzEPUrl", "authorization_endpoint"};
+    public static final String[] USERINFO_ENDPOINT_PROPERTY_NAMES = {
+            "UserInfoEndpoint", "User Info Endpoint", "userinfo_endpoint"};
+    public static final String[] SCOPE_PROPERTY_NAMES = {
+            "Scope", "scope", "SCOPE", "scopes", "requestedScope", "requestedScopes"};
 
     /**
      * Extracts OAuth2 configuration from a FederatedAuthenticatorConfig.
@@ -88,11 +94,12 @@ public class OAuth2ConfigurationExtractor {
     /**
      * Builds a property map from Property array for easier lookups.
      * Handles null properties gracefully.
+     * Public to allow reuse across the debug package hierarchy.
      *
      * @param properties Array of Property objects from authenticator config.
      * @return Map of property names to values.
      */
-    private static Map<String, String> buildPropertyMap(Property[] properties) {
+    public static Map<String, String> buildPropertyMap(Property[] properties) {
 
         Map<String, String> propertyMap = new HashMap<>();
         if (properties != null) {
@@ -189,12 +196,13 @@ public class OAuth2ConfigurationExtractor {
     /**
      * Finds a property value using multiple fallback property names.
      * Returns first non-empty value found.
+     * Public to allow reuse across the debug package hierarchy.
      *
      * @param propertyMap Source property map.
      * @param propertyNames Array of property names to try in order.
      * @return First non-empty value found, or null if none found.
      */
-    private static String findPropertyValue(Map<String, String> propertyMap, String[] propertyNames) {
+    public static String findPropertyValue(Map<String, String> propertyMap, String[] propertyNames) {
 
         if (propertyMap == null || propertyNames == null) {
             return null;

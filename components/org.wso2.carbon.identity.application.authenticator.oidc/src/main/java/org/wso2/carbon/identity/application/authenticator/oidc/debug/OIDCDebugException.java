@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -21,43 +21,43 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 import org.wso2.carbon.identity.debug.framework.exception.DebugFrameworkException;
 
 /**
- * Exception thrown during OAuth2 debug operations.
+ * Exception thrown during OIDC debug operations.
  * Extends the framework's base exception to integrate with the exception
  * hierarchy.
  */
-public class OAuth2DebugException extends DebugFrameworkException {
+public class OIDCDebugException extends DebugFrameworkException {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * Constructs an OAuth2DebugException with a message.
+     * Constructs an OIDCDebugException with a message.
      *
      * @param message The error message.
      */
-    public OAuth2DebugException(String message) {
+    public OIDCDebugException(String message) {
 
         super(message);
     }
 
     /**
-     * Constructs an OAuth2DebugException with a message and cause.
+     * Constructs an OIDCDebugException with a message and cause.
      *
      * @param message The error message.
      * @param cause The cause of the exception.
      */
-    public OAuth2DebugException(String message, Throwable cause) {
+    public OIDCDebugException(String message, Throwable cause) {
 
         super(message, cause);
     }
 
     /**
-     * Constructs an OAuth2DebugException with error code, message, and cause.
+     * Constructs an OIDCDebugException with error code, message, and cause.
      *
      * @param errorCode The error code.
      * @param message The error message.
      * @param cause The cause of the exception.
      */
-    public OAuth2DebugException(String errorCode, String message, Throwable cause) {
+    public OIDCDebugException(String errorCode, String message, Throwable cause) {
 
         super(errorCode, message, message, cause);
     }

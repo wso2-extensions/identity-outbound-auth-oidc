@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -18,65 +18,40 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
-import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
-
 /**
- * OAuth2/OIDC debug extension constants.
+ * OIDC debug extension constants.
  * 
- * This class contains protocol-specific constants for OAuth2 debug operations.
- * For generic debug framework constants, use {@link DebugFrameworkConstants}.
- * 
+ * This class contains protocol-specific constants for OIDC debug operations.
  * Constants are organized into categories:
- * OAuth2 Configuration Parameters (endpoints, client credentials)
- * OAuth2 Flow Parameters (PKCE, state, nonce)
- * OAuth2 Response Parameters (tokens, userinfo)
- * OAuth2 Error Codes
+ * OIDC Configuration Parameters (endpoints, client credentials)
+ * OIDC Flow Parameters (PKCE, state, nonce)
+ * OIDC Response Parameters (tokens, userinfo)
+ * OIDC Error Codes
  * Debug Flow Steps
  * Debug Context Keys
  * 
- * @see DebugFrameworkConstants for generic debug constants
  */
-public final class OAuth2DebugConstants {
+public final class OIDCDebugConstants {
 
-    private OAuth2DebugConstants() {
+    private OIDCDebugConstants() {
         // Prevent instantiation
     }
 
-    // OAuth2 Debug Extension Identifiers
-
-    /** Extension identifier for OAuth2 debug. */
-    public static final String OAUTH2_DEBUG_EXTENSION = "oauth2.debug.extension";
-
-    /** Context identifier for OAuth2 debug. */
-    public static final String OAUTH2_DEBUG_CONTEXT = "oauth2.debug.context";
-
-    /** Executor identifier for OAuth2 debug. */
-    public static final String OAUTH2_DEBUG_EXECUTOR = "oauth2.debug.executor";
-
-    // OAuth2 Configuration Parameters
+    // OIDC Configuration Parameters
     public static final String CLIENT_ID = "clientId";
     public static final String CLIENT_SECRET = "clientSecret";
     public static final String AUTHORIZATION_ENDPOINT = "authorizationEndpoint";
     public static final String TOKEN_ENDPOINT = "tokenEndpoint";
     public static final String USERINFO_ENDPOINT = "userinfoEndpoint";
     public static final String REDIRECT_URI = "redirectUri";
-    public static final String SCOPES = "scopes";
     public static final String IDP_SCOPE = "idpScope";
     public static final String RESPONSE_TYPE = "responseType";
     public static final String OPENID_CONNECT_AUTHENTICATOR = "OpenIDConnectAuthenticator";
-    public static final String OAUTH2_OPENID_CONNECT_AUTHENTICATOR = "OAuth2OpenIDConnectAuthenticator";
+    public static final String OIDC_OPENID_CONNECT_AUTHENTICATOR = "OIDCOpenIDConnectAuthenticator";
     public static final String IDP_CONFIG = "idpConfig";
     public static final String DEBUG_IDP_NAME = "debugIdpName";
 
-    // OAuth2 Debug Flow Parameters
-    public static final String AUTHORIZATION_CODE = "authorizationCode";
-    public static final String STATE = "state";
-    public static final String NONCE = "nonce";
-    public static final String CODE_VERIFIER = "codeVerifier";
-    public static final String CODE_CHALLENGE = "codeChallenge";
-    public static final String CODE_CHALLENGE_METHOD = "codeChallengeMethod";
-
-    // OAuth2 Response Parameters
+    // OIDC Response Parameters
     public static final String ACCESS_TOKEN = "accessToken";
     public static final String TOKEN_TYPE = "tokenType";
     public static final String EXPIRES_IN = "expiresIn";
@@ -84,7 +59,7 @@ public final class OAuth2DebugConstants {
     public static final String ID_TOKEN = "idToken";
     public static final String USERINFO = "userinfo";
 
-    // OAuth2 Error Codes
+    // OIDC Error Codes
     public static final String INVALID_REQUEST = "invalid_request";
     public static final String INVALID_CLIENT = "invalid_client";
     public static final String INVALID_GRANT = "invalid_grant";
@@ -99,14 +74,9 @@ public final class OAuth2DebugConstants {
     public static final String PKCE_ENABLED = "pkceEnabled";
     public static final String PKCE_METHOD = "pkceMethod";
     public static final String PKCE_METHOD_S256 = "S256";
-    public static final String PKCE_METHOD_PLAIN = "plain";
 
     // Debug Flow Steps
-    public static final String STEP_RESOLVE_CONFIG = "resolveConfig";
-    public static final String STEP_GENERATE_AUTH_URL = "generateAuthUrl";
-    public static final String STEP_HANDLE_CALLBACK = "handleCallback";
-    public static final String STEP_EXCHANGE_CODE = "exchangeCode";
-    public static final String STEP_FETCH_USERINFO = "fetchUserinfo";
+    public static final String STEP_STATUS = "stepStatus";
     public static final String STEP_CONNECTION_STATUS = "connectionStatus";
     public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
     public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
@@ -130,16 +100,11 @@ public final class OAuth2DebugConstants {
     public static final String DEBUG_AUTHENTICATOR_NAME = "debugAuthenticatorName";
     public static final String DEBUG_EXECUTOR_CLASS = "debugExecutorClass";
     public static final String IS_DEBUG_FLOW = "isDebugFlow";
-    public static final String ADDITIONAL_OAUTH_PARAMS = "additionalOAuthParams";
+    public static final String ADDITIONAL_OIDC_PARAMS = "additionalOIDCParams";
 
-    // Auth Status - References to framework-level constants.
-    // Use DebugFrameworkConstants directly where possible.
-
-    /** Auth error indicator. Delegates to DebugFrameworkConstants. */
-    public static final String DEBUG_AUTH_ERROR = DebugFrameworkConstants.DEBUG_AUTH_ERROR;
-
-    /** Auth success indicator. Delegates to DebugFrameworkConstants. */
-    public static final String DEBUG_AUTH_SUCCESS = DebugFrameworkConstants.DEBUG_AUTH_SUCCESS;
+    // Auth status keys shared with the debug framework.
+    public static final String DEBUG_AUTH_ERROR = "AUTH_ERROR";
+    public static final String DEBUG_AUTH_SUCCESS = "AUTH_SUCCESS";
 
     // Debug Context Property Keys
     public static final String DEBUG_STATE = "DEBUG_STATE";
@@ -173,5 +138,5 @@ public final class OAuth2DebugConstants {
     public static final String RESPONSE_SUCCESS = "success";
 
     // Protocol Type Identifier
-    public static final String PROTOCOL_TYPE = "OAuth2/OIDC";
+    public static final String PROTOCOL_TYPE = "OIDC";
 }

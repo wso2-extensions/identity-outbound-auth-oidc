@@ -28,6 +28,10 @@ public interface HttpFetcher {
     /**
      * Perform an HTTP GET and parse the response body as a JSON object into a Map.
      * Returns an empty map on non-200 responses or errors.
+     *
+     * @param url The URL to fetch JSON from.
+     * @param headers HTTP headers to include in the request.
+     * @return Map containing the parsed JSON response, or empty map on failure.
      */
     Map<String, Object> getJson(String url, Map<String, String> headers);
 }

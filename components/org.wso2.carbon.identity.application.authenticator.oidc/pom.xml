@@ -20,7 +20,7 @@
         <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
         <artifactId>identity-application-auth-oidc</artifactId>
         <relativePath>../../pom.xml</relativePath>
-        <version>5.15.1-SNAPSHOT</version>
+        <version>5.15.0</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -75,6 +75,11 @@
         <dependency>
             <groupId>org.wso2.carbon.identity.framework</groupId>
             <artifactId>org.wso2.carbon.identity.flow.execution.engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.debug.framework</artifactId>
+            <version>7.10.35</version>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
@@ -186,6 +191,18 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.flow.execution.engine.model;
                             version="${identity.framework.package.import.version.range}",
+                            org.wso2.carbon.identity.debug.framework.extension;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.core.*;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.cache.*;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.exception.*;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.model.*;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.dao.*;
+                            version="[7.8,8.0)",
                         </Import-Package>
                         <Export-Package>
                             !org.wso2.carbon.identity.application.authenticator.oidc.internal,
