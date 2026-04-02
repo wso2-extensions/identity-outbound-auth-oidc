@@ -981,16 +981,28 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private Map<String, Object> initializeDebugResult(AuthenticationContext context, String state) {
 
         Map<String, Object> debugResult = new HashMap<>();
+        String authenticatorName = (String) context.getProperty(OIDCDebugConstants.DEBUG_AUTHENTICATOR_NAME);
+        String executorClass = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXECUTOR_CLASS);
         debugResult.put("state", state);
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SUCCESS, true);
-        debugResult.put("authenticator", DebugFrameworkConstants.IMPLEMENTATION_OPENID_CONNECT);
+        debugResult.put("authenticator", StringUtils.isNotBlank(authenticatorName)
+                ? authenticatorName : DebugFrameworkConstants.IMPLEMENTATION_OPENID_CONNECT);
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_IDPNAME,
                 context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
         debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SESSIONID,
                 context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID));
-        debugResult.put("executor", "UnknownExecutor");
+        debugResult.put("executor", resolveExecutorName(executorClass));
 
         return debugResult;
+    }
+
+    private String resolveExecutorName(String executorClass) {
+
+        if (StringUtils.isBlank(executorClass)) {
+            return "UnknownExecutor";
+        }
+        int separatorIndex = executorClass.lastIndexOf('.');
+        return separatorIndex >= 0 ? executorClass.substring(separatorIndex + 1) : executorClass;
     }
 
     /**
@@ -1183,6 +1195,9 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
         debugResult.put("idToken", idToken);
+
+        String accessToken = (String) context.getProperty(OIDCDebugConstants.ACCESS_TOKEN);
+        debugResult.put("accessTokenPresent", StringUtils.isNotBlank(accessToken));
 
         String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
         debugResult.put("callbackUrl", callbackUrl);
@@ -1587,8 +1602,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 OIDCDebugConstants.DEBUG_IDP_NAME, OIDCDebugConstants.IDP_CONFIG,
                 OIDCDebugConstants.AUTHORIZATION_ENDPOINT,
                 OIDCDebugConstants.DEBUG_CONTEXT_ID, OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL,
+                OIDCDebugConstants.DEBUG_AUTHENTICATOR_NAME, OIDCDebugConstants.DEBUG_EXECUTOR_CLASS,
+                OIDCDebugConstants.IDP_SCOPE,
                 OIDCDebugConstants.ACCESS_TOKEN, OIDCDebugConstants.ID_TOKEN, OIDCDebugConstants.TOKEN_TYPE,
-                OIDCDebugConstants.USERINFO
+                OIDCDebugConstants.USERINFO, "protocol"
         };
 
         for (String property : propertiesToRestore) {

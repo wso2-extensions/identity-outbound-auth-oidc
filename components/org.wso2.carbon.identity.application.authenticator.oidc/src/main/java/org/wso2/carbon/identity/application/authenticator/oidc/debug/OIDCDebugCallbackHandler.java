@@ -19,6 +19,8 @@
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCache;
@@ -27,18 +29,24 @@ import org.wso2.carbon.identity.application.authentication.framework.cache.Authe
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
+import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * OIDC/OAuth debug callback handler owned by the OIDC protocol bundle.
+ * OAuth-style debug callback handler owned by the OIDC protocol bundle.
  */
 public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
@@ -49,12 +57,28 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     private static final String CONTEXT_KEY_RESOURCE_NAME = "resourceName";
     private static final String REQUEST_KEY_CONNECTION_ID = "connectionId";
     private static final String REQUEST_KEY_IDP_NAME = "idpName";
+    private static final String CONTEXT_KEY_PROTOCOL = "protocol";
 
     private final DebugProcessor processor;
+    private final Set<String> supportedProtocols;
 
     public OIDCDebugCallbackHandler(DebugProcessor processor) {
 
+        this(processor, OIDCDebugConstants.PROTOCOL_TYPE, DebugFrameworkConstants.PROTOCOL_TYPE_GOOGLE,
+                DebugFrameworkConstants.PROTOCOL_TYPE_GITHUB);
+    }
+
+    public OIDCDebugCallbackHandler(DebugProcessor processor, String... supportedProtocols) {
+
         this.processor = processor;
+        TreeSet<String> normalizedProtocols = new TreeSet<>();
+        if (supportedProtocols != null) {
+            Arrays.stream(supportedProtocols)
+                    .filter(StringUtils::isNotBlank)
+                    .map(protocol -> protocol.trim().toLowerCase(Locale.ENGLISH))
+                    .forEach(normalizedProtocols::add);
+        }
+        this.supportedProtocols = Collections.unmodifiableSet(normalizedProtocols);
     }
 
     @Override
@@ -65,8 +89,13 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             return false;
         }
 
-        return request.getParameter(DebugFrameworkConstants.OIDC_CODE_PARAM) != null
+        boolean hasCallbackParams = request.getParameter(DebugFrameworkConstants.OIDC_CODE_PARAM) != null
                 || request.getParameter(DebugFrameworkConstants.OIDC_ERROR_PARAM) != null;
+        if (!hasCallbackParams) {
+            return false;
+        }
+
+        return isSupportedProtocol(state);
     }
 
     @Override
@@ -91,6 +120,30 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         }
 
         return true;
+    }
+
+    private boolean isSupportedProtocol(String state) {
+
+        if (CollectionUtils.isEmpty(supportedProtocols)) {
+            return true;
+        }
+
+        try {
+            Map<String, Object> cachedContext = DebugSessionCache.getInstance().get(state);
+            if (cachedContext == null || cachedContext.isEmpty()) {
+                return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+            }
+
+            Object protocol = cachedContext.get(CONTEXT_KEY_PROTOCOL);
+            if (protocol == null) {
+                return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+            }
+
+            return supportedProtocols.contains(protocol.toString().trim().toLowerCase(Locale.ENGLISH));
+        } catch (Exception e) {
+            LOG.debug("Unable to resolve cached debug protocol for state: " + state, e);
+            return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+        }
     }
 
     private void processDebugFlowCallback(HttpServletRequest request, HttpServletResponse response)
@@ -258,48 +311,48 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
     private String extractDebugIdFromState(String state) {
 
-        if (state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX)) {
-            return state.substring(DebugFrameworkConstants.DEBUG_PREFIX.length());
+        if (state == null || !state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX)) {
+            return null;
+        }
+        return state.substring(DebugFrameworkConstants.DEBUG_PREFIX.length());
+    }
+
+    private String firstNonBlankString(Object... values) {
+
+        if (values == null) {
+            return null;
+        }
+
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            String stringValue = String.valueOf(value);
+            if (StringUtils.isNotBlank(stringValue)) {
+                return stringValue;
+            }
         }
         return null;
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, int status, String errorCode, String message) {
+
+        try {
+            response.setStatus(status);
+            response.setContentType("application/json");
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", errorCode);
+            errorResponse.put("message", message);
+            OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse);
+        } catch (IOException e) {
+            LOG.error("Error sending error response", e);
+        }
     }
 
     private void sendIOErrorResponse(HttpServletResponse response) {
 
         sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                ErrorMessages.ERROR_CODE_SERVER_ERROR.getCode(),
-                ErrorMessages.ERROR_CODE_SERVER_ERROR.getDescription());
-    }
-
-    private void sendErrorResponse(HttpServletResponse response, int status, String errorCode, String errorMessage) {
-
-        try {
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            response.setStatus(status);
-
-            Map<String, Object> errorResponse = new LinkedHashMap<>();
-            errorResponse.put("error", errorCode != null ? errorCode : "");
-            errorResponse.put("message", errorMessage != null ? errorMessage : "");
-            errorResponse.put("timestamp", System.currentTimeMillis());
-
-            response.getWriter().write(OBJECT_MAPPER.writeValueAsString(errorResponse));
-            response.getWriter().flush();
-        } catch (IOException e) {
-            LOG.error("Error sending error response: " + e.getMessage(), e);
-        }
-    }
-
-    private String firstNonBlankString(Object... values) {
-
-        for (Object value : values) {
-            if (value instanceof String) {
-                String text = (String) value;
-                if (!text.trim().isEmpty()) {
-                    return text;
-                }
-            }
-        }
-        return null;
+                "IO_ERROR", "Error processing debug callback");
     }
 }

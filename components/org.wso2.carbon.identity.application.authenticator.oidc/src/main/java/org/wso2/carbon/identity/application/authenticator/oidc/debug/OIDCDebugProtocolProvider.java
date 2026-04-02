@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
@@ -25,28 +26,22 @@ import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
 /**
- * OIDC/OIDC implementation of DebugProtocolProvider.
- * 
- * Registered with OSGi by OpenIDConnectAuthenticatorServiceComponent to
- * advertise
- * the OIDC module's debug capabilities (context provider, executor, processor,
- * and callback handler).
- * 
- * The debug-framework remains agnostic of specific protocol implementations;
- * it simply uses whatever DebugProtocolProvider services are registered at
- * runtime.
+ * OIDC implementation of DebugProtocolProvider.
  */
 public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
 
     private final DebugContextProvider contextProvider = new OIDCContextProvider();
     private final DebugExecutor executor = new OIDCDebugExecutor();
     private final DebugProcessor processor = new OIDCDebugProcessor();
-    private final DebugCallbackHandler callbackHandler = new OIDCDebugCallbackHandler(processor);
+    private final DebugCallbackHandler callbackHandler = new OIDCDebugCallbackHandler(processor,
+            OIDCDebugConstants.PROTOCOL_TYPE, DebugFrameworkConstants.PROTOCOL_TYPE_GOOGLE,
+            DebugFrameworkConstants.PROTOCOL_TYPE_GITHUB);
 
+            
     /**
-     * Gets the protocol type identifier.
+     * Returns the protocol type supported by this provider.
      *
-     * @return "OIDC".
+     * @return Protocol type identifier.
      */
     @Override
     public String getProtocolType() {
@@ -55,11 +50,9 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OIDC/OIDC context provider.
-     * The context provider resolves OIDC/OIDC configuration and creates the debug
-     * context.
+     * Returns the context provider for OIDC debug operations.
      *
-     * @return OIDCContextProvider instance.
+     * @return DebugContextProvider instance.
      */
     @Override
     public DebugContextProvider getContextProvider() {
@@ -68,10 +61,9 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OIDC/OIDC executor.
-     * The executor generates the OIDC Authorization URL with PKCE support.
+     * Returns the executor for OIDC debug flow execution.
      *
-     * @return OIDCDebugExecutor instance.
+     * @return DebugExecutor instance.
      */
     @Override
     public DebugExecutor getExecutor() {
@@ -80,10 +72,9 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OIDC/OIDC processor.
-     * The processor handles OIDC authorization code callbacks and token exchange.
+     * Returns the processor for OIDC debug result processing.
      *
-     * @return OIDCDebugProcessor instance.
+     * @return DebugProcessor instance.
      */
     @Override
     public DebugProcessor getProcessor() {
@@ -92,9 +83,9 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Gets the OIDC callback handler.
+     * Returns the callback handler for OIDC debug operations.
      *
-     * @return OIDCDebugCallbackHandler instance.
+     * @return DebugCallbackHandler instance.
      */
     @Override
     public DebugCallbackHandler getCallbackHandler() {
@@ -103,11 +94,10 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     /**
-     * Checks if this provider supports the given protocol type.
+     * Checks if this provider supports the specified protocol type.
      *
      * @param protocolType The protocol type to check.
-     * @return true if protocolType is "OIDC/OIDC" (case-insensitive), false
-     *         otherwise.
+     * @return True if supported, false otherwise.
      */
     @Override
     public boolean supports(String protocolType) {
