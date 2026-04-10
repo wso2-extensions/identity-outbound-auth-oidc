@@ -24,6 +24,7 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfiguration;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfigurationExtractor;
+import org.wso2.carbon.identity.application.common.model.AccountLookupAttributeMappingConfig;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.OAuth2TokenClient;
@@ -32,6 +33,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.UrlC
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
+import org.wso2.carbon.identity.application.common.model.JustInTimeProvisioningConfig;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 
 import java.io.IOException;
@@ -957,6 +959,8 @@ public class OIDCDebugProcessor extends DebugProcessor {
             Map<String, Object> incomingClaims = extractIncomingClaims(context);
             extractAndProcessUserIdentifiers(incomingClaims, debugResult);
             processClaimMappingsAndDiagnostics(context, incomingClaims, debugResult);
+            evaluateAccountLinking(context, incomingClaims);
+            context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.TRUE);
             buildUserAttributesAndMetadata(incomingClaims, debugResult, context);
             
             // Determine overall success based on step statuses.
@@ -1056,15 +1060,16 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         Map<String, Map<String, String>> idpClaimMappings = extractIdPClaimMappings(idp);
+        Map<String, Object> normalizedClaims = normalizeIncomingClaimsForDebug(incomingClaims);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Building mapped claims array from " + idpClaimMappings.size() +
                     " configured mappings. Incoming claims: " +
-                    (incomingClaims.isEmpty() ? "none" : incomingClaims.keySet()));
+                    (normalizedClaims.isEmpty() ? "none" : normalizedClaims.keySet()));
         }
 
         List<Map<String, Object>> mappedClaimsArray = buildMappedClaimsArray(
-                idpClaimMappings, incomingClaims);
+                idpClaimMappings, normalizedClaims);
 
         debugResult.put("mappedClaims", mappedClaimsArray);
         debugResult.put("idpConfiguredClaimMappings", idpClaimMappings);
@@ -1217,10 +1222,19 @@ public class OIDCDebugProcessor extends DebugProcessor {
         String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
         debugResult.put("callbackUrl", callbackUrl);
 
+        addAccountLinkingMessage(debugResult, context);
         debugResult.put("error", null);
         debugResult.put("timestamp", null);
 
         debugResult.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
+    }
+
+    private void addAccountLinkingMessage(Map<String, Object> debugResult, AuthenticationContext context) {
+
+        String accountLinkingMessage = resolveAccountLinkingMessage(context);
+        if (StringUtils.isNotBlank(accountLinkingMessage)) {
+            debugResult.put(OIDCDebugConstants.ACCOUNT_LINKING_MESSAGE, accountLinkingMessage);
+        }
     }
 
     /**
@@ -1412,10 +1426,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             errorResponse.put("state", state);
             errorResponse.put("success", false);
             errorResponse.put("error_code", errorCode);
-            errorResponse.put("error_description", errorDescription);
-            if (errorDetails != null && !errorDetails.isEmpty()) {
-                errorResponse.put("error_details", errorDetails);
-            }
+            errorResponse.put("error_description", resolveErrorDescription(errorDescription, errorDetails));
 
             // Add external redirect URL if available.
             String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
@@ -1446,6 +1457,14 @@ public class OIDCDebugProcessor extends DebugProcessor {
         }
     }
 
+    private String resolveErrorDescription(String errorDescription, String errorDetails) {
+
+        if (StringUtils.isBlank(errorDetails)) {
+            return errorDescription;
+        }
+        return errorDetails;
+    }
+
     private Map<String, Object> buildStepStatus(AuthenticationContext context) {
 
         Map<String, Object> stepStatus = new LinkedHashMap<>();
@@ -1463,6 +1482,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
         stepStatus.put(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS,
                 resolveStepStatus(context, OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS,
                         OIDCDebugConstants.STATUS_PENDING));
+        if (isAccountLinkingEnabled(context)) {
+            stepStatus.put(OIDCDebugConstants.STEP_ACCOUNT_LINKING_STATUS,
+                    resolveAccountLinkingStatus(context));
+        }
         return stepStatus;
     }
 
@@ -1502,6 +1525,163 @@ public class OIDCDebugProcessor extends DebugProcessor {
             return stepStatus;
         }
         return fallbackStatus;
+    }
+
+    private String resolveAccountLinkingStatus(AuthenticationContext context) {
+
+        Object accountLinkingStatus = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS);
+        if (accountLinkingStatus instanceof String && StringUtils.isNotBlank((String) accountLinkingStatus)) {
+            return (String) accountLinkingStatus;
+        }
+
+        return OIDCDebugConstants.STATUS_PENDING;
+    }
+
+    private String resolveAccountLinkingMessage(AuthenticationContext context) {
+
+        Object accountLinkingMessage = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE);
+        if (accountLinkingMessage instanceof String && StringUtils.isNotBlank((String) accountLinkingMessage)) {
+            return (String) accountLinkingMessage;
+        }
+
+        if (OIDCDebugConstants.STATUS_FAILED.equals(resolveAccountLinkingStatus(context))) {
+            return "Account linking attribute validation failed.";
+        }
+
+        return null;
+    }
+
+    private void evaluateAccountLinking(AuthenticationContext context, Map<String, Object> incomingClaims) {
+
+        if (!isAccountLinkingEnabled(context)
+                || hasResolvedAccountLinkingStatus(context)) {
+            return;
+        }
+
+        IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
+        if (idp == null || idp.getJustInTimeProvisioningConfig() == null) {
+            return;
+        }
+
+        Map<String, Object> normalizedClaims = normalizeIncomingClaimsForDebug(incomingClaims);
+        AccountLookupAttributeMappingConfig[] accountLookupMappings =
+                idp.getJustInTimeProvisioningConfig().getAccountLookupAttributeMappings();
+        if (accountLookupMappings == null || accountLookupMappings.length == 0) {
+            evaluateDefaultAccountLinkingAttribute(context, normalizedClaims);
+            return;
+        }
+
+        evaluateConfiguredAccountLinkingAttributes(context, normalizedClaims, accountLookupMappings);
+    }
+
+    private Map<String, Object> normalizeIncomingClaimsForDebug(Map<String, Object> incomingClaims) {
+
+        Map<String, Object> normalizedClaims = new HashMap<>();
+        if (incomingClaims == null || incomingClaims.isEmpty()) {
+            return normalizedClaims;
+        }
+
+        normalizedClaims.putAll(incomingClaims);
+        addAddressScopeClaims(incomingClaims, normalizedClaims);
+        return normalizedClaims;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void addAddressScopeClaims(Map<String, Object> incomingClaims, Map<String, Object> normalizedClaims) {
+
+        Object addressClaim = incomingClaims.get("address");
+        if (!(addressClaim instanceof Map)) {
+            return;
+        }
+
+        Map<String, Object> addressClaims = (Map<String, Object>) addressClaim;
+        for (Map.Entry<String, Object> entry : addressClaims.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            normalizedClaims.putIfAbsent(entry.getKey(), entry.getValue());
+            normalizedClaims.put("address." + entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void evaluateDefaultAccountLinkingAttribute(AuthenticationContext context,
+            Map<String, Object> incomingClaims) {
+
+        String email = getStringClaim(incomingClaims, "email");
+        if (StringUtils.isBlank(email)) {
+            setAccountLinkingFailure(context, "\"email\" is missing.");
+            return;
+        }
+
+        setAccountLinkingSuccess(context);
+    }
+
+    private void evaluateConfiguredAccountLinkingAttributes(AuthenticationContext context,
+            Map<String, Object> incomingClaims,
+            AccountLookupAttributeMappingConfig[] accountLookupMappings) {
+
+        for (AccountLookupAttributeMappingConfig mappingConfig : accountLookupMappings) {
+            if (mappingConfig == null || StringUtils.isBlank(mappingConfig.getFederatedAttribute())) {
+                continue;
+            }
+
+            String federatedAttribute = mappingConfig.getFederatedAttribute();
+            if (StringUtils.isBlank(getStringClaim(incomingClaims, federatedAttribute))) {
+                setAccountLinkingFailure(context, buildMissingAccountLinkingAttributeMessage(mappingConfig));
+                return;
+            }
+        }
+
+        setAccountLinkingSuccess(context);
+    }
+
+    private boolean hasResolvedAccountLinkingStatus(AuthenticationContext context) {
+
+        Object accountLinkingStatus = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS);
+        return accountLinkingStatus instanceof String && StringUtils.isNotBlank((String) accountLinkingStatus);
+    }
+
+    private void setAccountLinkingSuccess(AuthenticationContext context) {
+
+        context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
+        context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE, null);
+    }
+
+    private void setAccountLinkingFailure(AuthenticationContext context, String message) {
+
+        context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS, OIDCDebugConstants.STATUS_FAILED);
+        context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE, message);
+    }
+
+    private String buildMissingAccountLinkingAttributeMessage(AccountLookupAttributeMappingConfig mappingConfig) {
+
+        String federatedAttribute = mappingConfig.getFederatedAttribute();
+        String localAttribute = mappingConfig.getLocalAttribute();
+
+        if (StringUtils.isNotBlank(localAttribute)) {
+            return "Required IdP attribute '" + federatedAttribute + "' is missing for account linking to local " +
+                    "attribute '" + localAttribute + "'.";
+        }
+
+        return "Required IdP attribute '" + federatedAttribute + "' is missing for account linking.";
+    }
+
+    private String getStringClaim(Map<String, Object> incomingClaims, String claimName) {
+
+        Object claimValue = incomingClaims.get(claimName);
+        return claimValue instanceof String ? (String) claimValue : null;
+    }
+
+    private boolean isAccountLinkingEnabled(AuthenticationContext context) {
+
+        IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
+        if (idp == null) {
+            return false;
+        }
+
+        JustInTimeProvisioningConfig jitProvisioningConfig = idp.getJustInTimeProvisioningConfig();
+        return jitProvisioningConfig != null && jitProvisioningConfig.isProvisioningEnabled()
+                && jitProvisioningConfig.isAssociateLocalUserEnabled();
     }
 
     private boolean hasExternalRedirectUrl(AuthenticationContext context) {

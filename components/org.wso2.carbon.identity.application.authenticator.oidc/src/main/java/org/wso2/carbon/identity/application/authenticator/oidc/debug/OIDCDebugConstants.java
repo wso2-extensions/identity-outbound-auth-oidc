@@ -81,6 +81,7 @@ public final class OIDCDebugConstants {
     public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
     public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
     public static final String STEP_CLAIM_EXTRACTION_STATUS = "claimExtractionStatus";
+    public static final String STEP_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
 
     // Status Values
     public static final String STATUS_STARTED = "started";
@@ -134,6 +135,9 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_RESULT_SUCCESS = "success";
     public static final String DEBUG_RESULT_IDPNAME = "idpName";
     public static final String DEBUG_RESULT_SESSIONID = "sessionId";
+    public static final String ACCOUNT_LINKING_MESSAGE = "accountLinkingMessage";
+    public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
+    public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "accountLinkingMessage";
 
     // JSON/Response Property Keys
     public static final String RESPONSE_SUCCESS = "success";

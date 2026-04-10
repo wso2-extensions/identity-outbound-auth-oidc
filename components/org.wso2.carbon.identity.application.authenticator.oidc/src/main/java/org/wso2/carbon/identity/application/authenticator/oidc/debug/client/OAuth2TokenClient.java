@@ -241,6 +241,7 @@ public class OAuth2TokenClient {
     private String buildDetailedErrorDescription(Exception e, String errorCode) {
 
         StringBuilder details = new StringBuilder();
+        String errorMessage = e != null && e.getMessage() != null ? e.getMessage() : "";
 
         // Add context-specific troubleshooting hints.
         switch (errorCode) {
@@ -254,8 +255,12 @@ public class OAuth2TokenClient {
                     .append("authorization code.");
                 break;
             case OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST:
-                details.append("The token request is malformed. Verify redirect URI and PKCE parameters ")
-                    .append("are configured correctly.");
+                if (isLikelyWrongTokenEndpoint(errorMessage)) {
+                    details.append("Configured token endpoint may be incorrect.");
+                } else {
+                    details.append("The token request is malformed. Verify redirect URI and PKCE parameters ")
+                            .append("are configured correctly.");
+                }
                 break;
             case "UNAUTHORIZED":
                 details.append("The IdP rejected the request. Check that client credentials are correct ")
@@ -284,6 +289,13 @@ public class OAuth2TokenClient {
         }
 
         return details.toString();
+    }
+
+    private boolean isLikelyWrongTokenEndpoint(String errorMessage) {
+
+        String normalizedErrorMessage = errorMessage != null ? errorMessage.toLowerCase() : "";
+        return normalizedErrorMessage.contains("missing parameters: access_token")
+                || normalizedErrorMessage.contains("missing parameter: access_token");
     }
 
     /**

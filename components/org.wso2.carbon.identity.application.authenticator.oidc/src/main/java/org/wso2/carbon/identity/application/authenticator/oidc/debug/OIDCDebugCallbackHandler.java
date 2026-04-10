@@ -226,7 +226,6 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             LOG.warn("Cannot set context properties: context is null");
             return;
         }
-
         if (code != null) {
             context.setProperty(DebugFrameworkConstants.DEBUG_OIDC_CODE, code);
         }
