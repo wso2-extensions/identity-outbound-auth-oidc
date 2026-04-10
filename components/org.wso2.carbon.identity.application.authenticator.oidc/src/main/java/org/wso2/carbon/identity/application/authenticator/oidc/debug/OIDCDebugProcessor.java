@@ -25,7 +25,6 @@ import org.wso2.carbon.identity.application.authentication.framework.context.Aut
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfiguration;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfigurationExtractor;
 import org.wso2.carbon.identity.application.common.model.AccountLookupAttributeMappingConfig;
-import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.OAuth2TokenClient;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.TokenResponse;
@@ -40,11 +39,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -955,13 +952,13 @@ public class OIDCDebugProcessor extends DebugProcessor {
     protected void buildAndCacheDebugResult(AuthenticationContext context, String state) {
 
         try {
-            Map<String, Object> debugResult = initializeDebugResult(context, state);
+            Map<String, Object> debugResult = new HashMap<>();
+            debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SUCCESS, true);
             Map<String, Object> incomingClaims = extractIncomingClaims(context);
-            extractAndProcessUserIdentifiers(incomingClaims, debugResult);
-            processClaimMappingsAndDiagnostics(context, incomingClaims, debugResult);
+            processClaimMappings(context, incomingClaims, debugResult);
             evaluateAccountLinking(context, incomingClaims);
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.TRUE);
-            buildUserAttributesAndMetadata(incomingClaims, debugResult, context);
+            buildResultMetadata(debugResult, context);
             
             // Determine overall success based on step statuses.
             determineOverallSuccessStatus(debugResult, context);
@@ -973,40 +970,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "Error caching debug result: " + e.getMessage());
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
         }
-    }
-
-    /**
-     * Initializes the debug result map with basic properties and step statuses.
-     *
-     * @param context AuthenticationContext.
-     * @param state   State parameter.
-     * @return Initialized debug result map.
-     */
-    private Map<String, Object> initializeDebugResult(AuthenticationContext context, String state) {
-
-        Map<String, Object> debugResult = new HashMap<>();
-        String authenticatorName = (String) context.getProperty(OIDCDebugConstants.DEBUG_AUTHENTICATOR_NAME);
-        String executorClass = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXECUTOR_CLASS);
-        debugResult.put("state", state);
-        debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SUCCESS, true);
-        debugResult.put("authenticator", StringUtils.isNotBlank(authenticatorName)
-                ? authenticatorName : DebugFrameworkConstants.IMPLEMENTATION_OPENID_CONNECT);
-        debugResult.put(OIDCDebugConstants.DEBUG_RESULT_IDPNAME,
-                context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
-        debugResult.put(OIDCDebugConstants.DEBUG_RESULT_SESSIONID,
-                context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID));
-        debugResult.put("executor", resolveExecutorName(executorClass));
-
-        return debugResult;
-    }
-
-    private String resolveExecutorName(String executorClass) {
-
-        if (StringUtils.isBlank(executorClass)) {
-            return "UnknownExecutor";
-        }
-        int separatorIndex = executorClass.lastIndexOf('.');
-        return separatorIndex >= 0 ? executorClass.substring(separatorIndex + 1) : executorClass;
     }
 
     /**
@@ -1024,38 +987,13 @@ public class OIDCDebugProcessor extends DebugProcessor {
     }
 
     /**
-     * Extracts user identifier claims (sub, email, username) from incoming claims.
-     *
-     * @param incomingClaims Map of incoming claims.
-     * @param debugResult    Debug result map to populate with userId and username.
-     */
-    private void extractAndProcessUserIdentifiers(Map<String, Object> incomingClaims,
-
-            Map<String, Object> debugResult) {
-        String userId = null;
-        String username = null;
-
-        if (!incomingClaims.isEmpty()) {
-            userId = (String) incomingClaims.get("sub");
-            username = (String) incomingClaims.get("email");
-            if (username == null) {
-                username = (String) incomingClaims.get("username");
-            }
-        }
-
-        debugResult.put("userId", userId);
-        debugResult.put("username", username);
-    }
-
-    /**
-     * Processes claim mappings from IdP configuration and builds diagnostic
-     * information.
+     * Processes claim mappings from IdP configuration.
      *
      * @param context AuthenticationContext.
      * @param incomingClaims Incoming claims map.
      * @param debugResult Debug result map to populate.
      */
-    private void processClaimMappingsAndDiagnostics(AuthenticationContext context,
+    private void processClaimMappings(AuthenticationContext context,
             Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
@@ -1072,7 +1010,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 idpClaimMappings, normalizedClaims);
 
         debugResult.put("mappedClaims", mappedClaimsArray);
-        debugResult.put("idpConfiguredClaimMappings", idpClaimMappings);
 
         // Determine claim mapping status: SUCCESS if all mappings succeed and PARTIAL
         // for any incomplete mapping outcome.
@@ -1138,7 +1075,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
             Map<String, Map<String, String>> idpClaimMappings, Map<String, Object> incomingClaims) {
 
         List<Map<String, Object>> mappedClaimsArray = new ArrayList<>();
-        Set<String> processedClaims = new HashSet<>();
 
         // Process configured mappings.
         if (!idpClaimMappings.isEmpty()) {
@@ -1147,7 +1083,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 String localClaimUri = mapping.getValue().get(OIDCDebugConstants.CLAIM_MAPPING_LOCAL);
 
                 Map<String, Object> claimEntry = processConfiguredMapping(
-                        remoteClaimUri, localClaimUri, incomingClaims, processedClaims);
+                        remoteClaimUri, localClaimUri, incomingClaims);
                 mappedClaimsArray.add(claimEntry);
             }
         }
@@ -1161,11 +1097,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param remoteClaimUri Remote claim URI from IdP.
      * @param localClaimUri Local claim URI mapping.
      * @param incomingClaims Incoming claims from tokens.
-     * @param processedClaims Set to track processed claim names.
      * @return Claim entry map with status and value information.
      */
     private Map<String, Object> processConfiguredMapping(String remoteClaimUri, String localClaimUri,
-            Map<String, Object> incomingClaims, Set<String> processedClaims) {
+            Map<String, Object> incomingClaims) {
 
         Map<String, Object> claimEntry = new HashMap<>();
         claimEntry.put(OIDCDebugConstants.CLAIM_MAPPING_IDP_CLAIM, remoteClaimUri != null ? remoteClaimUri : "");
@@ -1177,7 +1112,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
         if (remoteClaimUri != null && incomingClaims.containsKey(remoteClaimUri)) {
             claimValue = incomingClaims.get(remoteClaimUri);
             claimStatus = "Successful";
-            processedClaims.add(remoteClaimUri);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Mapped claim: " + remoteClaimUri + " -> " + localClaimUri);
             }
@@ -1193,21 +1127,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
     }
 
     /**
-     * Builds user attributes map and step status information.
+     * Builds debug result metadata and step status information.
      *
-     * @param incomingClaims Incoming claims.
      * @param debugResult Debug result to populate.
      * @param context AuthenticationContext.
      */
-    private void buildUserAttributesAndMetadata(Map<String, Object> incomingClaims,
-            Map<String, Object> debugResult, AuthenticationContext context) {
-
-        // Build user attributes map.
-        Map<String, Object> userAttributes = new HashMap<>();
-        if (!incomingClaims.isEmpty()) {
-            userAttributes.putAll(incomingClaims);
-        }
-        debugResult.put("userAttributes", userAttributes);
+    private void buildResultMetadata(Map<String, Object> debugResult, AuthenticationContext context) {
 
         // Add URLs and tokens.
         String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
@@ -1215,9 +1140,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
         debugResult.put("idToken", idToken);
-
-        String accessToken = (String) context.getProperty(OIDCDebugConstants.ACCESS_TOKEN);
-        debugResult.put("accessTokenPresent", StringUtils.isNotBlank(accessToken));
 
         String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
         debugResult.put("callbackUrl", callbackUrl);
@@ -1423,7 +1345,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
         try {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.FALSE);
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("state", state);
             errorResponse.put("success", false);
             errorResponse.put("error_code", errorCode);
             errorResponse.put("error_description", resolveErrorDescription(errorDescription, errorDetails));
