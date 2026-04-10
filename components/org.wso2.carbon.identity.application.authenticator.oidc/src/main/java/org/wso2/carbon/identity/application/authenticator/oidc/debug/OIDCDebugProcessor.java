@@ -1069,7 +1069,8 @@ public class OIDCDebugProcessor extends DebugProcessor {
         debugResult.put("mappedClaims", mappedClaimsArray);
         debugResult.put("idpConfiguredClaimMappings", idpClaimMappings);
 
-        // Determine claim mapping status: FAILED if any configured mapping is not found.
+        // Determine claim mapping status: SUCCESS if all mappings succeed and PARTIAL
+        // for any incomplete mapping outcome.
         String claimMappingStatus = determineClaimMappingStatus(mappedClaimsArray, idpClaimMappings);
         context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, claimMappingStatus);
     }
@@ -1077,11 +1078,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Determines the claim mapping status based on whether all configured mappings
      * were found in incoming claims.
-     * Returns FAILED if any configured claim mapping was not successfully mapped.
+     * Returns SUCCESS if all configured mappings were resolved and PARTIAL for any
+     * incomplete mapping outcome.
      *
      * @param mappedClaimsArray List of mapped claim entries.
      * @param idpClaimMappings IdP configured mappings.
-     * @return STATUS_FAILED if any "Not Mapped" status found, STATUS_SUCCESS otherwise.
+     * @return Claim mapping step status.
      */
     private String determineClaimMappingStatus(List<Map<String, Object>> mappedClaimsArray,
             Map<String, Map<String, String>> idpClaimMappings) {
@@ -1091,19 +1093,32 @@ public class OIDCDebugProcessor extends DebugProcessor {
             return OIDCDebugConstants.STATUS_SUCCESS;
         }
 
-        // If any configured mapping is "Not Mapped", status is failed.
+        int mappedCount = 0;
+        int unmappedCount = 0;
         for (Map<String, Object> claim : mappedClaimsArray) {
             String status = (String) claim.get(OIDCDebugConstants.CLAIM_MAPPING_STATUS);
-            if ("Not Mapped".equals(status)) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Claim mapping status set to FAILED due to unmapped claim: " +
-                            claim.get(OIDCDebugConstants.CLAIM_MAPPING_IDP_CLAIM));
-                }
-                return OIDCDebugConstants.STATUS_FAILED;
+            if ("Successful".equals(status)) {
+                mappedCount++;
+            } else if ("Not Mapped".equals(status)) {
+                unmappedCount++;
             }
         }
 
-        return OIDCDebugConstants.STATUS_SUCCESS;
+        if (mappedCount > 0 && unmappedCount > 0) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Claim mapping status set to PARTIAL due to mixed mapped/unmapped claims.");
+            }
+            return OIDCDebugConstants.STATUS_PARTIAL;
+        }
+
+        if (mappedCount > 0) {
+            return OIDCDebugConstants.STATUS_SUCCESS;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Claim mapping status set to PARTIAL because configured claims were not mapped.");
+        }
+        return OIDCDebugConstants.STATUS_PARTIAL;
     }
 
     /**

@@ -85,6 +85,7 @@ public final class OIDCDebugConstants {
     // Status Values
     public static final String STATUS_STARTED = "started";
     public static final String STATUS_SUCCESS = "success";
+    public static final String STATUS_PARTIAL = "partial";
     public static final String STATUS_FAILED = "failed";
     public static final String STATUS_PENDING = "pending";
     public static final String STATUS_PRESENT = "present";
