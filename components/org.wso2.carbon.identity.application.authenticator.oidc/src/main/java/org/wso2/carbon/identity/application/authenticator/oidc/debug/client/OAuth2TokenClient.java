@@ -132,14 +132,19 @@ public class OAuth2TokenClient {
             String redirectUri, String authorizationCode, String codeVerifier, String idpName) {
 
         try {
-            OAuthClientRequest request = OAuthClientRequest.tokenLocation(tokenEndpoint)
+            OAuthClientRequest.TokenRequestBuilder builder = OAuthClientRequest.tokenLocation(tokenEndpoint)
                     .setGrantType(GrantType.AUTHORIZATION_CODE)
                     .setClientId(clientId)
                     .setClientSecret(clientSecret)
                     .setRedirectURI(redirectUri)
-                    .setCode(authorizationCode)
-                    .setParameter("code_verifier", codeVerifier)
-                    .buildBodyMessage();
+                    .setCode(authorizationCode);
+
+            // Only add code_verifier when present to avoid sending literal "null" string.
+            if (codeVerifier != null && !codeVerifier.trim().isEmpty()) {
+                builder.setParameter("code_verifier", codeVerifier);
+            }
+
+            OAuthClientRequest request = builder.buildBodyMessage();
 
             // Add Accept: application/json header for GitHub token endpoint and other special cases.
             if (idpName != null && idpName.toLowerCase().contains("github")) {

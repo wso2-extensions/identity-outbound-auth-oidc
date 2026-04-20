@@ -104,7 +104,7 @@ public final class OIDCDebugConstants {
     public static final String STATUS_FOUND = "found";
 
     // Debug Session Keys
-    public static final String DEBUG_SESSION_ID = "debugSessionId";
+    public static final String DEBUG_ID = "debugId";
     public static final String DEBUG_FLOW_ID = "debugFlowId";
     public static final String DEBUG_TIMESTAMP = "debugTimestamp";
     public static final String DEBUG_TENANT_DOMAIN = "debugTenantDomain";
@@ -127,26 +127,32 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
     public static final String DEBUG_USERINFO_ENDPOINT = "DEBUG_USERINFO_ENDPOINT";
     public static final String DEBUG_PROCESSED_CODE_PREFIX = "DEBUG_PROCESSED_CODE_";
-    public static final String DEBUG_CONTEXT_ID = "DEBUG_CONTEXT_ID";
+    public static final String DEBUG_CONTEXT_ID = DEBUG_ID;
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
+    public static final String DEBUG_NONCE = "DEBUG_NONCE";
     public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
     public static final String DEBUG_CUSTOM_ACCESS_TYPE = "DEBUG_CUSTOM_access_type";
     public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
+    public static final String DEBUG_IDP_RESOURCE_ID = "debugIdpResourceId";
+    public static final String DEBUG_IDP_DESCRIPTION = "debugIdpDescription";
+    public static final String CONTEXT_PROTOCOL = "protocol";
 
     // Claim Mapping Keys
     public static final String CLAIM_MAPPING_REMOTE = "remote";
     public static final String CLAIM_MAPPING_LOCAL = "local";
     public static final String CLAIM_MAPPING_IDP_CLAIM = "idpClaim";
-    public static final String CLAIM_MAPPING_LOCAL_CLAIM = "isClaim";
+    public static final String CLAIM_MAPPING_LOCAL_CLAIM = "localClaim";
     public static final String CLAIM_MAPPING_VALUE = "value";
     public static final String CLAIM_MAPPING_STATUS = "status";
 
     // Debug Result Keys
     public static final String DEBUG_RESULT_SUCCESS = "success";
     public static final String DEBUG_RESULT_IDPNAME = "idpName";
-    public static final String DEBUG_RESULT_SESSIONID = "sessionId";
+    public static final String DEBUG_RESULT_DEBUGID = "debugId";
+    public static final String DEBUG_RESULT_ID_TOKEN_PRESENT = "idTokenPresent";
     public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "CONTEXT_ACCOUNT_LINKING_MESSAGE";
+    public static final String ACCOUNT_LINKING_REASON = "reason";
 
     // JSON/Response Property Keys
     public static final String RESPONSE_SUCCESS = "success";

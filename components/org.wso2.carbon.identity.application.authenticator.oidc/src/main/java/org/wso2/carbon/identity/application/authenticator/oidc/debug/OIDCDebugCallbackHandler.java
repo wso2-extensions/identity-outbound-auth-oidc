@@ -57,7 +57,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     private static final String CONTEXT_KEY_RESOURCE_NAME = "resourceName";
     private static final String REQUEST_KEY_CONNECTION_ID = "connectionId";
     private static final String REQUEST_KEY_IDP_NAME = "idpName";
-    private static final String CONTEXT_KEY_PROTOCOL = "protocol";
+    private static final String CONTEXT_KEY_PROTOCOL = OIDCDebugConstants.CONTEXT_PROTOCOL;
 
     private final DebugProcessor processor;
     private final Set<String> supportedProtocols;
@@ -112,11 +112,15 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             if (!response.isCommitted()) {
                 sendIOErrorResponse(response);
             }
+            // Return false to signal that the callback was not successfully handled,
+            // allowing the framework to try other handlers or surface the error.
+            return false;
         } catch (RuntimeException e) {
             LOG.error("Unexpected runtime error while processing debug flow callback", e);
             if (!response.isCommitted()) {
                 sendIOErrorResponse(response);
             }
+            return false;
         }
 
         return true;

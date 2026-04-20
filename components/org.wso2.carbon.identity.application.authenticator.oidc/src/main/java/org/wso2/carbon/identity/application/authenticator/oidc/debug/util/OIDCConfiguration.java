@@ -75,13 +75,14 @@ public class OIDCConfiguration {
 
     /**
      * Validates that all required configuration values are present.
-     * Required values: tokenEndpoint, clientId.
+     * Required values: tokenEndpoint, clientId, clientSecret.
      *
      * @return true if configuration has all required values, false otherwise.
      */
     public boolean isValid() {
 
-        return StringUtils.isNotBlank(tokenEndpoint) && StringUtils.isNotBlank(clientId);
+        return StringUtils.isNotBlank(tokenEndpoint) && StringUtils.isNotBlank(clientId)
+                && StringUtils.isNotBlank(clientSecret);
     }
 
     /**
@@ -109,6 +110,9 @@ public class OIDCConfiguration {
         }
         if (StringUtils.isBlank(clientId)) {
             errors.add("Client ID is required but not configured");
+        }
+        if (StringUtils.isBlank(clientSecret)) {
+            errors.add("Client secret is required but not configured");
         }
         return Collections.unmodifiableList(errors);
     }
@@ -410,7 +414,7 @@ public class OIDCConfiguration {
          * Throws IllegalStateException if required fields are missing.
          *
          * @return New validated OIDCConfiguration instance.
-         * @throws IllegalStateException If required fields (tokenEndpoint, clientId) are missing.
+         * @throws IllegalStateException If required fields (tokenEndpoint, clientId, clientSecret) are missing.
          */
         public OIDCConfiguration buildValidated() {
 

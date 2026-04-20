@@ -41,6 +41,16 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
         HttpURLConnection connection = null;
         try {
             URL url = new URL(urlStr);
+
+            // Enforce HTTPS to prevent access token exposure over plaintext HTTP.
+            // Allow HTTP only for localhost (development/testing).
+            if (!"https".equalsIgnoreCase(url.getProtocol()) &&
+                    !isLocalhost(url.getHost())) {
+                LOG.error("Refusing to fetch from non-HTTPS URL: " + urlStr +
+                        ". HTTPS is required to protect access tokens in transit.");
+                return new HashMap<>();
+            }
+
             connection = (HttpURLConnection) url.openConnection();
             
             // Enable hostname verification for HTTPS connections.
@@ -91,5 +101,13 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
                 }
             }
         }
+    }
+
+    /**
+     * Checks if the host is a localhost address (for development/testing).
+     */
+    private boolean isLocalhost(String host) {
+
+        return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host);
     }
 }

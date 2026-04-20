@@ -126,16 +126,16 @@ public class OIDCDebugProcessor extends DebugProcessor {
             return false;
         }
 
-        // Validate state matches stored value if available.
-        String storedState = (String) context.getProperty(OIDCDebugConstants.DEBUG_STATE);
-        if (storedState != null && !state.equals(storedState)) {
+    // Validate callback correlation value against the debug identifier.
+    String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID);
+    if (debugId != null && !state.equals(debugId)) {
             LOG.error("State parameter mismatch - CSRF attack detected");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR,
                     "State validation failed - possible CSRF attack");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
             OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "State parameter validation failed.",
-                    buildErrorDetails("STATE_MISMATCH", "Received state does not match cached state."));
+            buildErrorDetails("STATE_MISMATCH", "Received state does not match debug identifier."));
             buildAndCacheTokenExchangeErrorResponse("STATE_MISMATCH",
                     "State validation failed - possible CSRF attack", "", state, context);
             return false;
@@ -748,6 +748,16 @@ public class OIDCDebugProcessor extends DebugProcessor {
             // Parse ID token to extract initial claims.
             Map<String, Object> claims = parseIdTokenClaims(idToken);
 
+            // Validate nonce claim against value generated in authorization request.
+            if (!isValidNonceClaim(context, claims)) {
+                OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+                        OIDCDebugConstants.STATUS_FAILED,
+                        "ID token nonce claim validation failed.",
+                        buildErrorDetails("NONCE_VALIDATION_FAILED",
+                                "ID token nonce claim is missing or does not match the original request nonce."));
+                return new HashMap<>();
+            }
+
             // Attempt to merge with UserInfo endpoint claims if available.
             mergeUserInfoClaims(context, claims);
 
@@ -889,6 +899,46 @@ public class OIDCDebugProcessor extends DebugProcessor {
     }
 
     /**
+     * Validates the nonce claim in the ID token claims map against expected nonce from context.
+     *
+     * @param context Authentication context holding expected nonce.
+     * @param claims ID token claims.
+     * @return true if nonce is valid, false otherwise.
+     */
+    private boolean isValidNonceClaim(AuthenticationContext context, Map<String, Object> claims) {
+
+        String expectedNonce = (String) context.getProperty(OIDCDebugConstants.DEBUG_NONCE);
+        if (StringUtils.isBlank(expectedNonce)) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Expected nonce is not available in debug context. Skipping nonce validation.");
+            }
+            return true;
+        }
+
+        if (claims == null || claims.isEmpty()) {
+            LOG.error("ID token claims are empty. Cannot validate nonce claim.");
+            return false;
+        }
+
+        Object tokenNonceObj = claims.get("nonce");
+        String tokenNonce = tokenNonceObj != null ? String.valueOf(tokenNonceObj) : null;
+        if (StringUtils.isBlank(tokenNonce)) {
+            LOG.error("ID token nonce claim is missing while request nonce is present.");
+            return false;
+        }
+
+        if (!StringUtils.equals(expectedNonce, tokenNonce)) {
+            LOG.error("Nonce mismatch detected between request context and ID token claims.");
+            return false;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("ID token nonce claim validation succeeded.");
+        }
+        return true;
+    }
+
+    /**
      * Parses JSON string to claims map.
      *
      * @param json The JSON string to parse.
@@ -1015,7 +1065,6 @@ public class OIDCDebugProcessor extends DebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.TRUE);
             buildResultMetadata(debugResult, context);
             determineOverallSuccessStatus(debugResult, context);
-            debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
             
             persistDebugResultToCache(state, context, debugResult);
 
@@ -1197,17 +1246,34 @@ public class OIDCDebugProcessor extends DebugProcessor {
         String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
         debugResult.put("externalRedirectUrl", externalRedirectUrl);
 
-        String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
-        debugResult.put("idToken", idToken);
+        String idToken = resolveIdTokenFromContext(context);
+        debugResult.put(OIDCDebugConstants.DEBUG_RESULT_ID_TOKEN_PRESENT, StringUtils.isNotBlank(idToken));
+        if (StringUtils.isNotBlank(idToken)) {
+            debugResult.put(OIDCDebugConstants.ID_TOKEN, idToken);
+        }
 
         String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
         debugResult.put("callbackUrl", callbackUrl);
 
-        debugResult.put("error", null);
-        debugResult.put("timestamp", null);
-
         debugResult.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
         debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
+    }
+
+    /**
+     * Resolves ID token from context using primary and fallback keys.
+     *
+     * @param context AuthenticationContext.
+     * @return ID token value, or null if unavailable.
+     */
+    private String resolveIdTokenFromContext(AuthenticationContext context) {
+
+        String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
+        if (StringUtils.isNotBlank(idToken)) {
+            return idToken;
+        }
+
+        Object fallbackIdToken = context.getProperty(OIDCDebugConstants.DEBUG_ID_TOKEN);
+        return fallbackIdToken != null ? String.valueOf(fallbackIdToken) : null;
     }
 
     /**
@@ -1565,7 +1631,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         String accountLinkingMessage = resolveAccountLinkingMessage(context);
         if (StringUtils.isNotBlank(accountLinkingMessage)) {
-            details.put(accountLinkingMessage, "");
+            details.put(OIDCDebugConstants.ACCOUNT_LINKING_REASON, accountLinkingMessage);
         }
         return details;
     }
@@ -1799,7 +1865,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 OIDCDebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS,
                 OIDCDebugConstants.STEP_ACCOUNT_LINKING_STATUS, OIDCDebugConstants.DEBUG_DIAGNOSTICS,
                 OIDCDebugConstants.ACCESS_TOKEN, OIDCDebugConstants.ID_TOKEN, OIDCDebugConstants.TOKEN_TYPE,
-                OIDCDebugConstants.USERINFO, "protocol"
+        OIDCDebugConstants.USERINFO, OIDCDebugConstants.CONTEXT_PROTOCOL
         };
 
         for (String property : propertiesToRestore) {

@@ -59,6 +59,19 @@ public class OIDCDebugException extends DebugFrameworkException {
      */
     public OIDCDebugException(String errorCode, String message, Throwable cause) {
 
-        super(errorCode, message, message, cause);
+        super(errorCode, message, null, cause);
+    }
+
+    /**
+     * Constructs an OIDCDebugException with error code, message, description, and cause.
+     *
+     * @param errorCode   The error code.
+     * @param message     The error message.
+     * @param description Detailed description of the error.
+     * @param cause       The cause of the exception.
+     */
+    public OIDCDebugException(String errorCode, String message, String description, Throwable cause) {
+
+        super(errorCode, message, description, cause);
     }
 }

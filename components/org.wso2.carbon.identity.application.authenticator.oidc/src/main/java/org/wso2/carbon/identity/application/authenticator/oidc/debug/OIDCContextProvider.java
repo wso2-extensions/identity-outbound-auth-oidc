@@ -248,8 +248,9 @@ public class OIDCContextProvider extends DebugContextProvider {
         // Populate context with IdP details.
         if (idp != null) {
             context.put(OIDCDebugConstants.DEBUG_IDP_NAME, idp.getIdentityProviderName());
-            context.put("DEBUG_IDP_RESOURCE_ID", idp.getIdentityProviderName());
-            context.put("DEBUG_IDP_DESCRIPTION", idp.getIdentityProviderDescription());
+            context.put(OIDCDebugConstants.DEBUG_IDP_RESOURCE_ID,
+                    StringUtils.defaultIfEmpty(idp.getResourceId(), idp.getIdentityProviderName()));
+            context.put(OIDCDebugConstants.DEBUG_IDP_DESCRIPTION, idp.getIdentityProviderDescription());
             // Store the full IdentityProvider so that OIDCDebugProcessor.validateAndExtractPrerequisites()
             // can cast it correctly. Previously this stored only getFederatedAuthenticatorConfigs() which
             // caused a ClassCastException when the processor tried to cast it to IdentityProvider.
@@ -327,15 +328,16 @@ public class OIDCContextProvider extends DebugContextProvider {
     private void populateDebugSessionProperties(Map<String, Object> context, String tenantDomain) {
 
         context.put(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
-        context.put(OIDCDebugConstants.DEBUG_SESSION_ID, java.util.UUID.randomUUID().toString());
+        String debugId = "debug-" + java.util.UUID.randomUUID().toString();
+        context.put(OIDCDebugConstants.DEBUG_ID, debugId);
         context.put(OIDCDebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
         context.put(OIDCDebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
-        context.put(OIDCDebugConstants.DEBUG_CONTEXT_ID, "debug-" + java.util.UUID.randomUUID().toString());
+        context.put(OIDCDebugConstants.DEBUG_CONTEXT_ID, debugId);
     }
 
     /**
-     * Validates if this resolver can handle the given IdP.
-     * Returns true if the IdP has at least one enabled OIDC/OIDC authenticator.
+    * Validates if this resolver can handle the given IdP.
+    * Returns true if the IdP has at least one enabled OIDC authenticator.
      *
      * @param idpId Identity Provider ID to check.
      * @return true if this resolver can handle the IdP, false otherwise.
@@ -355,7 +357,7 @@ public class OIDCContextProvider extends DebugContextProvider {
                 return false;
             }
 
-            // Check if IdP has at least one enabled OIDC/OIDC authenticator.
+            // Check if IdP has at least one enabled OIDC authenticator.
             return findOIDCAuthenticatorConfig(idp, null) != null;
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
@@ -390,7 +392,7 @@ public class OIDCContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Finds the OIDC/OIDC authenticator configuration in the IdP.
+    * Finds the OIDC authenticator configuration in the IdP.
      * If authenticatorName is provided, finds the specific authenticator.
      * Otherwise, returns the first enabled OIDC authenticator.
      *
@@ -423,16 +425,16 @@ public class OIDCContextProvider extends DebugContextProvider {
             }
         }
 
-        // Try known OIDC/OIDC implementations.
+    // Try known OIDC implementations.
         FederatedAuthenticatorConfig knownMatch = findKnownOIDCAuthenticator(configs);
         if (knownMatch != null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Found known OIDC/OIDC authenticator: " + knownMatch.getName());
+                LOG.debug("Found known OIDC authenticator: " + knownMatch.getName());
             }
             return knownMatch;
         }
 
-        // Try OIDC/OIDC-based authenticators by suffix matching (Google, GitHub,
+    // Try OIDC-based authenticators by suffix matching (Google, GitHub,
         // etc.).
         FederatedAuthenticatorConfig suffixMatch = findOIDCAuthenticatorBySuffix(configs);
         if (suffixMatch != null) {
@@ -494,7 +496,7 @@ public class OIDCContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Finds known OIDC/OIDC authenticator implementations.
+    * Finds known OIDC authenticator implementations.
      *
      * @param configs Authenticator configurations.
      * @return First known OIDC authenticator or null.
@@ -513,7 +515,7 @@ public class OIDCContextProvider extends DebugContextProvider {
     }
 
     /**
-     * Finds OIDC/OIDC authenticator by name suffix (e.g.,
+    * Finds OIDC authenticator by name suffix (e.g.,
      * GoogleOIDCAuthenticator).
      *
      * @param configs Authenticator configurations.
