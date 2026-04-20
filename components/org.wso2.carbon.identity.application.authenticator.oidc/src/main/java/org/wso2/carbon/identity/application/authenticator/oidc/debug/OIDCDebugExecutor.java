@@ -26,10 +26,12 @@ import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugDiagnosticsUtil;
 import org.wso2.carbon.identity.debug.framework.exception.ExecutionException;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.model.DebugResult;
 
+import java.util.HashMap;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -80,6 +82,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_STARTED);
+            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+                    OIDCDebugConstants.STATUS_STARTED, "Starting OIDC authorization request generation.");
 
             // Validate required parameters from context (populated by DebugContextProvider).
             String clientId = (String) context.getProperty(OIDCDebugConstants.CLIENT_ID);
@@ -130,6 +134,9 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
+            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+                    OIDCDebugConstants.STATUS_SUCCESS, "Authorization URL generated successfully.",
+            buildAuthorizationResultDetails(contextId, state, authorizationUrl));
 
             // Cache authentication context for retrieval during callback.
             cacheDebugContext(context);
@@ -145,6 +152,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
             result.addMetadata("state", state);
             result.addMetadata("codeVerifier", codeVerifier);
             result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
+            result.addResultData(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
+            result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OIDC Authorization URL result: sessionId=" + contextId +
@@ -155,10 +164,14 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
         } catch (ExecutionException e) {
             markAllStepsFailed(context);
+            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+                    OIDCDebugConstants.STATUS_FAILED, e.getMessage());
             throw e;
         } catch (Exception e) {
             LOG.error("Unexpected error generating OIDC Authorization URL: " + e.getMessage(), e);
             markAllStepsFailed(context);
+            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+                    OIDCDebugConstants.STATUS_FAILED, "Error generating authorization URL: " + e.getMessage());
             throw new ExecutionException("Error generating authorization URL: " + e.getMessage(), e);
         }
     }
@@ -372,4 +385,15 @@ public class OIDCDebugExecutor extends DebugExecutor {
             LOG.error("Error caching debug context: " + e.getMessage(), e);
         }
     }
+
+    private Map<String, Object> buildAuthorizationResultDetails(String contextId, String state,
+                                                                String authorizationUrl) {
+
+        Map<String, Object> details = new HashMap<>();
+        details.put("sessionId", contextId);
+        details.put("state", state);
+        details.put("authorizationUrlPresent", StringUtils.isNotBlank(authorizationUrl));
+        return details;
+    }
+
 }

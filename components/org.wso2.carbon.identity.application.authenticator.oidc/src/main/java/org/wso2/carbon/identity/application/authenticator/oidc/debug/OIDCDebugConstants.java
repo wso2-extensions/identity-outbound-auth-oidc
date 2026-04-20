@@ -77,11 +77,21 @@ public final class OIDCDebugConstants {
 
     // Debug Flow Steps
     public static final String STEP_STATUS = "stepStatus";
-    public static final String STEP_CONNECTION_STATUS = "connectionStatus";
+    public static final String STEP_CONNECTION_STATUS = "connectionCreation";
     public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
     public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
     public static final String STEP_CLAIM_EXTRACTION_STATUS = "claimExtractionStatus";
     public static final String STEP_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
+    public static final String DEBUG_DIAGNOSTICS = DebugFrameworkConstants.DEBUG_DIAGNOSTICS;
+
+    // Diagnostic Stages
+    public static final String STAGE_AUTHORIZATION_REQUEST = "authorizationRequest";
+    public static final String STAGE_CALLBACK_VALIDATION = "callbackValidation";
+    public static final String STAGE_TOKEN_EXCHANGE = "tokenExchange";
+    public static final String STAGE_CLAIM_EXTRACTION = "claimExtraction";
+    public static final String STAGE_CLAIM_VALIDATION = "claimValidation";
+    public static final String STAGE_CLAIM_MAPPING = "claimMapping";
+    public static final String STAGE_ACCOUNT_LINKING = "accountLinking";
 
     // Status Values
     public static final String STATUS_STARTED = "started";
@@ -135,9 +145,8 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_RESULT_SUCCESS = "success";
     public static final String DEBUG_RESULT_IDPNAME = "idpName";
     public static final String DEBUG_RESULT_SESSIONID = "sessionId";
-    public static final String ACCOUNT_LINKING_MESSAGE = "accountLinkingMessage";
     public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
-    public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "accountLinkingMessage";
+    public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "CONTEXT_ACCOUNT_LINKING_MESSAGE";
 
     // JSON/Response Property Keys
     public static final String RESPONSE_SUCCESS = "success";
