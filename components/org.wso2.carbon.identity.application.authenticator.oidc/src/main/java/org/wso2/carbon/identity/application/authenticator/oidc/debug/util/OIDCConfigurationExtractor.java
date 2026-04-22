@@ -57,8 +57,6 @@ public class OIDCConfigurationExtractor {
     public static final String[] AUTHZ_ENDPOINT_PROPERTY_NAMES = {
             "AuthorizationEndpoint", "Authorization Endpoint",
             "OAuth2AuthzEPUrl", "OIDCAuthzEPUrl", "authorization_endpoint"};
-    public static final String[] USERINFO_ENDPOINT_PROPERTY_NAMES = {
-            "UserInfoEndpoint", "User Info Endpoint", "userinfo_endpoint"};
     public static final String[] SCOPE_PROPERTY_NAMES = {
             "Scope", "scope", "SCOPE", "scopes", "requestedScope", "requestedScopes"};
 
@@ -86,7 +84,6 @@ public class OIDCConfigurationExtractor {
         extractClientSecret(propertyMap, result);
         extractTokenEndpoint(propertyMap, result);
         extractAuthorizationEndpoint(propertyMap, result);
-        extractUserInfoEndpoint(propertyMap, result);
 
         return result;
     }
@@ -175,21 +172,6 @@ public class OIDCConfigurationExtractor {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Authorization endpoint found: " + value);
             }
-        }
-    }
-
-    /**
-     * Extracts UserInfo endpoint from property map using multiple fallback property names.
-     * UserInfo endpoint is optional.
-     *
-     * @param propertyMap Source property map.
-     * @param result Result map to populate with "userInfoEndpoint" key (if found).
-     */
-    private static void extractUserInfoEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
-
-        String value = findPropertyValue(propertyMap, USERINFO_ENDPOINT_PROPERTY_NAMES);
-        if (value != null && !value.trim().isEmpty()) {
-            result.put("userInfoEndpoint", value);
         }
     }
 

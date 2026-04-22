@@ -39,12 +39,16 @@ public final class OIDCDebugConstants {
         // Prevent instantiation
     }
 
+    // Debug Component Names
+    public static final String EXECUTOR_NAME = "OIDCExecutor";
+    public static final String DEBUG_EXECUTOR_NAME = "OIDCDebugExecutor";
+    public static final String DEBUG_RESULT_CACHE_KEY = "DEBUG_RESULT_CACHE";
+
     // OIDC Configuration Parameters
     public static final String CLIENT_ID = "clientId";
     public static final String CLIENT_SECRET = "clientSecret";
     public static final String AUTHORIZATION_ENDPOINT = "authorizationEndpoint";
     public static final String TOKEN_ENDPOINT = "tokenEndpoint";
-    public static final String USERINFO_ENDPOINT = "userinfoEndpoint";
     public static final String REDIRECT_URI = "redirectUri";
     public static final String IDP_SCOPE = "idpScope";
     public static final String RESPONSE_TYPE = "responseType";
@@ -57,7 +61,6 @@ public final class OIDCDebugConstants {
     public static final String EXPIRES_IN = "expiresIn";
     public static final String REFRESH_TOKEN = "refreshToken";
     public static final String ID_TOKEN = "idToken";
-    public static final String USERINFO = "userinfo";
 
     // OIDC Error Codes
     public static final String INVALID_REQUEST = "invalid_request";
@@ -122,11 +125,7 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_STATE = "DEBUG_STATE";
     public static final String DEBUG_ID_TOKEN = "DEBUG_ID_TOKEN";
     public static final String DEBUG_ACCESS_TOKEN = "DEBUG_ACCESS_TOKEN";
-    public static final String DEBUG_USERINFO_CALLED = "DEBUG_USERINFO_CALLED";
-    public static final String DEBUG_USERINFO_ERROR = "DEBUG_USERINFO_ERROR";
     public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
-    public static final String DEBUG_USERINFO_ENDPOINT = "DEBUG_USERINFO_ENDPOINT";
-    public static final String DEBUG_PROCESSED_CODE_PREFIX = "DEBUG_PROCESSED_CODE_";
     public static final String DEBUG_CONTEXT_ID = DEBUG_ID;
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_NONCE = "DEBUG_NONCE";
@@ -136,6 +135,10 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_IDP_RESOURCE_ID = "debugIdpResourceId";
     public static final String DEBUG_IDP_DESCRIPTION = "debugIdpDescription";
     public static final String CONTEXT_PROTOCOL = "protocol";
+    public static final String CONTEXT_KEY_CONNECTION_ID = "connectionId";
+    public static final String CONTEXT_KEY_RESOURCE_NAME = "resourceName";
+    public static final String REQUEST_KEY_CONNECTION_ID = "connectionId";
+    public static final String REQUEST_KEY_IDP_NAME = "idpName";
 
     // Claim Mapping Keys
     public static final String CLAIM_MAPPING_REMOTE = "remote";

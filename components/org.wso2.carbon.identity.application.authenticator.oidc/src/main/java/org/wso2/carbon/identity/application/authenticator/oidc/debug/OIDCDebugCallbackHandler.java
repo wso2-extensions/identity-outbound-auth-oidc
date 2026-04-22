@@ -47,27 +47,34 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * OAuth-style debug callback handler owned by the OIDC protocol bundle.
+ * This handler processes callbacks for OIDC and related protocols (e.g., Google, GitHub) during the debug flow.
  */
 public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugCallbackHandler.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private static final String CONTEXT_KEY_CONNECTION_ID = "connectionId";
-    private static final String CONTEXT_KEY_RESOURCE_NAME = "resourceName";
-    private static final String REQUEST_KEY_CONNECTION_ID = "connectionId";
-    private static final String REQUEST_KEY_IDP_NAME = "idpName";
-    private static final String CONTEXT_KEY_PROTOCOL = OIDCDebugConstants.CONTEXT_PROTOCOL;
-
     private final DebugProcessor processor;
     private final Set<String> supportedProtocols;
 
+    /**
+     * Default constructor for {@link OIDCDebugCallbackHandler}.
+     * Registers support for OIDC, Google, and GitHub protocols.
+     *
+     * @param processor {@link DebugProcessor} to be used for processing callbacks.
+     */
     public OIDCDebugCallbackHandler(DebugProcessor processor) {
 
         this(processor, OIDCDebugConstants.PROTOCOL_TYPE, DebugFrameworkConstants.PROTOCOL_TYPE_GOOGLE,
                 DebugFrameworkConstants.PROTOCOL_TYPE_GITHUB);
     }
 
+    /**
+     * Constructor for {@link OIDCDebugCallbackHandler} with specific supported protocols.
+     *
+     * @param processor          {@link DebugProcessor} to be used for processing callbacks.
+     * @param supportedProtocols Array of protocol types supported by this handler.
+     */
     public OIDCDebugCallbackHandler(DebugProcessor processor, String... supportedProtocols) {
 
         this.processor = processor;
@@ -81,6 +88,12 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         this.supportedProtocols = Collections.unmodifiableSet(normalizedProtocols);
     }
 
+    /**
+     * Checks if this handler can process the given OIDC callback request.
+     *
+     * @param request {@link HttpServletRequest} representing the callback.
+     * @return True if the request is a valid debug OIDC callback for a supported protocol.
+     */
     @Override
     public boolean canHandle(HttpServletRequest request) {
 
@@ -98,6 +111,13 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         return isSupportedProtocol(state);
     }
 
+    /**
+     * Processes the OIDC debug callback.
+     *
+     * @param request  {@link HttpServletRequest} representing the callback.
+     * @param response {@link HttpServletResponse} to send the response.
+     * @return True if the callback was successfully handled, false otherwise.
+     */
     @Override
     public boolean handleCallback(HttpServletRequest request, HttpServletResponse response) {
 
@@ -138,7 +158,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
                 return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
             }
 
-            Object protocol = cachedContext.get(CONTEXT_KEY_PROTOCOL);
+            Object protocol = cachedContext.get(OIDCDebugConstants.CONTEXT_PROTOCOL);
             if (protocol == null) {
                 return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
             }
@@ -255,8 +275,8 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             return null;
         }
         return firstNonBlankString(
-                context.getProperty(CONTEXT_KEY_CONNECTION_ID),
-                context.getProperty(CONTEXT_KEY_RESOURCE_NAME),
+        context.getProperty(OIDCDebugConstants.CONTEXT_KEY_CONNECTION_ID),
+        context.getProperty(OIDCDebugConstants.CONTEXT_KEY_RESOURCE_NAME),
                 context.getProperty(DebugFrameworkConstants.DEBUG_CONNECTION_ID));
     }
 
@@ -266,8 +286,8 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             return null;
         }
         return firstNonBlankString(
-                request.getParameter(REQUEST_KEY_CONNECTION_ID),
-                request.getParameter(REQUEST_KEY_IDP_NAME));
+        request.getParameter(OIDCDebugConstants.REQUEST_KEY_CONNECTION_ID),
+        request.getParameter(OIDCDebugConstants.REQUEST_KEY_IDP_NAME));
     }
 
     private AuthenticationContext createDebugContextForCallback(String state) {
@@ -352,7 +372,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             LOG.error("Error sending error response", e);
         }
     }
-
+    
     private void sendIOErrorResponse(HttpServletResponse response) {
 
         sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

@@ -779,12 +779,6 @@ public class OIDCContextProvider extends DebugContextProvider {
     private void extractAndStoreOptionalParameters(Map<String, String> propertyMap,
         Map<String, Object> context) {
 
-        String userInfoEndpoint = OIDCConfigurationExtractor.findPropertyValue(
-                propertyMap, OIDCConfigurationExtractor.USERINFO_ENDPOINT_PROPERTY_NAMES);
-        if (StringUtils.isNotEmpty(userInfoEndpoint)) {
-            context.put(OIDCDebugConstants.USERINFO_ENDPOINT, userInfoEndpoint);
-        }
-
         String clientSecret = OIDCConfigurationExtractor.findPropertyValue(
                 propertyMap, OIDCConfigurationExtractor.CLIENT_SECRET_PROPERTY_NAMES);
         if (StringUtils.isNotEmpty(clientSecret)) {

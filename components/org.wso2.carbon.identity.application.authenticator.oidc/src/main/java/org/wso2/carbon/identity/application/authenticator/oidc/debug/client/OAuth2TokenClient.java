@@ -27,9 +27,6 @@ import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Responsible for performing OAuth2 token exchanges. Isolates HTTP/network logic from higher-level processors.
@@ -303,27 +300,4 @@ public class OAuth2TokenClient {
                 || normalizedErrorMessage.contains("missing parameter: access_token");
     }
 
-    /**
-     * Fetches UserInfo claims using the provided access token and endpoint.
-     * HttpFetcher implementation must be injected to allow for flexibility (real HTTP or mocked in tests).
-     *
-     * @param accessToken The OAuth2 access token.
-     * @param userInfoEndpoint The UserInfo endpoint URL.
-     * @param fetcher The HttpFetcher implementation to use for fetching.
-     * @return Map of user claims from the UserInfo endpoint.
-     */
-    public Map<String, Object> fetchUserInfoClaims(String accessToken, String userInfoEndpoint, HttpFetcher fetcher) {
-        
-        if (userInfoEndpoint == null || userInfoEndpoint.trim().isEmpty() || fetcher == null) {
-            return Collections.emptyMap();
-        }
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", "Bearer " + accessToken);
-        // Add Accept header for GitHub API if endpoint is GitHub.
-        if (userInfoEndpoint.contains("api.github.com")) {
-            headers.put("Accept", "application/vnd.github.v3+json");
-        }
-        return fetcher.getJson(userInfoEndpoint, headers);
-    }
 }

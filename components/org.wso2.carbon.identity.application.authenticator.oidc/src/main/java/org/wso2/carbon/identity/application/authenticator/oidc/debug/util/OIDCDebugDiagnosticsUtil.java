@@ -19,8 +19,8 @@
 package org.wso2.carbon.identity.application.authenticator.oidc.debug.util;
 
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
-import org.wso2.carbon.identity.debug.framework.core.DebugDiagnosticsUtil;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
+import org.wso2.carbon.identity.debug.framework.util.DebugDiagnosticsUtil;
 
 import java.util.List;
 import java.util.Map;

@@ -52,7 +52,6 @@ import java.util.UUID;
 public class OIDCDebugExecutor extends DebugExecutor {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugExecutor.class);
-    private static final String EXECUTOR_NAME = "OIDCExecutor";
 
     /**
      * Executes OIDC debug flow and generates authorization URL.
@@ -232,7 +231,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
     @Override
     public String getExecutorName() {
 
-        return EXECUTOR_NAME;
+        return OIDCDebugConstants.DEBUG_EXECUTOR_NAME;
     }
 
     /**

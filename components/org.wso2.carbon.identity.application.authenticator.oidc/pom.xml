@@ -195,6 +195,8 @@
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.core.*;
                             version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.framework.util.*;
+                            version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.cache.*;
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.exception.*;

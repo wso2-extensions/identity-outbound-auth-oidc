@@ -93,15 +93,4 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
         return callbackHandler;
     }
 
-    /**
-     * Checks if this provider supports the specified protocol type.
-     *
-     * @param protocolType The protocol type to check.
-     * @return True if supported, false otherwise.
-     */
-    @Override
-    public boolean supports(String protocolType) {
-
-        return OIDCDebugConstants.PROTOCOL_TYPE.equalsIgnoreCase(protocolType);
-    }
 }

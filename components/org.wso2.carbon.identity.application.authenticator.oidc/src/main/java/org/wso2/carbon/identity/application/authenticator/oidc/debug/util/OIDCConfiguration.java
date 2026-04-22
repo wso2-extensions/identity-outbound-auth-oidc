@@ -34,7 +34,6 @@ public class OIDCConfiguration {
     private String tokenEndpoint;
     private String clientId;
     private String clientSecret;
-    private String userInfoEndpoint;
     private String codeVerifier;
     private String callbackUrl;
     private String idpName;
@@ -57,7 +56,6 @@ public class OIDCConfiguration {
         this.tokenEndpoint = builder.tokenEndpoint;
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
-        this.userInfoEndpoint = builder.userInfoEndpoint;
         this.codeVerifier = builder.codeVerifier;
         this.callbackUrl = builder.callbackUrl;
         this.idpName = builder.idpName;
@@ -115,16 +113,6 @@ public class OIDCConfiguration {
             errors.add("Client secret is required but not configured");
         }
         return Collections.unmodifiableList(errors);
-    }
-
-    /**
-     * Checks if UserInfo endpoint is configured.
-     *
-     * @return true if userInfoEndpoint is not blank.
-     */
-    public boolean hasUserInfoEndpoint() {
-
-        return StringUtils.isNotBlank(userInfoEndpoint);
     }
 
     /**
@@ -200,26 +188,6 @@ public class OIDCConfiguration {
     }
 
     /**
-     * Gets the UserInfo endpoint URL.
-     *
-     * @return UserInfo endpoint URL or null if not configured.
-     */
-    public String getUserInfoEndpoint() {
-
-        return userInfoEndpoint;
-    }
-
-    /**
-     * Sets the UserInfo endpoint URL.
-     *
-     * @param userInfoEndpoint UserInfo endpoint URL.
-     */
-    public void setUserInfoEndpoint(String userInfoEndpoint) {
-
-        this.userInfoEndpoint = userInfoEndpoint;
-    }
-
-    /**
      * Gets the PKCE code verifier.
      *
      * @return Code verifier or null if not configured.
@@ -286,7 +254,6 @@ public class OIDCConfiguration {
                 "tokenEndpoint='" + tokenEndpoint + '\'' +
                 ", clientId='" + (clientId != null ? "****" : "null") + '\'' +
                 ", clientSecret='" + (clientSecret != null ? "****" : "null") + '\'' +
-                ", userInfoEndpoint='" + userInfoEndpoint + '\'' +
                 ", callbackUrl='" + callbackUrl + '\'' +
                 ", idpName='" + idpName + '\'' +
                 '}';
@@ -301,7 +268,6 @@ public class OIDCConfiguration {
         private String tokenEndpoint;
         private String clientId;
         private String clientSecret;
-        private String userInfoEndpoint;
         private String codeVerifier;
         private String callbackUrl;
         private String idpName;
@@ -347,18 +313,6 @@ public class OIDCConfiguration {
         public Builder clientSecret(String clientSecret) {
 
             this.clientSecret = clientSecret;
-            return this;
-        }
-
-        /**
-         * Sets the UserInfo endpoint URL.
-         *
-         * @param userInfoEndpoint UserInfo endpoint URL.
-         * @return This builder instance for chaining.
-         */
-        public Builder userInfoEndpoint(String userInfoEndpoint) {
-
-            this.userInfoEndpoint = userInfoEndpoint;
             return this;
         }
 
