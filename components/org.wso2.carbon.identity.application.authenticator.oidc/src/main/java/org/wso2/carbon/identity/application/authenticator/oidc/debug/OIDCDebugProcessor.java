@@ -35,7 +35,7 @@ import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.IdentityProvider;
 import org.wso2.carbon.identity.application.common.model.JustInTimeProvisioningConfig;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugDiagnosticsUtil;
+import org.wso2.carbon.identity.debug.framework.util.DebugDiagnosticsUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 
 import java.io.IOException;
@@ -79,7 +79,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         String code = request.getParameter("code");
         String error = request.getParameter("error");
         String errorDescription = request.getParameter("error_description");
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                 OIDCDebugConstants.STATUS_STARTED, "Validating OIDC callback parameters.");
 
         // Store IdP ID in context for fallback resolution during token exchange.
@@ -92,7 +92,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             LOG.error("OIDC error from IdP: " + error + " - " + errorDescription);
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, error + ": " + errorDescription);
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "OIDC callback returned an error response.",
                     buildErrorDetails(error, errorDescription));
             buildAndCacheTokenExchangeErrorResponse(error, errorDescription, "", state, context);
@@ -104,7 +104,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             LOG.error("Authorization code missing in OIDC callback");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "Authorization code not received");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "Authorization code is missing in the callback.");
             buildAndCacheTokenExchangeErrorResponse("NO_CODE",
                     "Authorization code not received from IdP", "", state, context);
@@ -117,7 +117,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR,
                     "State parameter missing - possible CSRF attack");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "State parameter is missing in the callback.");
             buildAndCacheTokenExchangeErrorResponse("NO_STATE",
                     "State parameter missing - possible CSRF attack", "", state, context);
@@ -131,7 +131,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR,
                     "State validation failed - possible CSRF attack");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "State parameter validation failed.",
             buildErrorDetails("STATE_MISMATCH", "Received state does not match debug identifier."));
             buildAndCacheTokenExchangeErrorResponse("STATE_MISMATCH",
@@ -142,7 +142,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         if (LOG.isDebugEnabled()) {
             LOG.debug("OIDC callback validation passed for state: " + state);
         }
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                 OIDCDebugConstants.STATUS_SUCCESS, "OIDC callback parameters validated successfully.");
 
         return true;
@@ -167,7 +167,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             HttpServletResponse response, String state, String idpId) throws IOException {
 
         String code = request.getParameter("code");
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_STARTED, "Starting OIDC token exchange.");
 
         if (LOG.isDebugEnabled()) {
@@ -216,7 +216,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         } catch (Exception e) {
             LOG.error("Exception during OIDC token exchange: " + e.getMessage(), e);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "OIDC token exchange failed with an exception.",
                     buildErrorDetails("TOKEN_EXCHANGE_ERROR", e.getMessage()));
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_FAILED);
@@ -253,7 +253,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         if (idp == null) {
             LOG.error("IdP configuration not found in context");
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Identity Provider configuration was not found.");
             buildAndCacheTokenExchangeErrorResponse("IDP_CONFIG_MISSING",
                     "Identity Provider configuration not found", "", state, context);
@@ -262,7 +262,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         if (code == null || code.trim().isEmpty()) {
             LOG.error("Authorization code missing in OIDC callback");
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Authorization code is missing for token exchange.");
             buildAndCacheTokenExchangeErrorResponse("NO_CODE",
                     "Authorization code not received from IdP", "", state, context);
@@ -463,7 +463,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         if (config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty()) {
             LOG.error("Token endpoint not found in context or IdP configuration");
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Token endpoint is not configured for the IdP.");
             buildAndCacheTokenExchangeErrorResponse("TOKEN_ENDPOINT_MISSING",
                     "Token endpoint is not configured", "", state, context);
@@ -471,7 +471,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         if (config.getClientId() == null || config.getClientId().trim().isEmpty()) {
             LOG.error("Client ID not found in context or IdP configuration");
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Client ID is not configured for the IdP.");
             buildAndCacheTokenExchangeErrorResponse("CLIENT_ID_MISSING",
                     "Client ID is not configured", "", state, context);
@@ -548,7 +548,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         logTokenExchangeError(config, errorCode, errorDesc, errorDetails);
         logErrorDiagnosticInfo(config);
         logErrorCauses(errorCode);
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_FAILED, "OIDC token exchange failed.",
                 buildTokenExchangeFailureDetails(config, errorCode, errorDesc));
 
@@ -654,7 +654,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         storeTokensInContext(tokenResponse, config, context);
         markContextAsSuccessfulExchange(context);
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_SUCCESS, "OIDC token exchange completed successfully.",
                 buildTokenExchangeSuccessDetails(tokenResponse, config));
         logTokenExchangeSuccess(tokenResponse, config);
@@ -725,12 +725,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
     protected Map<String, Object> extractDebugData(AuthenticationContext context) {
 
         try {
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                     OIDCDebugConstants.STATUS_STARTED, "Extracting claims from OIDC tokens.");
             // Extract and validate ID token.
             String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
             if (!isValidIdToken(idToken)) {
-                OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+                DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                         OIDCDebugConstants.STATUS_FAILED, "ID token is not available for claim extraction.");
                 return new HashMap<>();
             }
@@ -740,7 +740,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
             // Validate nonce claim against value generated in authorization request.
             if (!isValidNonceClaim(context, claims)) {
-                OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+                DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                         OIDCDebugConstants.STATUS_FAILED,
                         "ID token nonce claim validation failed.",
                         buildErrorDetails("NONCE_VALIDATION_FAILED",
@@ -753,7 +753,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
         } catch (Exception e) {
             LOG.error("Error extracting user claims from OIDC tokens: " + e.getMessage(), e);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                     OIDCDebugConstants.STATUS_FAILED, "Error extracting claims from OIDC tokens.",
                     buildErrorDetails("CLAIM_EXTRACTION_ERROR", e.getMessage()));
             return new HashMap<>();
@@ -790,7 +790,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         if (!claims.isEmpty()) {
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.DEBUG_INCOMING_CLAIMS, claims);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                     OIDCDebugConstants.STATUS_SUCCESS, "Claims extracted successfully from OIDC tokens.",
                     buildClaimExtractionDetails(claims, context));
             if (LOG.isDebugEnabled()) {
@@ -800,7 +800,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         }
 
         context.setProperty(OIDCDebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OIDCDebugConstants.STATUS_FAILED);
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                 OIDCDebugConstants.STATUS_FAILED, "No claims could be extracted from the OIDC tokens.");
         if (LOG.isDebugEnabled()) {
             LOG.debug("No claims extracted from ID token or UserInfo endpoint");
@@ -915,14 +915,14 @@ public class OIDCDebugProcessor extends DebugProcessor {
     protected boolean validateDebugData(Map<String, Object> claims, AuthenticationContext context,
             HttpServletResponse response, String state, String idpId) throws IOException {
 
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
                 OIDCDebugConstants.STATUS_STARTED, "Validating extracted claims for required user identifiers.");
 
         if (claims == null || claims.isEmpty()) {
             LOG.error("No claims extracted from OIDC tokens");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "No user claims extracted from IdP");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "No claims are available to validate.");
             buildAndCacheTokenExchangeErrorResponse("NO_CLAIMS",
                     "No user claims available from IdP", "", state, context);
@@ -935,7 +935,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             LOG.error("Required user identifier claim not found in extracted claims");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "User identifier claim missing");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED,
                     "Required user identifier claim is missing from the extracted claims.");
             buildAndCacheTokenExchangeErrorResponse("NO_USER_IDENTIFIER",
@@ -946,7 +946,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Claims extraction validation passed. Claims found: " + claims.keySet());
         }
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
                 OIDCDebugConstants.STATUS_SUCCESS, "Extracted claims passed validation.",
                 buildClaimValidationDetails(claims));
 
@@ -1007,7 +1007,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private void processClaimMappings(AuthenticationContext context,
             Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
 
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_MAPPING,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_MAPPING,
                 OIDCDebugConstants.STATUS_STARTED, "Processing configured claim mappings.");
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         Map<String, Map<String, String>> idpClaimMappings = extractIdPClaimMappings(idp);
@@ -1028,7 +1028,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         // for any incomplete mapping outcome.
         String claimMappingStatus = determineClaimMappingStatus(mappedClaimsArray, idpClaimMappings);
         context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, claimMappingStatus);
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_MAPPING, claimMappingStatus,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_MAPPING, claimMappingStatus,
                 resolveClaimMappingStatusMessage(claimMappingStatus),
                 buildClaimMappingDetails(mappedClaimsArray, idpClaimMappings));
     }
@@ -1178,7 +1178,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         debugResult.put("callbackUrl", callbackUrl);
 
         debugResult.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
-        debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
+        debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
     }
 
     /**
@@ -1395,7 +1395,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
             }
 
             errorResponse.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
-            errorResponse.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
+            errorResponse.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
 
             String errorResponseJson = OBJECT_MAPPER.writeValueAsString(errorResponse);
 
@@ -1519,12 +1519,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
             return;
         }
 
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
                 OIDCDebugConstants.STATUS_STARTED, "Evaluating account linking attributes.");
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         if (idp == null || idp.getJustInTimeProvisioningConfig() == null) {
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
                     OIDCDebugConstants.STATUS_PENDING, "Account linking configuration is not available.",
                     buildAccountLinkingDetails(context));
             return;
@@ -1535,14 +1535,14 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 idp.getJustInTimeProvisioningConfig().getAccountLookupAttributeMappings();
         if (accountLookupMappings == null || accountLookupMappings.length == 0) {
             evaluateDefaultAccountLinkingAttribute(context, normalizedClaims);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
                     resolveAccountLinkingStatus(context), "Default account linking attribute evaluation completed.",
                     buildAccountLinkingDetails(context));
             return;
         }
 
         evaluateConfiguredAccountLinkingAttributes(context, normalizedClaims, accountLookupMappings);
-        OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_ACCOUNT_LINKING,
                 resolveAccountLinkingStatus(context), "Configured account linking attribute evaluation completed.",
                 buildAccountLinkingDetails(context));
     }

@@ -26,7 +26,7 @@ import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugDiagnosticsUtil;
+import org.wso2.carbon.identity.debug.framework.util.DebugDiagnosticsUtil;
 import org.wso2.carbon.identity.debug.framework.exception.ExecutionException;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.model.DebugResult;
@@ -82,7 +82,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_STARTED);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_STARTED, "Starting OIDC authorization request generation.");
 
             // Validate required parameters from context (populated by DebugContextProvider).
@@ -142,7 +142,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_SUCCESS, "Authorization URL generated successfully.",
         buildAuthorizationResultDetails(debugId, authorizationUrl));
 
@@ -159,8 +159,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
             // Note: codeVerifier is intentionally NOT included in metadata to prevent PKCE bypass.
             // It is stored securely in DebugSessionCache for use during the callback token exchange.
             result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
-            result.addResultData(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
-            result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, OIDCDebugDiagnosticsUtil.getDiagnostics(context));
+            result.addResultData(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
+            result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OIDC Authorization URL result: debugId=" + debugId +
@@ -171,13 +171,13 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
         } catch (ExecutionException e) {
             markAllStepsFailed(context);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_FAILED, e.getMessage());
             throw e;
         } catch (Exception e) {
             LOG.error("Unexpected error generating OIDC Authorization URL: " + e.getMessage(), e);
             markAllStepsFailed(context);
-            OIDCDebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
+            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_FAILED, "Error generating authorization URL: " + e.getMessage());
             throw new ExecutionException("Error generating authorization URL: " + e.getMessage(), e);
         }
