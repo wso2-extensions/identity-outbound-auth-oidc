@@ -82,8 +82,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_STARTED);
-            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
-                    OIDCDebugConstants.STATUS_STARTED, "Starting OIDC authorization request generation.");
 
             // Validate required parameters from context (populated by DebugContextProvider).
             String clientId = (String) context.getProperty(OIDCDebugConstants.CLIENT_ID);
@@ -143,15 +141,14 @@ public class OIDCDebugExecutor extends DebugExecutor {
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
-                    OIDCDebugConstants.STATUS_SUCCESS, "Authorization URL generated successfully.",
-        buildAuthorizationResultDetails(debugId, authorizationUrl));
+                    OIDCDebugConstants.STATUS_SUCCESS, "Configurations validated successfully.");
 
             // Cache authentication context for retrieval during callback.
             cacheDebugContext(context);
 
             // Build result.
             result.setSuccessful(true);
-            result.setStatus("Authorization URL generated successfully");
+            result.setStatus("Configurations validated successfully.");
             result.addResultData("authorizationUrl", authorizationUrl);
             result.addResultData("debugId", debugId);
             result.addMetadata("authorizationUrl", authorizationUrl);
@@ -403,15 +400,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         } catch (Exception e) {
             LOG.error("Error caching debug context: " + e.getMessage(), e);
         }
-    }
-
-    private Map<String, Object> buildAuthorizationResultDetails(String debugId,
-                                                                String authorizationUrl) {
-
-        Map<String, Object> details = new HashMap<>();
-        details.put("debugId", debugId);
-        details.put("authorizationUrlPresent", StringUtils.isNotBlank(authorizationUrl));
-        return details;
     }
 
     /**
