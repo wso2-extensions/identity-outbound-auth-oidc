@@ -29,7 +29,7 @@ import org.wso2.carbon.identity.application.authentication.framework.cache.Authe
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
-import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
+import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
 import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 
@@ -153,7 +153,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         }
 
         try {
-            Map<String, Object> cachedContext = DebugSessionCache.getInstance().get(state);
+            Map<String, Object> cachedContext = DebugSessionStore.getInstance().get(state);
             if (cachedContext == null || cachedContext.isEmpty()) {
                 return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
             }
@@ -260,7 +260,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             context.setProperty(DebugFrameworkConstants.DEBUG_SESSION_DATA_KEY, sessionDataKey);
         }
         context.setProperty(DebugFrameworkConstants.DEBUG_CALLBACK_TIMESTAMP, System.currentTimeMillis());
-        context.setProperty(DebugFrameworkConstants.DEBUG_CALLBACK_PROCESSED, DebugFrameworkConstants.TRUE);
+        context.setProperty(DebugFrameworkConstants.DEBUG_CALLBACK_PROCESSED, DebugFrameworkConstants.TRUE_VALUE);
     }
 
     private String extractConnectionId(AuthenticationContext context, HttpServletRequest request) {
@@ -301,9 +301,9 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             context.setContextIdentifier("debug-callback-" + System.currentTimeMillis());
         }
 
-        context.setProperty(DebugFrameworkConstants.DEBUG_IDENTIFIER_PARAM, DebugFrameworkConstants.TRUE);
+        context.setProperty(DebugFrameworkConstants.DEBUG_IDENTIFIER_PARAM, DebugFrameworkConstants.TRUE_VALUE);
         context.setProperty(DebugFrameworkConstants.DEBUG_FLOW_TYPE, DebugFrameworkConstants.FLOW_TYPE_CALLBACK);
-        context.setProperty(DebugFrameworkConstants.DEBUG_CONTEXT_CREATED, DebugFrameworkConstants.TRUE);
+        context.setProperty(DebugFrameworkConstants.DEBUG_CONTEXT_CREATED, DebugFrameworkConstants.TRUE_VALUE);
         context.setProperty(DebugFrameworkConstants.DEBUG_CREATION_TIMESTAMP, System.currentTimeMillis());
 
         cacheDebugContext(context);

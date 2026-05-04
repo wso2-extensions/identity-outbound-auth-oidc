@@ -22,7 +22,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
-import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
+import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
@@ -47,7 +47,7 @@ import java.util.UUID;
  *
  * PKCE generation is delegated to {@link OIDCDebugUtil} (single source of
  * truth).
- * Session caching is delegated to {@link DebugSessionCache} (standalone class).
+ * Session persistence is delegated to {@link DebugSessionStore}.
  */
 public class OIDCDebugExecutor extends DebugExecutor {
 
@@ -154,7 +154,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             result.addMetadata("authorizationUrl", authorizationUrl);
             result.addMetadata("debugId", debugId);
             // Note: codeVerifier is intentionally NOT included in metadata to prevent PKCE bypass.
-            // It is stored securely in DebugSessionCache for use during the callback token exchange.
+            // It is stored securely in DebugSessionStore for use during the callback token exchange.
             result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
             result.addResultData(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
             result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
@@ -373,7 +373,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
     }
 
     /**
-     * Caches the debug context using the standalone DebugSessionCache.
+     * Stores the debug context using the shared DebugSessionStore.
      */
     private void cacheDebugContext(DebugContext context) {
 
@@ -392,7 +392,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
                         (context.getProperty(OIDCDebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
             }
 
-            DebugSessionCache.getInstance().put(debugId, context);
+            DebugSessionStore.getInstance().put(debugId, context);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Debug context cached successfully with debugId: " + debugId);

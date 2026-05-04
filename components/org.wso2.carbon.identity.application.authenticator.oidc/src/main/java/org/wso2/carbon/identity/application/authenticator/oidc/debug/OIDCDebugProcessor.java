@@ -28,7 +28,7 @@ import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfiguration;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfigurationExtractor;
 import org.wso2.carbon.identity.application.common.model.AccountLookupAttributeMappingConfig;
-import org.wso2.carbon.identity.debug.framework.cache.DebugSessionCache;
+import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.OAuth2TokenClient;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.client.TokenResponse;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
@@ -1676,9 +1676,9 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private void persistDebugResultToCache(String state, String contextId, String resultJson) {
 
         try {
-            DebugSessionCache.getInstance().putResult(state, resultJson);
+            DebugSessionStore.getInstance().putResult(state, resultJson);
             if (contextId != null && !contextId.equals(state)) {
-                DebugSessionCache.getInstance().putResult(contextId, resultJson);
+                DebugSessionStore.getInstance().putResult(contextId, resultJson);
             }
 
             if (LOG.isDebugEnabled()) {
@@ -1721,7 +1721,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
     }
 
     /**
-     * Restores context properties from DebugSessionCache using state parameter.
+     * Restores context properties from DebugSessionStore using the state parameter.
      * Transfers cached properties to AuthenticationContext for use in callback
      * processing.
      *
@@ -1731,7 +1731,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
     private void restoreContextFromSessionCache(String state, AuthenticationContext context) {
 
         try {
-            Map<String, Object> cachedContext = DebugSessionCache.getInstance().get(state);
+            Map<String, Object> cachedContext = DebugSessionStore.getInstance().get(state);
             if (cachedContext == null) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("No cached context found for state: " + state);
@@ -1740,12 +1740,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
             }
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Restoring context from DebugSessionCache for state: " + state);
+                LOG.debug("Restoring context from DebugSessionStore for state: " + state);
             }
             restorePropertiesToContext(cachedContext, context);
 
         } catch (Exception e) {
-            LOG.debug("Unable to restore context from DebugSessionCache: " + e.getMessage());
+            LOG.debug("Unable to restore context from DebugSessionStore: " + e.getMessage());
         }
     }
 
