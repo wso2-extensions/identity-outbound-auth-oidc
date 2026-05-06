@@ -26,7 +26,7 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCache;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCacheEntry;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCacheKey;
-import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
+import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
 import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
@@ -98,17 +98,16 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     public boolean canHandle(HttpServletRequest request) {
 
         String state = request.getParameter(DebugFrameworkConstants.OIDC_STATE_PARAM);
-        if (state == null || !state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX)) {
+        String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
+
+        boolean isDebugState = state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
+        boolean isDebugSessionKey = sessionDataKey != null && sessionDataKey.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
+
+        if (!isDebugState && !isDebugSessionKey) {
             return false;
         }
 
-        boolean hasCallbackParams = request.getParameter(DebugFrameworkConstants.OIDC_CODE_PARAM) != null
-                || request.getParameter(DebugFrameworkConstants.OIDC_ERROR_PARAM) != null;
-        if (!hasCallbackParams) {
-            return false;
-        }
-
-        return isSupportedProtocol(state);
+        return isSupportedProtocol(isDebugState ? state : sessionDataKey);
     }
 
     /**
@@ -182,7 +181,9 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             return;
         }
 
-        AuthenticationContext context = retrieveOrCreateContext(code, state, sessionDataKey);
+        String identifier = (state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX))
+                ? state : sessionDataKey;
+        DebugContext context = retrieveOrCreateContext(identifier);
         if (context == null) {
             handleMissingContext(response);
             return;
@@ -220,17 +221,22 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         return true;
     }
 
-    private AuthenticationContext retrieveOrCreateContext(String code, String state, String sessionDataKey) {
+    private DebugContext retrieveOrCreateContext(String state) {
 
-        AuthenticationContext context = null;
-
-        if (sessionDataKey != null) {
-            context = retrieveDebugContextFromCache(sessionDataKey);
+        try {
+            Map<String, Object> cachedContextMap = DebugSessionStore.getInstance().get(state);
+            if (cachedContextMap != null && !cachedContextMap.isEmpty()) {
+                return DebugContext.buildFromMap(cachedContextMap);
+            }
+        } catch (Exception e) {
+            LOG.debug("Error retrieving debug context from session store for state: " + state, e);
         }
 
-        if (context == null && code != null && state != null) {
-            context = createDebugContextForCallback(state);
-        }
+        DebugContext context = new DebugContext();
+        context.setProperty(DebugFrameworkConstants.DEBUG_IDENTIFIER_PARAM, DebugFrameworkConstants.TRUE_VALUE);
+        context.setProperty(DebugFrameworkConstants.DEBUG_FLOW_TYPE, DebugFrameworkConstants.FLOW_TYPE_CALLBACK);
+        context.setProperty(DebugFrameworkConstants.DEBUG_CONTEXT_CREATED, DebugFrameworkConstants.TRUE_VALUE);
+        context.setProperty(DebugFrameworkConstants.DEBUG_CREATION_TIMESTAMP, System.currentTimeMillis());
 
         return context;
     }
@@ -244,100 +250,23 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         }
     }
 
-    private void setContextProperties(AuthenticationContext context, String code, String state, String sessionDataKey) {
+    private void setContextProperties(DebugContext context, String code, String state, String sessionDataKey) {
 
-        if (context == null) {
-            LOG.warn("Cannot set context properties: context is null");
-            return;
-        }
-        if (code != null) {
+        if (StringUtils.isNotBlank(code)) {
             context.setProperty(DebugFrameworkConstants.DEBUG_OIDC_CODE, code);
         }
-        if (state != null) {
+        if (StringUtils.isNotBlank(state)) {
             context.setProperty(DebugFrameworkConstants.DEBUG_OIDC_STATE, state);
         }
-        if (sessionDataKey != null) {
-            context.setProperty(DebugFrameworkConstants.DEBUG_SESSION_DATA_KEY, sessionDataKey);
+    }
+
+    private String extractConnectionId(DebugContext context, HttpServletRequest request) {
+
+        String connectionId = context.getConnectionId();
+        if (StringUtils.isBlank(connectionId)) {
+            connectionId = request.getParameter("idpId");
         }
-        context.setProperty(DebugFrameworkConstants.DEBUG_CALLBACK_TIMESTAMP, System.currentTimeMillis());
-        context.setProperty(DebugFrameworkConstants.DEBUG_CALLBACK_PROCESSED, DebugFrameworkConstants.TRUE_VALUE);
-    }
-
-    private String extractConnectionId(AuthenticationContext context, HttpServletRequest request) {
-
-        String connectionId = extractConnectionIdFromContext(context);
-        return connectionId != null ? connectionId : extractConnectionIdFromRequest(request);
-    }
-
-    private String extractConnectionIdFromContext(AuthenticationContext context) {
-
-        if (context == null) {
-            return null;
-        }
-        return firstNonBlankString(
-        context.getProperty(OIDCDebugConstants.CONTEXT_KEY_CONNECTION_ID),
-        context.getProperty(OIDCDebugConstants.CONTEXT_KEY_RESOURCE_NAME),
-                context.getProperty(DebugFrameworkConstants.DEBUG_CONNECTION_ID));
-    }
-
-    private String extractConnectionIdFromRequest(HttpServletRequest request) {
-
-        if (request == null) {
-            return null;
-        }
-        return firstNonBlankString(
-        request.getParameter(OIDCDebugConstants.REQUEST_KEY_CONNECTION_ID),
-        request.getParameter(OIDCDebugConstants.REQUEST_KEY_IDP_NAME));
-    }
-
-    private AuthenticationContext createDebugContextForCallback(String state) {
-
-        AuthenticationContext context = new AuthenticationContext();
-
-        String debugId = extractDebugIdFromState(state);
-        if (debugId != null) {
-            context.setContextIdentifier(DebugFrameworkConstants.DEBUG_PREFIX + debugId);
-        } else {
-            context.setContextIdentifier("debug-callback-" + System.currentTimeMillis());
-        }
-
-        context.setProperty(DebugFrameworkConstants.DEBUG_IDENTIFIER_PARAM, DebugFrameworkConstants.TRUE_VALUE);
-        context.setProperty(DebugFrameworkConstants.DEBUG_FLOW_TYPE, DebugFrameworkConstants.FLOW_TYPE_CALLBACK);
-        context.setProperty(DebugFrameworkConstants.DEBUG_CONTEXT_CREATED, DebugFrameworkConstants.TRUE_VALUE);
-        context.setProperty(DebugFrameworkConstants.DEBUG_CREATION_TIMESTAMP, System.currentTimeMillis());
-
-        cacheDebugContext(context);
-        return context;
-    }
-
-    private AuthenticationContext retrieveDebugContextFromCache(String sessionDataKey) {
-
-        try {
-            AuthenticationContextCacheKey cacheKey = new AuthenticationContextCacheKey(sessionDataKey);
-            AuthenticationContextCacheEntry cacheEntry = AuthenticationContextCache.getInstance()
-                    .getValueFromCache(cacheKey);
-            if (cacheEntry != null) {
-                return cacheEntry.getContext();
-            }
-        } catch (RuntimeException e) {
-            LOG.error("Error retrieving debug context from cache: " + e.getMessage(), e);
-        }
-        return null;
-    }
-
-    private void cacheDebugContext(AuthenticationContext context) {
-
-        AuthenticationContextCacheKey cacheKey = new AuthenticationContextCacheKey(context.getContextIdentifier());
-        AuthenticationContextCacheEntry cacheEntry = new AuthenticationContextCacheEntry(context);
-        AuthenticationContextCache.getInstance().addToCache(cacheKey, cacheEntry);
-    }
-
-    private String extractDebugIdFromState(String state) {
-
-        if (state == null || !state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX)) {
-            return null;
-        }
-        return state.substring(DebugFrameworkConstants.DEBUG_PREFIX.length());
+        return connectionId;
     }
 
     private String firstNonBlankString(Object... values) {

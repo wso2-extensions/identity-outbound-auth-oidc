@@ -191,13 +191,15 @@
                             version="${identity.framework.package.import.version.range}",
                             org.wso2.carbon.identity.flow.execution.engine.model;
                             version="${identity.framework.package.import.version.range}",
+                            org.wso2.carbon.identity.debug.framework;
+                            version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.extension;
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.core.*;
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.util.*;
                             version="[7.8,8.0)",
-                            org.wso2.carbon.identity.debug.framework.cache.*;
+                            org.wso2.carbon.identity.debug.framework.store.*;
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.exception.*;
                             version="[7.8,8.0)",

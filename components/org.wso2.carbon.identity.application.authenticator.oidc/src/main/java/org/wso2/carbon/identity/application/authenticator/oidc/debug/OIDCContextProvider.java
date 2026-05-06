@@ -29,6 +29,7 @@ import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.exception.ContextResolutionException;
+import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
@@ -53,11 +54,11 @@ public class OIDCContextProvider extends DebugContextProvider {
      *
      * @param request HTTP servlet request containing debug parameters (idpId,
      *                authenticator).
-     * @return Map containing resolved OIDC debug context data.
+     * @return DebugContext containing resolved OIDC debug context data.
      * @throws ContextResolutionException If context resolution fails.
      */
     @Override
-    public Map<String, Object> resolveContext(HttpServletRequest request) throws ContextResolutionException {
+    public DebugContext resolveContext(HttpServletRequest request) throws ContextResolutionException {
 
         try {
             if (request == null) {
@@ -95,39 +96,6 @@ public class OIDCContextProvider extends DebugContextProvider {
         }
     }
 
-    /**
-     * Resolves and creates an OIDC debug context from a provided Map input.
-     * This method is used by the API layer which invokes the resolver reflectively
-     * with a Map argument containing keys such as `idpName` and
-     * `authenticatorName`.
-     *
-     * @param input Map containing debug request parameters (idpName,
-     *              authenticatorName, etc.).
-     * @return Map containing resolved OIDC debug context data.
-     * @throws ContextResolutionException If context resolution fails.
-     */
-    public Map<String, Object> resolveContext(Map<String, Object> input) throws ContextResolutionException {
-
-        if (input == null) {
-            throw new ContextResolutionException("Input context map is null");
-        }
-
-        Object idpObj = input.get("idpName");
-        String idpId = idpObj != null ? idpObj.toString() : null;
-
-        Object authObj = input.get("authenticatorName");
-        String authenticatorName = authObj != null ? authObj.toString() : null;
-
-        // Fallback: some callers may use the key 'authenticator'.
-        if (StringUtils.isEmpty(authenticatorName)) {
-            Object altAuth = input.get("authenticator");
-            if (altAuth != null) {
-                authenticatorName = altAuth.toString();
-            }
-        }
-
-        return resolveContext(idpId, authenticatorName);
-    }
 
     /**
      * Resolves and creates an OIDC debug context with specific parameters.
@@ -135,11 +103,11 @@ public class OIDCContextProvider extends DebugContextProvider {
      * @param idpId         Identity Provider resource ID or name.
      * @param authenticator Optional authenticator name (defaults to first enabled
      *                      OIDC authenticator).
-     * @return Map containing resolved OIDC debug context data.
+     * @return DebugContext containing resolved OIDC debug context data.
      * @throws ContextResolutionException If context resolution fails.
      */
     @Override
-    public Map<String, Object> resolveContext(String idpId, String authenticator) throws ContextResolutionException {
+    public DebugContext resolveContext(String idpId, String authenticator) throws ContextResolutionException {
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolving OIDC debug context for IdP: " + idpId + " with authenticator: " + authenticator);
@@ -149,14 +117,14 @@ public class OIDCContextProvider extends DebugContextProvider {
             throw new ContextResolutionException("IdP ID is null or empty");
         }
 
-        Map<String, Object> context = new HashMap<>();
+        Map<String, Object> contextMap = new HashMap<>();
         try {
             String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
             IdentityProvider idp = retrieveIdentityProvider(idpId, tenantDomain);
             validateIdpIsEnabled(idp);
 
             // Set IdP-specific context properties
-            populateIdpContextProperties(context, idp);
+            populateIdpContextProperties(contextMap, idp);
 
             // Find and extract OIDC authenticator configuration
             FederatedAuthenticatorConfig authenticatorConfig = findOIDCAuthenticatorConfig(idp, authenticator);
@@ -167,15 +135,15 @@ public class OIDCContextProvider extends DebugContextProvider {
             }
 
             // Extract OIDC parameters and set authenticator details
-            extractOIDCParameters(authenticatorConfig, context);
-            populateAuthenticatorContextProperties(context, authenticatorConfig);
-            populateDebugSessionProperties(context, tenantDomain);
+            extractOIDCParameters(authenticatorConfig, contextMap);
+            populateAuthenticatorContextProperties(contextMap, authenticatorConfig);
+            populateDebugSessionProperties(contextMap, tenantDomain);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OIDC debug context resolved successfully for IdP: " + idp.getIdentityProviderName());
             }
 
-            return context;
+            return DebugContext.buildFromMap(contextMap);
 
         } catch (ContextResolutionException e) {
             LOG.error("Error resolving OIDC debug context: " + e.getMessage(), e);
@@ -333,6 +301,7 @@ public class OIDCContextProvider extends DebugContextProvider {
         context.put(OIDCDebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
         context.put(OIDCDebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
         context.put(OIDCDebugConstants.DEBUG_CONTEXT_ID, debugId);
+        context.put(OIDCDebugConstants.CONTEXT_PROTOCOL, OIDCDebugConstants.PROTOCOL_TYPE);
     }
 
     /**

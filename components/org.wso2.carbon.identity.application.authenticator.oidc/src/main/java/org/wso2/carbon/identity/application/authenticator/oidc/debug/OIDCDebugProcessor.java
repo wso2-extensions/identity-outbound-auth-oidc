@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
+import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.idp.mgt.IdentityProviderManager;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCConfiguration;
@@ -66,7 +66,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Checks for authorization code or error response, CSRF protection.
      *
      * @param request  HttpServletRequest.
-     * @param context  AuthenticationContext.
+     * @param context  DebugContext.
      * @param response HttpServletResponse.
      * @param state    State parameter.
      * @param idpId    IdP resource ID.
@@ -74,7 +74,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean validateCallback(HttpServletRequest request, AuthenticationContext context,
+    protected boolean validateCallback(HttpServletRequest request, DebugContext context,
             HttpServletResponse response, String state, String idpId) throws IOException {
 
         String code = request.getParameter("code");
@@ -156,7 +156,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * exchange.
      *
      * @param request HttpServletRequest.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @param response HttpServletResponse.
      * @param state State parameter.
      * @param idpId IdP resource ID.
@@ -164,7 +164,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean processAuthentication(HttpServletRequest request, AuthenticationContext context,
+    protected boolean processAuthentication(HttpServletRequest request, DebugContext context,
             HttpServletResponse response, String state, String idpId) throws IOException {
 
         String code = request.getParameter("code");
@@ -234,10 +234,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      *
      * @param code Authorization code from callback.
      * @param state State parameter from callback.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return true if validation passes, false otherwise.
      */
-    private boolean validateAndExtractPrerequisites(String code, String state, AuthenticationContext context) {
+    private boolean validateAndExtractPrerequisites(String code, String state, DebugContext context) {
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
 
@@ -279,11 +279,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Resolves IdP from cached context properties when IDP_CONFIG is not directly available.
      * Uses stored IdP name or resource ID to look up the IdentityProvider.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @param state State parameter for debugging.
      * @return IdentityProvider if found, null otherwise.
      */
-    private IdentityProvider resolveIdpFromContext(AuthenticationContext context, String state) {
+    private IdentityProvider resolveIdpFromContext(DebugContext context, String state) {
 
         try {
             String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
@@ -379,12 +379,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * First tries context (set by OIDCContextResolver), then falls back to IdP
      * config.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @param request HttpServletRequest.
      * @return OIDCConfiguration containing all required endpoints and
      *         credentials.
      */
-    private OIDCConfiguration extractOIDCConfiguration(AuthenticationContext context, HttpServletRequest request) {
+    private OIDCConfiguration extractOIDCConfiguration(DebugContext context, HttpServletRequest request) {
 
         OIDCConfiguration config = new OIDCConfiguration();
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
@@ -458,9 +458,9 @@ public class OIDCDebugProcessor extends DebugProcessor {
      *
      * @param config OIDCConfiguration with missing values.
      * @param state State parameter.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      */
-    private void handleConfigurationError(OIDCConfiguration config, String state, AuthenticationContext context) {
+    private void handleConfigurationError(OIDCConfiguration config, String state, DebugContext context) {
 
         if (config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty()) {
             LOG.error("Token endpoint not found in context or IdP configuration");
@@ -485,11 +485,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param code Authorization code.
      * @param config OIDCConfiguration.
      * @param state State parameter.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return true if exchange succeeds, false otherwise.
      */
     private boolean performTokenExchange(String code, OIDCConfiguration config, String state,
-            AuthenticationContext context) {
+            DebugContext context) {
 
         logTokenExchangeStart(config);
         TokenResponse tokenResponse = executeTokenExchange(code, config);
@@ -536,11 +536,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param tokenResponse Token response with error.
      * @param config OIDCConfiguration.
      * @param state State parameter.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return false always, indicating exchange failed.
      */
     private boolean handleTokenExchangeError(TokenResponse tokenResponse, OIDCConfiguration config,
-            String state, AuthenticationContext context) {
+            String state, DebugContext context) {
 
         String errorCode = tokenResponse.getErrorCode();
         String errorDesc = tokenResponse.getErrorDescription();
@@ -559,10 +559,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Marks the authentication context as failed exchange.
      *
-     * @param context   AuthenticationContext.
+     * @param context   DebugContext.
      * @param errorDesc Error description.
      */
-    private void markContextAsFailedExchange(AuthenticationContext context, String errorDesc) {
+    private void markContextAsFailedExchange(DebugContext context, String errorDesc) {
 
         context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_FAILED);
         context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, errorDesc);
@@ -574,11 +574,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      *
      * @param tokenResponse Token response from provider.
      * @param config OIDCConfiguration.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return true always, indicating exchange succeeded.
      */
     private boolean handleTokenExchangeSuccess(TokenResponse tokenResponse, OIDCConfiguration config,
-            AuthenticationContext context) {
+            DebugContext context) {
 
         storeTokensInContext(tokenResponse, config, context);
         markContextAsSuccessfulExchange(context);
@@ -590,9 +590,9 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Marks the authentication context as successful exchange.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      */
-    private void markContextAsSuccessfulExchange(AuthenticationContext context) {
+    private void markContextAsSuccessfulExchange(DebugContext context) {
 
         context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
     }
@@ -602,10 +602,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      *
      * @param tokenResponse Token response from provider.
      * @param config OIDCConfiguration OIDCConfiguration used for exchange.
-     * @param context AuthenticationContext to populate.
+     * @param context DebugContext to populate.
      */
     private void storeTokensInContext(TokenResponse tokenResponse, OIDCConfiguration config,
-            AuthenticationContext context) {
+            DebugContext context) {
 
         String accessToken = tokenResponse.getAccessToken();
         String idToken = tokenResponse.getIdToken();
@@ -627,12 +627,12 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Generic claim mapping and formatting is handled by parent DebugProcessor
      * class.
      *
-     * @param context AuthenticationContext containing ID token and access token.
+     * @param context DebugContext containing ID token and access token.
      * @return Map of extracted claims, or empty map if extraction yields no
      *         results.
      */
     @Override
-    protected Map<String, Object> extractDebugData(AuthenticationContext context) {
+    protected Map<String, Object> extractDebugData(DebugContext context) {
 
         try {
             // Extract and validate ID token.
@@ -689,11 +689,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Returns extracted claims with appropriate logging.
      *
      * @param claims  Extracted claims.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return Claims if not empty, empty map otherwise.
      */
     private Map<String, Object> returnExtractedClaims(Map<String, Object> claims,
-            AuthenticationContext context) {
+            DebugContext context) {
 
         if (!claims.isEmpty()) {
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
@@ -752,7 +752,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param claims ID token claims.
      * @return true if nonce is valid, false otherwise.
      */
-    private boolean isValidNonceClaim(AuthenticationContext context, Map<String, Object> claims) {
+    private boolean isValidNonceClaim(DebugContext context, Map<String, Object> claims) {
 
         String expectedNonce = (String) context.getProperty(OIDCDebugConstants.DEBUG_NONCE);
         if (StringUtils.isBlank(expectedNonce)) {
@@ -811,7 +811,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * For OIDC, validates that required claims (sub/user ID) are present.
      *
      * @param claims   Map of extracted claims.
-     * @param context  AuthenticationContext.
+     * @param context  DebugContext.
      * @param response HttpServletResponse.
      * @param state    State parameter.
      * @param idpId    IdP resource ID.
@@ -819,7 +819,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @throws IOException If response cannot be sent.
      */
     @Override
-    protected boolean validateDebugData(Map<String, Object> claims, AuthenticationContext context,
+    protected boolean validateDebugData(Map<String, Object> claims, DebugContext context,
             HttpServletResponse response, String state, String idpId) throws IOException {
 
         if (claims == null || claims.isEmpty()) {
@@ -858,11 +858,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Includes comprehensive claim mapping information and diagnostic data.
      * Persists to DebugResultCache for API retrieval.
      *
-     * @param context AuthenticationContext containing all debug information.
+     * @param context DebugContext containing all debug information.
      * @param state   State parameter for session identification.
      */
     @Override
-    protected void buildAndCacheDebugResult(AuthenticationContext context, String state) {
+    protected void buildAndCacheDebugResult(DebugContext context, String state) {
 
         try {
             Map<String, Object> debugResult = new HashMap<>();
@@ -886,11 +886,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Extracts incoming claims from context.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return Incoming claims map or empty map if not available.
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> extractIncomingClaims(AuthenticationContext context) {
+    private Map<String, Object> extractIncomingClaims(DebugContext context) {
 
         Map<String, Object> incomingClaims = (Map<String, Object>) context
                 .getProperty(OIDCDebugConstants.DEBUG_INCOMING_CLAIMS);
@@ -900,11 +900,11 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Processes claim mappings from IdP configuration.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @param incomingClaims Incoming claims map.
      * @param debugResult Debug result map to populate.
      */
-    private void processClaimMappings(AuthenticationContext context,
+    private void processClaimMappings(DebugContext context,
             Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
@@ -1122,9 +1122,9 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Builds debug result metadata and step status information.
      *
      * @param debugResult Debug result to populate.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      */
-    private void buildResultMetadata(Map<String, Object> debugResult, AuthenticationContext context) {
+    private void buildResultMetadata(Map<String, Object> debugResult, DebugContext context) {
 
         // Add URLs and tokens.
         String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
@@ -1146,10 +1146,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
     /**
      * Resolves ID token from context using primary and fallback keys.
      *
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @return ID token value, or null if unavailable.
      */
-    private String resolveIdTokenFromContext(AuthenticationContext context) {
+    private String resolveIdTokenFromContext(DebugContext context) {
 
         String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
         if (StringUtils.isNotBlank(idToken)) {
@@ -1164,10 +1164,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Persists debug result to cache with JSON serialization.
      *
      * @param state State parameter.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      * @param debugResult Debug result to persist.
      */
-    private void persistDebugResultToCache(String state, AuthenticationContext context,
+    private void persistDebugResultToCache(String state, DebugContext context,
             Map<String, Object> debugResult) {
 
         try {
@@ -1338,10 +1338,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param errorDescription The error description/message.
      * @param errorDetails Additional error details or stack trace.
      * @param state The state parameter for session identification.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      */
     protected void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
-            String errorDetails, String state, AuthenticationContext context) {
+            String errorDetails, String state, DebugContext context) {
 
         try {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.FALSE);
@@ -1389,7 +1389,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         return errorDetails;
     }
 
-    private Map<String, Object> buildStepStatus(AuthenticationContext context) {
+    private Map<String, Object> buildStepStatus(DebugContext context) {
 
         Map<String, Object> stepStatus = new LinkedHashMap<>();
         stepStatus.put(OIDCDebugConstants.STEP_CONNECTION_STATUS,
@@ -1418,10 +1418,10 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * Sets the top-level "status" to FAILED if any step has FAILED status.
      *
      * @param debugResult Debug result map containing stepStatus.
-     * @param context AuthenticationContext.
+     * @param context DebugContext.
      */
     @SuppressWarnings("unchecked")
-    private void determineOverallSuccessStatus(Map<String, Object> debugResult, AuthenticationContext context) {
+    private void determineOverallSuccessStatus(Map<String, Object> debugResult, DebugContext context) {
 
         Map<String, Object> stepStatus = (Map<String, Object>) debugResult.get(OIDCDebugConstants.STEP_STATUS);
         if (stepStatus == null) {
@@ -1442,7 +1442,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         }
     }
 
-    private Object resolveStepStatus(AuthenticationContext context, String stepKey, String fallbackStatus) {
+    private Object resolveStepStatus(DebugContext context, String stepKey, String fallbackStatus) {
 
         Object stepStatus = context.getProperty(stepKey);
         if (stepStatus instanceof String && StringUtils.isNotBlank((String) stepStatus)) {
@@ -1451,7 +1451,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         return fallbackStatus;
     }
 
-    private String resolveAccountLinkingStatus(AuthenticationContext context) {
+    private String resolveAccountLinkingStatus(DebugContext context) {
 
         Object accountLinkingStatus = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS);
         if (accountLinkingStatus instanceof String && StringUtils.isNotBlank((String) accountLinkingStatus)) {
@@ -1461,7 +1461,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         return OIDCDebugConstants.STATUS_PENDING;
     }
 
-    private String resolveAccountLinkingMessage(AuthenticationContext context) {
+    private String resolveAccountLinkingMessage(DebugContext context) {
 
         Object accountLinkingMessage = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE);
         if (accountLinkingMessage instanceof String && StringUtils.isNotBlank((String) accountLinkingMessage)) {
@@ -1475,7 +1475,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         return null;
     }
 
-    private void evaluateAccountLinking(AuthenticationContext context, Map<String, Object> incomingClaims) {
+    private void evaluateAccountLinking(DebugContext context, Map<String, Object> incomingClaims) {
 
         if (!isAccountLinkingEnabled(context)
                 || hasResolvedAccountLinkingStatus(context)) {
@@ -1511,7 +1511,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 buildAccountLinkingDetails(context));
     }
 
-    private Map<String, Object> buildAccountLinkingDetails(AuthenticationContext context) {
+    private Map<String, Object> buildAccountLinkingDetails(DebugContext context) {
 
         Map<String, Object> details = new LinkedHashMap<>();
 
@@ -1571,7 +1571,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         }
     }
 
-    private void evaluateDefaultAccountLinkingAttribute(AuthenticationContext context,
+    private void evaluateDefaultAccountLinkingAttribute(DebugContext context,
             Map<String, Object> incomingClaims) {
 
         String email = getStringClaim(incomingClaims, "email");
@@ -1583,7 +1583,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         setAccountLinkingSuccess(context);
     }
 
-    private void evaluateConfiguredAccountLinkingAttributes(AuthenticationContext context,
+    private void evaluateConfiguredAccountLinkingAttributes(DebugContext context,
             Map<String, Object> incomingClaims,
             AccountLookupAttributeMappingConfig[] accountLookupMappings) {
 
@@ -1602,19 +1602,19 @@ public class OIDCDebugProcessor extends DebugProcessor {
         setAccountLinkingSuccess(context);
     }
 
-    private boolean hasResolvedAccountLinkingStatus(AuthenticationContext context) {
+    private boolean hasResolvedAccountLinkingStatus(DebugContext context) {
 
         Object accountLinkingStatus = context.getProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS);
         return accountLinkingStatus instanceof String && StringUtils.isNotBlank((String) accountLinkingStatus);
     }
 
-    private void setAccountLinkingSuccess(AuthenticationContext context) {
+    private void setAccountLinkingSuccess(DebugContext context) {
 
         context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
         context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE, null);
     }
 
-    private void setAccountLinkingFailure(AuthenticationContext context, String message) {
+    private void setAccountLinkingFailure(DebugContext context, String message) {
 
         context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_STATUS, OIDCDebugConstants.STATUS_FAILED);
         context.setProperty(OIDCDebugConstants.CONTEXT_ACCOUNT_LINKING_MESSAGE, message);
@@ -1639,7 +1639,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
         return claimValue instanceof String ? (String) claimValue : null;
     }
 
-    private boolean isAccountLinkingEnabled(AuthenticationContext context) {
+    private boolean isAccountLinkingEnabled(DebugContext context) {
 
         IdentityProvider idp = deserializeIdentityProvider(context.getProperty(OIDCDebugConstants.IDP_CONFIG));
         if (idp == null) {
@@ -1651,13 +1651,13 @@ public class OIDCDebugProcessor extends DebugProcessor {
                 && jitProvisioningConfig.isAssociateLocalUserEnabled();
     }
 
-    private boolean hasExternalRedirectUrl(AuthenticationContext context) {
+    private boolean hasExternalRedirectUrl(DebugContext context) {
 
         Object externalRedirectUrl = context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
         return externalRedirectUrl instanceof String && StringUtils.isNotBlank((String) externalRedirectUrl);
     }
 
-    private boolean isAuthenticationFailed(AuthenticationContext context) {
+    private boolean isAuthenticationFailed(DebugContext context) {
 
         Object authSuccess = context.getProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS);
         return authSuccess instanceof Boolean && !((Boolean) authSuccess);
@@ -1722,13 +1722,13 @@ public class OIDCDebugProcessor extends DebugProcessor {
 
     /**
      * Restores context properties from DebugSessionStore using the state parameter.
-     * Transfers cached properties to AuthenticationContext for use in callback
+     * Transfers cached properties to DebugContext for use in callback
      * processing.
      *
      * @param state State parameter (cache key).
-     * @param context AuthenticationContext to populate.
+     * @param context DebugContext to populate.
      */
-    private void restoreContextFromSessionCache(String state, AuthenticationContext context) {
+    private void restoreContextFromSessionCache(String state, DebugContext context) {
 
         try {
             Map<String, Object> cachedContext = DebugSessionStore.getInstance().get(state);
@@ -1755,7 +1755,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param cachedContext The cached context map.
      * @param context       The authentication context to populate.
      */
-    private void restorePropertiesToContext(Map<String, Object> cachedContext, AuthenticationContext context) {
+    private void restorePropertiesToContext(Map<String, Object> cachedContext, DebugContext context) {
 
         String[] propertiesToRestore = {
                 OIDCDebugConstants.TOKEN_ENDPOINT, OIDCDebugConstants.CLIENT_ID, OIDCDebugConstants.CLIENT_SECRET,
@@ -1785,7 +1785,7 @@ public class OIDCDebugProcessor extends DebugProcessor {
      * @param context The authentication context to populate.
      * @param property The property name to restore.
      */
-    private void restorePropertyIfPresent(Map<String, Object> cachedContext, AuthenticationContext context,
+    private void restorePropertyIfPresent(Map<String, Object> cachedContext, DebugContext context,
             String property) {
 
         Object value = cachedContext.get(property);

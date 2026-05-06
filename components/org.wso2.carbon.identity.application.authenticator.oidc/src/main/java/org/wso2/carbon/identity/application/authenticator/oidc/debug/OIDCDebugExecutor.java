@@ -27,11 +27,10 @@ import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDe
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.util.DebugDiagnosticsUtil;
-import org.wso2.carbon.identity.debug.framework.exception.ExecutionException;
+import org.wso2.carbon.identity.debug.framework.exception.DebugExecutionException;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.model.DebugResult;
 
-import java.util.HashMap;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -62,15 +61,15 @@ public class OIDCDebugExecutor extends DebugExecutor {
      * @param context DebugContext containing debug configuration and state (prepared by
      *                DebugContextProvider).
      * @return DebugResult containing the generated authorization URL and metadata.
-     * @throws ExecutionException If execution fails.
+     * @throws DebugExecutionException If execution fails.
      */
     @Override
-    public DebugResult execute(DebugContext context) throws ExecutionException {
+    public DebugResult execute(DebugContext context) throws DebugExecutionException {
 
         DebugResult result = new DebugResult();
 
         if (context == null) {
-            throw new ExecutionException("Context is null");
+            throw new DebugExecutionException("Context is null");
         }
 
         if (LOG.isDebugEnabled()) {
@@ -129,7 +128,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
             if (authorizationUrl == null) {
                 markAllStepsFailed(context);
-                throw new ExecutionException("Failed to build authorization URL");
+                throw new DebugExecutionException("Failed to build authorization URL");
             }
 
             // Store authorization URL in context.
@@ -166,7 +165,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
             return result;
 
-        } catch (ExecutionException e) {
+        } catch (DebugExecutionException e) {
             markAllStepsFailed(context);
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_FAILED, e.getMessage());
@@ -176,21 +175,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
             markAllStepsFailed(context);
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_FAILED, "Error generating authorization URL: " + e.getMessage());
-            throw new ExecutionException("Error generating authorization URL: " + e.getMessage(), e);
+            throw new DebugExecutionException("Error generating authorization URL: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Executes OIDC debug flow using a map-based context.
-     *
-     * @param context Map-based debug context.
-     * @return DebugResult containing execution output.
-     * @throws ExecutionException If execution fails.
-     */
-    @Override
-    public DebugResult execute(Map<String, Object> context) throws ExecutionException {
-
-        return execute(DebugContext.buildFromMap(context));
     }
 
     /**
@@ -209,18 +195,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
     }
 
     /**
-     * Checks if this executor can handle the given map-based context.
-     *
-     * @param context Map-based debug context.
-     * @return true if this executor can handle the context, false otherwise.
-     */
-    @Override
-    public boolean canExecute(Map<String, Object> context) {
-
-        return canExecute(DebugContext.buildFromMap(context));
-    }
-
-    /**
      * Gets the executor name.
      *
      * @return Executor name string.
@@ -232,23 +206,23 @@ public class OIDCDebugExecutor extends DebugExecutor {
     }
 
     /**
-     * Validates required parameters and throws ExecutionException if any are
+     * Validates required parameters and throws DebugExecutionException if any are
      * missing.
      */
     private void validateRequiredParams(DebugContext context, String clientId,
-            String authzEndpoint, String redirectUri) throws ExecutionException {
+            String authzEndpoint, String redirectUri) throws DebugExecutionException {
 
         if (StringUtils.isEmpty(clientId)) {
             markAllStepsFailed(context);
-            throw new ExecutionException("Missing required parameter: CLIENT_ID");
+            throw new DebugExecutionException("Missing required parameter: CLIENT_ID");
         }
         if (StringUtils.isEmpty(authzEndpoint)) {
             markAllStepsFailed(context);
-            throw new ExecutionException("Missing required parameter: AUTHORIZATION_ENDPOINT");
+            throw new DebugExecutionException("Missing required parameter: AUTHORIZATION_ENDPOINT");
         }
         if (StringUtils.isEmpty(redirectUri)) {
             markAllStepsFailed(context);
-            throw new ExecutionException("Missing required parameter: REDIRECT_URI");
+            throw new DebugExecutionException("Missing required parameter: REDIRECT_URI");
         }
     }
 
@@ -266,7 +240,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
      * Builds the complete OIDC Authorization URL with PKCE parameters.
      */
     private String buildAuthorizationUrl(String authzEndpoint, String clientId, String redirectUri,
-            String state, String codeChallenge, DebugContext context) throws ExecutionException {
+            String state, String codeChallenge, DebugContext context) throws DebugExecutionException {
 
         try {
             StringBuilder urlBuilder = new StringBuilder();
@@ -277,7 +251,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
             String scope = (String) context.getProperty(OIDCDebugConstants.IDP_SCOPE);
             if (StringUtils.isEmpty(scope)) {
-                throw new ExecutionException("Scope not found in context");
+                throw new DebugExecutionException("Scope not found in context");
             }
             urlBuilder.append("&scope=").append(encodeParam(scope));
             urlBuilder.append("&state=").append(encodeParam(state));
@@ -313,10 +287,10 @@ public class OIDCDebugExecutor extends DebugExecutor {
             }
 
             return urlBuilder.toString();
-        } catch (ExecutionException e) {
+        } catch (DebugExecutionException e) {
             throw e;
         } catch (Exception e) {
-            throw new ExecutionException("Error building authorization URL: " + e.getMessage(), e);
+            throw new DebugExecutionException("Error building authorization URL: " + e.getMessage(), e);
         }
     }
 
@@ -325,7 +299,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
      */
     @SuppressWarnings("unchecked")
     private void appendAdditionalParams(StringBuilder urlBuilder, DebugContext context)
-            throws ExecutionException {
+            throws DebugExecutionException {
 
         Object additionalParamsObj = context.getProperty(OIDCDebugConstants.ADDITIONAL_OIDC_PARAMS);
         if (additionalParamsObj instanceof Map) {
@@ -348,12 +322,12 @@ public class OIDCDebugExecutor extends DebugExecutor {
     /**
      * URL-encodes a parameter value.
      */
-    private String encodeParam(String param) throws ExecutionException {
+    private String encodeParam(String param) throws DebugExecutionException {
 
         try {
             return URLEncoder.encode(param, StandardCharsets.UTF_8.name());
         } catch (Exception e) {
-            throw new ExecutionException("Failed to URL-encode parameter: " + e.getMessage(), e);
+            throw new DebugExecutionException("Failed to URL-encode parameter: " + e.getMessage(), e);
         }
     }
 
