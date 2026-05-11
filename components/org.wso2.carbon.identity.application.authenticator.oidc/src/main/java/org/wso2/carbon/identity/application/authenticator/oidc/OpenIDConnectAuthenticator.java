@@ -109,6 +109,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ACCESS_TOKEN_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.AUTHENTICATOR_OIDC;
+import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.CIBA_AUTH_CODE_KEY_PARAM;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.Claim.NONCE;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG;
 import static org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants.ID_TOKEN_PARAM;
@@ -525,11 +526,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 String scopes = getScope(authenticatorProperties);
 
                 /*
-                  The scopes for the federated tokens are evaluated only if the authenticator
-                  configuration ShareFederatedToken is enabled and the application has requested the federated token.
+                  The scopes for the federated tokens are evaluated if the authenticator configuration
+                  ShareFederatedToken is enabled and the application has requested the federated token,
+                  or if the current flow is a CIBA flow.
                  */
-                if (Boolean.parseBoolean(authenticatorProperties.get(SHARE_FEDERATED_TOKEN_CONFIG)) &&
-                        requestedToShareFederatedToken(context)) {
+                if ((Boolean.parseBoolean(authenticatorProperties.get(SHARE_FEDERATED_TOKEN_CONFIG)) &&
+                        requestedToShareFederatedToken(context)) || isCibaFlow(context)) {
                     // Adding the scopes requested by the application side for token sharing.
                     scopes = addValidScopesForFederatedTokenSharing(context, authenticatorProperties, scopes);
                 }
@@ -873,6 +875,18 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
     }
 
     /**
+     * This method checks whether the current authentication flow is a CIBA (Client Initiated Backchannel
+     * Authentication).
+     *
+     * @param context The authentication context.
+     * @return True if the current flow is a CIBA flow.
+     */
+    private boolean isCibaFlow(AuthenticationContext context) {
+
+        return context.getAuthenticationRequest().getRequestQueryParams().containsKey(CIBA_AUTH_CODE_KEY_PARAM);
+    }
+
+    /**
      * This method is used to retrieve the query parameters from the authentication request.
      *
      * @param context        The authentication context with authentication request.
@@ -947,12 +961,12 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         mapAccessToken(request, context, oAuthResponse);
 
         /*
-        Federated tokens are added only if the authenticator configuration ShareFederatedToken is enabled and the
-        application has requested the federated token.
+        Federated tokens are added if the authenticator configuration ShareFederatedToken is enabled and the
+        application has requested the federated token, or if the current flow is a CIBA flow.
          */
-        if (context.getAuthenticatorProperties() != null && Boolean.parseBoolean(
+        if ((context.getAuthenticatorProperties() != null && Boolean.parseBoolean(
                 context.getAuthenticatorProperties().get(OIDCAuthenticatorConstants.SHARE_FEDERATED_TOKEN_CONFIG)) &&
-                requestedToShareFederatedToken(context)) {
+                requestedToShareFederatedToken(context)) || isCibaFlow(context)) {
             // Adding the federated tokens to the context for token sharing.
             addFederatedTokensToContext(context, oAuthResponse);
         }
