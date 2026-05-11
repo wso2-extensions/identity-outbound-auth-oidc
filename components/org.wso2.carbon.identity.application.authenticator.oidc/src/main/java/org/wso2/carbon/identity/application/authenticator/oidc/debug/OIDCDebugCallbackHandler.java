@@ -23,11 +23,9 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCache;
-import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCacheEntry;
-import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationContextCacheKey;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
+import org.wso2.carbon.identity.debug.idp.core.IdpDebugConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
 import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
@@ -36,11 +34,11 @@ import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -60,13 +58,14 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     /**
      * Default constructor for {@link OIDCDebugCallbackHandler}.
      * Registers support for OIDC, Google, and GitHub protocols.
+     * Google and GitHub currently share the same OAuth2/OIDC callback handling flow.
      *
      * @param processor {@link DebugProcessor} to be used for processing callbacks.
      */
     public OIDCDebugCallbackHandler(DebugProcessor processor) {
 
-        this(processor, OIDCDebugConstants.PROTOCOL_TYPE, DebugFrameworkConstants.PROTOCOL_TYPE_GOOGLE,
-                DebugFrameworkConstants.PROTOCOL_TYPE_GITHUB);
+        this(processor, OIDCDebugConstants.PROTOCOL_TYPE, IdpDebugConstants.PROTOCOL_TYPE_GOOGLE,
+                IdpDebugConstants.PROTOCOL_TYPE_GITHUB);
     }
 
     /**
@@ -78,7 +77,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     public OIDCDebugCallbackHandler(DebugProcessor processor, String... supportedProtocols) {
 
         this.processor = processor;
-        TreeSet<String> normalizedProtocols = new TreeSet<>();
+        Set<String> normalizedProtocols = new HashSet<>();
         if (supportedProtocols != null) {
             Arrays.stream(supportedProtocols)
                     .filter(StringUtils::isNotBlank)
@@ -97,7 +96,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     @Override
     public boolean canHandle(HttpServletRequest request) {
 
-        String state = request.getParameter(DebugFrameworkConstants.OIDC_STATE_PARAM);
+        String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
         String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
         boolean isDebugState = state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
@@ -154,27 +153,27 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         try {
             Map<String, Object> cachedContext = DebugSessionStore.getInstance().get(state);
             if (cachedContext == null || cachedContext.isEmpty()) {
-                return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+                return false;
             }
 
             Object protocol = cachedContext.get(OIDCDebugConstants.CONTEXT_PROTOCOL);
             if (protocol == null) {
-                return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+                return false;
             }
 
             return supportedProtocols.contains(protocol.toString().trim().toLowerCase(Locale.ENGLISH));
         } catch (Exception e) {
             LOG.debug("Unable to resolve cached debug protocol for state: " + state, e);
-            return supportedProtocols.contains(OIDCDebugConstants.PROTOCOL_TYPE.toLowerCase(Locale.ENGLISH));
+            return false;
         }
     }
 
     private void processDebugFlowCallback(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
-        String code = request.getParameter(DebugFrameworkConstants.OIDC_CODE_PARAM);
-        String state = request.getParameter(DebugFrameworkConstants.OIDC_STATE_PARAM);
-        String error = request.getParameter(DebugFrameworkConstants.OIDC_ERROR_PARAM);
+        String code = request.getParameter(OIDCDebugConstants.OIDC_CODE_PARAM);
+        String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
+        String error = request.getParameter(OIDCDebugConstants.OIDC_ERROR_PARAM);
         String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
         if (handleOAuthError(error, response)) {
@@ -184,12 +183,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         String identifier = (state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX))
                 ? state : sessionDataKey;
         DebugContext context = retrieveOrCreateContext(identifier);
-        if (context == null) {
-            handleMissingContext(response);
-            return;
-        }
-
-        setContextProperties(context, code, state, sessionDataKey);
+        setContextProperties(context, code, state);
         if (processor == null) {
             LOG.error("No suitable DebugProcessor found for OIDC callback");
             if (!response.isCommitted()) {
@@ -241,57 +235,30 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         return context;
     }
 
-    private void handleMissingContext(HttpServletResponse response) {
-
-        LOG.error("Cannot process debug callback: missing context and/or OAuth parameters");
-        if (!response.isCommitted()) {
-            sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST,
-                    "MISSING_CONTEXT", "Authentication context not found");
-        }
-    }
-
-    private void setContextProperties(DebugContext context, String code, String state, String sessionDataKey) {
+    private void setContextProperties(DebugContext context, String code, String state) {
 
         if (StringUtils.isNotBlank(code)) {
-            context.setProperty(DebugFrameworkConstants.DEBUG_OIDC_CODE, code);
+            context.setProperty(DebugFrameworkConstants.DEBUG_PROTOCOL_CODE, code);
         }
         if (StringUtils.isNotBlank(state)) {
-            context.setProperty(DebugFrameworkConstants.DEBUG_OIDC_STATE, state);
+            context.setProperty(DebugFrameworkConstants.DEBUG_PROTOCOL_STATE, state);
         }
     }
 
     private String extractConnectionId(DebugContext context, HttpServletRequest request) {
 
-        String connectionId = context.getConnectionId();
+        String connectionId = (String) context.getProperty("connectionId");
         if (StringUtils.isBlank(connectionId)) {
             connectionId = request.getParameter("idpId");
         }
         return connectionId;
     }
 
-    private String firstNonBlankString(Object... values) {
-
-        if (values == null) {
-            return null;
-        }
-
-        for (Object value : values) {
-            if (value == null) {
-                continue;
-            }
-            String stringValue = String.valueOf(value);
-            if (StringUtils.isNotBlank(stringValue)) {
-                return stringValue;
-            }
-        }
-        return null;
-    }
-
     private void sendErrorResponse(HttpServletResponse response, int status, String errorCode, String message) {
 
         try {
             response.setStatus(status);
-            response.setContentType("application/json");
+            response.setContentType("application/json; charset=UTF-8");
             Map<String, Object> errorResponse = new LinkedHashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", errorCode);

@@ -23,7 +23,9 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.common.model.FederatedAuthenticatorConfig;
 import org.wso2.carbon.identity.application.common.model.Property;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,17 +50,17 @@ public class OIDCConfigurationExtractor {
      * These arrays are the single source of truth for property key lookups used by
      * both this extractor and OIDCContextProvider.
      */
-    public static final String[] CLIENT_ID_PROPERTY_NAMES = {
-            "ClientId", "client_id", "OAuth2ClientId", "OIDCClientId"};
-    public static final String[] CLIENT_SECRET_PROPERTY_NAMES = {
-            "ClientSecret", "client_secret"};
-    public static final String[] TOKEN_ENDPOINT_PROPERTY_NAMES = {
-            "TokenEndpoint", "Token Endpoint", "OAuth2TokenEPUrl", "OIDCTokenEPUrl", "token_endpoint"};
-    public static final String[] AUTHZ_ENDPOINT_PROPERTY_NAMES = {
+    private static final List<String> CLIENT_ID_PROPERTY_NAMES = Arrays.asList(
+            "ClientId", "client_id", "OAuth2ClientId", "OIDCClientId");
+    private static final List<String> CLIENT_SECRET_PROPERTY_NAMES = Arrays.asList(
+            "ClientSecret", "client_secret");
+    private static final List<String> TOKEN_ENDPOINT_PROPERTY_NAMES = Arrays.asList(
+            "TokenEndpoint", "Token Endpoint", "OAuth2TokenEPUrl", "OIDCTokenEPUrl", "token_endpoint");
+    private static final List<String> AUTHZ_ENDPOINT_PROPERTY_NAMES = Arrays.asList(
             "AuthorizationEndpoint", "Authorization Endpoint",
-            "OAuth2AuthzEPUrl", "OIDCAuthzEPUrl", "authorization_endpoint"};
-    public static final String[] SCOPE_PROPERTY_NAMES = {
-            "Scope", "scope", "SCOPE", "scopes", "requestedScope", "requestedScopes"};
+            "OAuth2AuthzEPUrl", "OIDCAuthzEPUrl", "authorization_endpoint");
+    private static final List<String> SCOPE_PROPERTY_NAMES = Arrays.asList(
+            "Scope", "scope", "SCOPE", "scopes", "requestedScope", "requestedScopes");
 
     /**
      * Extracts OAuth2 configuration from a FederatedAuthenticatorConfig.
@@ -136,7 +138,7 @@ public class OIDCConfigurationExtractor {
         if (value != null && !value.trim().isEmpty()) {
             result.put("clientSecret", value);
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Client secret found: " + (value.isEmpty() ? "EMPTY" : "PRESENT"));
+                LOG.debug("Client secret found: PRESENT");
             }
         }
     }
@@ -184,7 +186,7 @@ public class OIDCConfigurationExtractor {
      * @param propertyNames Array of property names to try in order.
      * @return First non-empty value found, or null if none found.
      */
-    public static String findPropertyValue(Map<String, String> propertyMap, String[] propertyNames) {
+    public static String findPropertyValue(Map<String, String> propertyMap, List<String> propertyNames) {
 
         if (propertyMap == null || propertyNames == null) {
             return null;
@@ -198,6 +200,31 @@ public class OIDCConfigurationExtractor {
         }
 
         return null;
+    }
+
+    public static List<String> getClientSecretPropertyNames() {
+
+        return CLIENT_SECRET_PROPERTY_NAMES;
+    }
+
+    public static List<String> getClientIdPropertyNames() {
+
+        return CLIENT_ID_PROPERTY_NAMES;
+    }
+
+    public static List<String> getTokenEndpointPropertyNames() {
+
+        return TOKEN_ENDPOINT_PROPERTY_NAMES;
+    }
+
+    public static List<String> getAuthorizationEndpointPropertyNames() {
+
+        return AUTHZ_ENDPOINT_PROPERTY_NAMES;
+    }
+
+    public static List<String> getScopePropertyNames() {
+
+        return SCOPE_PROPERTY_NAMES;
     }
 
     /**

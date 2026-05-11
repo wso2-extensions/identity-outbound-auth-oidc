@@ -91,23 +91,23 @@ public class OAuth2TokenClient {
             String clientId, String clientSecret, String redirectUri) {
 
         if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
-            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
                     "Authorization code parameter was null or empty");
         }
         if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
-            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
                     "Token endpoint URL was null or empty");
         }
         if (clientId == null || clientId.trim().isEmpty()) {
-            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
                     "Client ID was null or empty");
         }
         if (clientSecret == null || clientSecret.trim().isEmpty()) {
-            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
                     "Client secret was null or empty");
         }
         if (redirectUri == null || redirectUri.trim().isEmpty()) {
-            return new TokenResponse(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
                     "Redirect URI was null or empty");
         }
         return null;
@@ -173,7 +173,7 @@ public class OAuth2TokenClient {
             LOG.debug("Token exchange successful for IdP: " + idpName + ", received access_token and token_type.");
         }
 
-        return new TokenResponse(accessToken, idToken, refreshToken, tokenType);
+        return TokenResponse.success(accessToken, idToken, refreshToken, tokenType);
     }
 
     /**
@@ -196,7 +196,7 @@ public class OAuth2TokenClient {
         LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode +
                 ", Message: " + errorMessage, e);
 
-        return new TokenResponse(errorCode, errorMessage, enhancedDetails);
+        return TokenResponse.error(errorCode, errorMessage, enhancedDetails);
     }
 
     /**
@@ -286,8 +286,7 @@ public class OAuth2TokenClient {
                     .append("is valid and trusted.");
                 break;
             default:
-                details.append("An error occurred during token exchange.")
-                    .append(" Check the error code and message for details: ").append(e.getMessage());
+                details.append("An error occurred during token exchange. Check the error code and message for details.");
         }
 
         return details.toString();

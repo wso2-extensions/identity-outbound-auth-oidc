@@ -31,6 +31,7 @@ import org.wso2.carbon.identity.debug.framework.exception.DebugExecutionExceptio
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.model.DebugResult;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -51,6 +52,9 @@ import java.util.UUID;
 public class OIDCDebugExecutor extends DebugExecutor {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugExecutor.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String RESULT_AUTHORIZATION_URL = "authorizationUrl";
+    private static final String RESULT_DEBUG_ID = "debugId";
 
     /**
      * Executes OIDC debug flow and generates authorization URL.
@@ -66,11 +70,11 @@ public class OIDCDebugExecutor extends DebugExecutor {
     @Override
     public DebugResult execute(DebugContext context) throws DebugExecutionException {
 
-        DebugResult result = new DebugResult();
-
         if (context == null) {
             throw new DebugExecutionException("Context is null");
         }
+
+        DebugResult result = new DebugResult();
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Executing OIDC authorization URL generation");
@@ -107,7 +111,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             String nonce = generateNonce();
 
             // Use debugId as the callback state token for consistency between initial response and callback.
-            String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID);
+            String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
             if (debugId == null) {
                 debugId = "debug-" + UUID.randomUUID().toString();
                 if (LOG.isDebugEnabled()) {
@@ -115,15 +119,11 @@ public class OIDCDebugExecutor extends DebugExecutor {
                             "Generated fallback debugId: " + debugId);
                 }
             }
-            String callbackState = debugId;
-
             context.setProperty(OIDCDebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
             // Store nonce in context for validation during callback token processing.
             context.setProperty(OIDCDebugConstants.DEBUG_NONCE, nonce);
-            context.setProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID, debugId);
-
             // Build OIDC Authorization URL.
-            String authorizationUrl = buildAuthorizationUrl(authzEndpoint, clientId, redirectUri, callbackState,
+            String authorizationUrl = buildAuthorizationUrl(authzEndpoint, clientId, redirectUri, debugId,
                     codeChallenge, context);
 
             if (authorizationUrl == null) {
@@ -148,14 +148,13 @@ public class OIDCDebugExecutor extends DebugExecutor {
             // Build result.
             result.setSuccessful(true);
             result.setStatus("Configurations validated successfully.");
-            result.addResultData("authorizationUrl", authorizationUrl);
-            result.addResultData("debugId", debugId);
-            result.addMetadata("authorizationUrl", authorizationUrl);
-            result.addMetadata("debugId", debugId);
+            result.addResultData(RESULT_AUTHORIZATION_URL, authorizationUrl);
+            result.addResultData(RESULT_DEBUG_ID, debugId);
             // Note: codeVerifier is intentionally NOT included in metadata to prevent PKCE bypass.
             // It is stored securely in DebugSessionStore for use during the callback token exchange.
             result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
-            result.addResultData(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
+            result.addMetadata(RESULT_AUTHORIZATION_URL, authorizationUrl);
+            result.addMetadata(RESULT_DEBUG_ID, debugId);
             result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
 
             if (LOG.isDebugEnabled()) {
@@ -243,6 +242,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             String state, String codeChallenge, DebugContext context) throws DebugExecutionException {
 
         try {
+            validateAuthorizationEndpoint(authzEndpoint);
             StringBuilder urlBuilder = new StringBuilder();
             urlBuilder.append(authzEndpoint);
             urlBuilder.append("?response_type=code");
@@ -292,6 +292,30 @@ public class OIDCDebugExecutor extends DebugExecutor {
         } catch (Exception e) {
             throw new DebugExecutionException("Error building authorization URL: " + e.getMessage(), e);
         }
+    }
+
+    private void validateAuthorizationEndpoint(String authzEndpoint) throws DebugExecutionException {
+
+        try {
+            URI endpointUri = new URI(authzEndpoint);
+            if (!endpointUri.isAbsolute()) {
+                throw new DebugExecutionException(
+                        "Authorization endpoint must be an absolute URL: " + authzEndpoint);
+            }
+            if (!"https".equalsIgnoreCase(endpointUri.getScheme()) && !isLocalhost(endpointUri.getHost())) {
+                throw new DebugExecutionException(
+                        "Authorization endpoint must use HTTPS: " + authzEndpoint);
+            }
+        } catch (DebugExecutionException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new DebugExecutionException("Invalid authorization endpoint: " + authzEndpoint, e);
+        }
+    }
+
+    private boolean isLocalhost(String host) {
+
+        return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host);
     }
 
     /**
@@ -352,7 +376,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
     private void cacheDebugContext(DebugContext context) {
 
         try {
-            String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_CONTEXT_ID);
+            String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
             if (debugId == null) {
                 LOG.warn("Cannot cache debug context - debugId is null");
                 return;
@@ -366,7 +390,10 @@ public class OIDCDebugExecutor extends DebugExecutor {
                         (context.getProperty(OIDCDebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
             }
 
-            DebugSessionStore.getInstance().put(debugId, context);
+            DebugContext sanitizedContext = DebugContext.buildFromMap(context.getProperties());
+            sanitizedContext.setResourceType(context.getResourceType());
+            sanitizedContext.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
+            DebugSessionStore.getInstance().put(debugId, sanitizedContext);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Debug context cached successfully with debugId: " + debugId);
@@ -385,7 +412,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
     private String generateNonce() {
 
         byte[] nonceBytes = new byte[32];
-        new SecureRandom().nextBytes(nonceBytes);
+        SECURE_RANDOM.nextBytes(nonceBytes);
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(nonceBytes);
     }
 

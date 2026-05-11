@@ -18,7 +18,7 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 
-import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
+import org.wso2.carbon.identity.debug.idp.core.IdpDebugConstants;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
@@ -30,14 +30,26 @@ import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
  */
 public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
 
-    private final DebugContextProvider contextProvider = new OIDCContextProvider();
-    private final DebugExecutor executor = new OIDCDebugExecutor();
-    private final DebugProcessor processor = new OIDCDebugProcessor();
-    private final DebugCallbackHandler callbackHandler = new OIDCDebugCallbackHandler(processor,
-            OIDCDebugConstants.PROTOCOL_TYPE, DebugFrameworkConstants.PROTOCOL_TYPE_GOOGLE,
-            DebugFrameworkConstants.PROTOCOL_TYPE_GITHUB);
+    private final DebugContextProvider contextProvider;
+    private final DebugExecutor executor;
+    private final DebugProcessor processor;
+    private final DebugCallbackHandler callbackHandler;
 
-            
+    public OIDCDebugProtocolProvider() {
+
+        this(new OIDCContextProvider(), new OIDCDebugExecutor(), new OIDCDebugProcessor());
+    }
+
+    public OIDCDebugProtocolProvider(DebugContextProvider contextProvider, DebugExecutor executor,
+            DebugProcessor processor) {
+
+        this.contextProvider = contextProvider;
+        this.executor = executor;
+        this.processor = processor;
+        this.callbackHandler = new OIDCDebugCallbackHandler(processor,
+                OIDCDebugConstants.PROTOCOL_TYPE, IdpDebugConstants.PROTOCOL_TYPE_GOOGLE,
+                IdpDebugConstants.PROTOCOL_TYPE_GITHUB);
+    }
     /**
      * Returns the protocol type supported by this provider.
      *

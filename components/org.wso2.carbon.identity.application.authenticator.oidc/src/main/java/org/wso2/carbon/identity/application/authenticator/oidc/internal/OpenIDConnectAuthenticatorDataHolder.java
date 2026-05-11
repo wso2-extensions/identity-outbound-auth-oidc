@@ -23,11 +23,11 @@ import org.wso2.carbon.user.core.service.RealmService;
 
 /**
  * Data holder for OIDC Authenticator Service Component.
- * Uses enum-based Singleton pattern for thread-safe lazy initialization.
  */
-public enum OpenIDConnectAuthenticatorDataHolder {
+public class OpenIDConnectAuthenticatorDataHolder {
 
-    INSTANCE;
+    private static final OpenIDConnectAuthenticatorDataHolder INSTANCE =
+            new OpenIDConnectAuthenticatorDataHolder();
 
     private RealmService realmService;
 
@@ -37,11 +37,9 @@ public enum OpenIDConnectAuthenticatorDataHolder {
 
     private UserSessionManagementService userSessionManagementService;
 
-    /**
-     * Returns the singleton instance of the data holder.
-     *
-     * @return the singleton instance
-     */
+    private OpenIDConnectAuthenticatorDataHolder() {
+    }
+
     public static OpenIDConnectAuthenticatorDataHolder getInstance() {
 
         return INSTANCE;

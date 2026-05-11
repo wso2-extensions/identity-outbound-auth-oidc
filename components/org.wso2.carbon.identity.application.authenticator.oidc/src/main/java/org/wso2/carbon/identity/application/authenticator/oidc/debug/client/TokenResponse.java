@@ -18,6 +18,8 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug.client;
 
+import java.util.Objects;
+
 /**
  * Simple holder for OAuth2 token response values and error details.
  */
@@ -31,32 +33,28 @@ public class TokenResponse {
     private final String errorDescription;
     private final String errorDetails;
 
-    /**
-     * Successful token response.
-     */
-    public TokenResponse(String accessToken, String idToken, String refreshToken, String tokenType) {
+    private TokenResponse(String accessToken, String idToken, String refreshToken, String tokenType,
+            String errorCode, String errorDescription, String errorDetails) {
 
         this.accessToken = accessToken;
         this.idToken = idToken;
         this.refreshToken = refreshToken;
         this.tokenType = tokenType;
-        this.errorCode = null;
-        this.errorDescription = null;
-        this.errorDetails = null;
-    }
-
-    /**
-     * Error token response with error details.
-     */
-    public TokenResponse(String errorCode, String errorDescription, String errorDetails) {
-
         this.errorCode = errorCode;
         this.errorDescription = errorDescription;
         this.errorDetails = errorDetails;
-        this.accessToken = null;
-        this.idToken = null;
-        this.refreshToken = null;
-        this.tokenType = null;
+    }
+
+    public static TokenResponse success(String accessToken, String idToken, String refreshToken, String tokenType) {
+
+        Objects.requireNonNull(accessToken, "accessToken required for success response");
+        return new TokenResponse(accessToken, idToken, refreshToken, tokenType, null, null, null);
+    }
+
+    public static TokenResponse error(String errorCode, String errorDescription, String errorDetails) {
+
+        Objects.requireNonNull(errorCode, "errorCode required for error response");
+        return new TokenResponse(null, null, null, null, errorCode, errorDescription, errorDetails);
     }
 
     public String getAccessToken() {

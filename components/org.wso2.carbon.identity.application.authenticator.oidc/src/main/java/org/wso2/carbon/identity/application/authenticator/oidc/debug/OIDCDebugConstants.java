@@ -35,6 +35,12 @@ import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
  */
 public final class OIDCDebugConstants {
 
+    // OIDC callback parameters.
+    public static final String OIDC_CODE_PARAM = "code";
+    public static final String OIDC_STATE_PARAM = "state";
+    public static final String OIDC_ERROR_PARAM = "error";
+    public static final String OIDC_ERROR_DESCRIPTION_PARAM = "error_description";
+
     private OIDCDebugConstants() {
         // Prevent instantiation
     }
@@ -54,6 +60,8 @@ public final class OIDCDebugConstants {
     public static final String RESPONSE_TYPE = "responseType";
     public static final String IDP_CONFIG = "idpConfig";
     public static final String DEBUG_IDP_NAME = "debugIdpName";
+    public static final int HTTP_CONNECT_TIMEOUT_MS = 10000;
+    public static final int HTTP_READ_TIMEOUT_MS = 10000;
 
     // OIDC Response Parameters
     public static final String ACCESS_TOKEN = "accessToken";
@@ -73,7 +81,7 @@ public final class OIDCDebugConstants {
     public static final String TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
     public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
 
-    // PKCE Parameters
+    // OIDC Flow Parameters
     public static final String PKCE_ENABLED = "pkceEnabled";
     public static final String PKCE_METHOD = "pkceMethod";
     public static final String PKCE_METHOD_S256 = "S256";
@@ -106,7 +114,7 @@ public final class OIDCDebugConstants {
     public static final String STATUS_ABSENT = "absent";
     public static final String STATUS_FOUND = "found";
 
-    // Debug Session Keys
+    // Context/Session Keys
     public static final String DEBUG_ID = "debugId";
     public static final String DEBUG_FLOW_ID = "debugFlowId";
     public static final String DEBUG_TIMESTAMP = "debugTimestamp";
@@ -117,16 +125,13 @@ public final class OIDCDebugConstants {
     public static final String IS_DEBUG_FLOW = "isDebugFlow";
     public static final String ADDITIONAL_OIDC_PARAMS = "additionalOIDCParams";
 
-    // Auth status keys shared with the debug framework.
-    public static final String DEBUG_AUTH_ERROR = "AUTH_ERROR";
-    public static final String DEBUG_AUTH_SUCCESS = "AUTH_SUCCESS";
-
-    // Debug Context Property Keys
+    // Status and context property keys
+    public static final String DEBUG_AUTH_ERROR = "authError";
+    public static final String DEBUG_AUTH_SUCCESS = "authSuccess";
     public static final String DEBUG_STATE = "DEBUG_STATE";
     public static final String DEBUG_ID_TOKEN = "DEBUG_ID_TOKEN";
     public static final String DEBUG_ACCESS_TOKEN = "DEBUG_ACCESS_TOKEN";
     public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
-    public static final String DEBUG_CONTEXT_ID = DEBUG_ID;
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_NONCE = "DEBUG_NONCE";
     public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
@@ -153,6 +158,7 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_RESULT_IDPNAME = "idpName";
     public static final String DEBUG_RESULT_DEBUGID = "debugId";
     public static final String DEBUG_RESULT_ID_TOKEN_PRESENT = "idTokenPresent";
+    public static final String DEBUG_SUCCESS_PAGE = "/authenticationendpoint/debugSuccess.jsp";
     public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "CONTEXT_ACCOUNT_LINKING_MESSAGE";
     public static final String ACCOUNT_LINKING_REASON = "reason";
@@ -161,5 +167,5 @@ public final class OIDCDebugConstants {
     public static final String RESPONSE_SUCCESS = "success";
 
     // Protocol Type Identifier
-    public static final String PROTOCOL_TYPE = DebugFrameworkConstants.PROTOCOL_TYPE_OIDC;
+    public static final String PROTOCOL_TYPE = "OIDC";
 }

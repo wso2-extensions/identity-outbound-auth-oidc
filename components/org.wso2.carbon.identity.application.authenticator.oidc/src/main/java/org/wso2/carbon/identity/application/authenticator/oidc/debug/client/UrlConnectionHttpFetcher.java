@@ -21,9 +21,11 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,31 +42,25 @@ public class UrlConnectionHttpFetcher implements HttpFetcher {
     public Map<String, Object> getJson(String urlStr, Map<String, String> headers) {
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(urlStr);
+            URL url = URI.create(urlStr).toURL();
 
             // Enforce HTTPS to prevent access token exposure over plaintext HTTP.
             // Allow HTTP only for localhost (development/testing).
-            if (!"https".equalsIgnoreCase(url.getProtocol()) &&
-                    !isLocalhost(url.getHost())) {
-                LOG.error("Refusing to fetch from non-HTTPS URL: " + urlStr +
-                        ". HTTPS is required to protect access tokens in transit.");
-                return new HashMap<>();
+            if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                if (isLocalhost(url.getHost())) {
+                    LOG.warn("Fetching from non-HTTPS URL on localhost. Acceptable only for development: " + urlStr);
+                } else {
+                    LOG.error("Refusing to fetch from non-HTTPS URL: " + urlStr +
+                            ". HTTPS is required to protect access tokens in transit.");
+                    return new HashMap<>();
+                }
             }
 
             connection = (HttpURLConnection) url.openConnection();
-            
-            // Enable hostname verification for HTTPS connections.
-            if (connection instanceof javax.net.ssl.HttpsURLConnection) {
-                javax.net.ssl.HttpsURLConnection httpsConnection = 
-                        (javax.net.ssl.HttpsURLConnection) connection;
-                // Use default hostname verifier for proper SSL hostname verification.
-                httpsConnection.setHostnameVerifier(
-                        javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier());
-            }
-            
+
             connection.setRequestMethod("GET");
-            connection.setConnectTimeout(10000);
-            connection.setReadTimeout(10000);
+            connection.setConnectTimeout(OIDCDebugConstants.HTTP_CONNECT_TIMEOUT_MS);
+            connection.setReadTimeout(OIDCDebugConstants.HTTP_READ_TIMEOUT_MS);
             connection.setRequestProperty("Accept", "application/json");
             if (headers != null) {
                 for (Map.Entry<String, String> e : headers.entrySet()) {

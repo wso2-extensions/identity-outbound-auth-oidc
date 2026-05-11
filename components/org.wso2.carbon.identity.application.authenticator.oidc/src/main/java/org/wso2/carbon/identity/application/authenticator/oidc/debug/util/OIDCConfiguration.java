@@ -27,7 +27,6 @@ import java.util.List;
 /**
  * Data holder for OIDC configuration values extracted from IdP settings.
  * Provides validation and null-safe access to required endpoints and credentials.
- * Supports both Builder pattern for clean construction and setters for incremental population.
  */
 public class OIDCConfiguration {
 
@@ -47,31 +46,6 @@ public class OIDCConfiguration {
     }
 
     /**
-     * Private constructor for Builder pattern.
-     *
-     * @param builder Builder instance containing configuration values.
-     */
-    private OIDCConfiguration(Builder builder) {
-
-        this.tokenEndpoint = builder.tokenEndpoint;
-        this.clientId = builder.clientId;
-        this.clientSecret = builder.clientSecret;
-        this.codeVerifier = builder.codeVerifier;
-        this.callbackUrl = builder.callbackUrl;
-        this.idpName = builder.idpName;
-    }
-
-    /**
-     * Creates a new Builder instance for constructing OIDCConfiguration.
-     *
-     * @return New Builder instance.
-     */
-    public static Builder builder() {
-
-        return new Builder();
-    }
-
-    /**
      * Validates that all required configuration values are present.
      * Required values: tokenEndpoint, clientId, clientSecret.
      *
@@ -84,14 +58,13 @@ public class OIDCConfiguration {
     }
 
     /**
-     * Checks if required endpoints are configured (non-null).
-     * Less strict than isValid() - only checks for null, not empty strings.
+     * Checks if required endpoints are configured.
      *
      * @return true if tokenEndpoint and clientId are not null.
      */
     public boolean hasRequiredEndpoints() {
 
-        return tokenEndpoint != null && clientId != null;
+        return StringUtils.isNotBlank(tokenEndpoint) && StringUtils.isNotBlank(clientId);
     }
 
     /**
@@ -251,133 +224,11 @@ public class OIDCConfiguration {
     public String toString() {
 
         return "OIDCConfiguration{" +
-                "tokenEndpoint='" + tokenEndpoint + '\'' +
+                "tokenEndpoint='" + (tokenEndpoint != null ? "****" : "null") + '\'' +
                 ", clientId='" + (clientId != null ? "****" : "null") + '\'' +
                 ", clientSecret='" + (clientSecret != null ? "****" : "null") + '\'' +
                 ", callbackUrl='" + callbackUrl + '\'' +
                 ", idpName='" + idpName + '\'' +
                 '}';
-    }
-
-    /**
-     * Builder class for constructing OIDCConfiguration instances.
-     * Provides fluent API for setting configuration values.
-     */
-    public static class Builder {
-
-        private String tokenEndpoint;
-        private String clientId;
-        private String clientSecret;
-        private String codeVerifier;
-        private String callbackUrl;
-        private String idpName;
-
-        /**
-         * Private constructor - use OIDCConfiguration.builder() to create.
-         */
-        private Builder() {
-
-            // Private constructor.
-        }
-
-        /**
-         * Sets the token endpoint URL.
-         *
-         * @param tokenEndpoint Token endpoint URL.
-         * @return This builder instance for chaining.
-         */
-        public Builder tokenEndpoint(String tokenEndpoint) {
-
-            this.tokenEndpoint = tokenEndpoint;
-            return this;
-        }
-
-        /**
-         * Sets the OAuth2 client ID.
-         *
-         * @param clientId Client ID.
-         * @return This builder instance for chaining.
-         */
-        public Builder clientId(String clientId) {
-
-            this.clientId = clientId;
-            return this;
-        }
-
-        /**
-         * Sets the OAuth2 client secret.
-         *
-         * @param clientSecret Client secret.
-         * @return This builder instance for chaining.
-         */
-        public Builder clientSecret(String clientSecret) {
-
-            this.clientSecret = clientSecret;
-            return this;
-        }
-
-        /**
-         * Sets the PKCE code verifier.
-         *
-         * @param codeVerifier Code verifier.
-         * @return This builder instance for chaining.
-         */
-        public Builder codeVerifier(String codeVerifier) {
-
-            this.codeVerifier = codeVerifier;
-            return this;
-        }
-
-        /**
-         * Sets the OAuth2 callback URL.
-         *
-         * @param callbackUrl Callback URL.
-         * @return This builder instance for chaining.
-         */
-        public Builder callbackUrl(String callbackUrl) {
-
-            this.callbackUrl = callbackUrl;
-            return this;
-        }
-
-        /**
-         * Sets the Identity Provider name.
-         *
-         * @param idpName IdP name.
-         * @return This builder instance for chaining.
-         */
-        public Builder idpName(String idpName) {
-
-            this.idpName = idpName;
-            return this;
-        }
-
-        /**
-         * Builds and returns an OIDCConfiguration instance.
-         * Does not validate - call isValid() on returned instance to check validity.
-         *
-         * @return New OIDCConfiguration instance.
-         */
-        public OIDCConfiguration build() {
-
-            return new OIDCConfiguration(this);
-        }
-
-        /**
-         * Builds and returns an OIDCConfiguration instance after validating required fields.
-         * Throws IllegalStateException if required fields are missing.
-         *
-         * @return New validated OIDCConfiguration instance.
-         * @throws IllegalStateException If required fields (tokenEndpoint, clientId, clientSecret) are missing.
-         */
-        public OIDCConfiguration buildValidated() {
-
-            OIDCConfiguration config = new OIDCConfiguration(this);
-            List<String> errors = config.getValidationErrors();
-            if (!errors.isEmpty()) {
-                throw new IllegalStateException("Invalid OIDC configuration: " + String.join(", ", errors));
-            }
-            return config;
-        }
     }
 }

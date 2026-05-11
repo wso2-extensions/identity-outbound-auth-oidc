@@ -82,6 +82,11 @@
             <version>7.10.35</version>
         </dependency>
         <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.debug.idp</artifactId>
+            <version>7.10.35</version>
+        </dependency>
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
@@ -206,6 +211,8 @@
                             org.wso2.carbon.identity.debug.framework.model.*;
                             version="[7.8,8.0)",
                             org.wso2.carbon.identity.debug.framework.dao.*;
+                            version="[7.8,8.0)",
+                            org.wso2.carbon.identity.debug.idp.core.*;
                             version="[7.8,8.0)",
                         </Import-Package>
                         <Export-Package>

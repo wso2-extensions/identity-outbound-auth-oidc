@@ -65,7 +65,7 @@ public class OIDCDebugUtil {
     public static String generatePKCECodeChallenge(String codeVerifier) {
 
         if (StringUtils.isEmpty(codeVerifier)) {
-            return null;
+            throw new IllegalArgumentException("codeVerifier must not be null or empty");
         }
 
         try {

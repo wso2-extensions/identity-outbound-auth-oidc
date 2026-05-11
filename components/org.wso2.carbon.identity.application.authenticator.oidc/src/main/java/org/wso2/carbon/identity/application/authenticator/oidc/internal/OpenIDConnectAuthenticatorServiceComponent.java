@@ -30,15 +30,11 @@ import org.wso2.carbon.identity.application.authentication.framework.inbound.Ide
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectAuthenticator;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugProtocolProvider;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugExecutor;
-import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCContextProvider;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutRequestFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.factory.LogoutResponseFactory;
 import org.wso2.carbon.identity.application.authenticator.oidc.logout.idpinit.processor.FederatedIdpInitLogoutProcessor;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
-import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
-import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.osgi.service.component.annotations.Activate;
@@ -72,16 +68,8 @@ public class OpenIDConnectAuthenticatorServiceComponent {
             componentContext.getBundleContext().registerService(DebugProtocolProvider.class.getName(),
                     new OIDCDebugProtocolProvider(), null);
 
-            // Register OIDCDebugExecutor as DebugExecutor service (for legacy compatibility)
-            componentContext.getBundleContext().registerService(DebugExecutor.class.getName(),
-                    new OIDCDebugExecutor(), null);
-
-            // Register OIDCContextProvider as DebugContextProvider service (for legacy compatibility)
-            componentContext.getBundleContext().registerService(DebugContextProvider.class.getName(),
-                    new OIDCContextProvider(), null);
-
             if (log.isDebugEnabled()) {
-                log.debug("Registered OIDCDebugProtocolProvider and legacy debug services");
+                log.debug("Registered OIDCDebugProtocolProvider");
             }
 
             if (log.isDebugEnabled()) {
@@ -100,7 +88,13 @@ public class OpenIDConnectAuthenticatorServiceComponent {
         }
     }
 
-    @Reference(name = "realm.service", service = org.wso2.carbon.user.core.service.RealmService.class, cardinality = ReferenceCardinality.MANDATORY, policy = ReferencePolicy.DYNAMIC, unbind = "unsetRealmService")
+    @Reference(
+            name = "realm.service",
+            service = org.wso2.carbon.user.core.service.RealmService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRealmService"
+    )
     protected void setRealmService(RealmService realmService) {
 
         if (log.isDebugEnabled()) {
@@ -117,7 +111,13 @@ public class OpenIDConnectAuthenticatorServiceComponent {
         OpenIDConnectAuthenticatorDataHolder.getInstance().setRealmService(null);
     }
 
-    @Reference(name = "claim.manager.listener.service", service = ClaimMetadataManagementService.class, cardinality = ReferenceCardinality.MANDATORY, policy = ReferencePolicy.DYNAMIC, unbind = "unsetClaimManagementService")
+    @Reference(
+            name = "claim.manager.listener.service",
+            service = ClaimMetadataManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetClaimManagementService"
+    )
     protected void setClaimManagementService(ClaimMetadataManagementService claimMetadataManagementService) {
 
         OpenIDConnectAuthenticatorDataHolder.getInstance()
@@ -130,7 +130,13 @@ public class OpenIDConnectAuthenticatorServiceComponent {
                 .setClaimMetadataManagementService(null);
     }
 
-    @Reference(name = "server.session.management.service", service = ServerSessionManagementService.class, cardinality = ReferenceCardinality.MANDATORY, policy = ReferencePolicy.DYNAMIC, unbind = "unsetServerSessionManagementService")
+    @Reference(
+            name = "server.session.management.service",
+            service = ServerSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetServerSessionManagementService"
+    )
     protected void setServerSessionManagementService(ServerSessionManagementService serverSessionManagementService) {
 
         if (log.isDebugEnabled()) {
@@ -148,7 +154,13 @@ public class OpenIDConnectAuthenticatorServiceComponent {
         OpenIDConnectAuthenticatorDataHolder.getInstance().setServerSessionManagementService(null);
     }
 
-    @Reference(name = "user.session.management.service", service = UserSessionManagementService.class, cardinality = ReferenceCardinality.MANDATORY, policy = ReferencePolicy.DYNAMIC, unbind = "unsetUserSessionManagementService")
+    @Reference(
+            name = "user.session.management.service",
+            service = UserSessionManagementService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetUserSessionManagementService"
+    )
     protected void setUserSessionManagementService(UserSessionManagementService userSessionManagementService) {
 
         if (log.isDebugEnabled()) {

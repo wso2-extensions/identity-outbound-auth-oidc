@@ -56,6 +56,8 @@ public class OIDCDebugException extends DebugFrameworkException {
      * @param errorCode The error code.
      * @param message The error message.
      * @param cause The cause of the exception.
+     *              Note: description is set to null. Use the four-argument constructor
+     *              when a detailed description is required.
      */
     public OIDCDebugException(String errorCode, String message, Throwable cause) {
 
