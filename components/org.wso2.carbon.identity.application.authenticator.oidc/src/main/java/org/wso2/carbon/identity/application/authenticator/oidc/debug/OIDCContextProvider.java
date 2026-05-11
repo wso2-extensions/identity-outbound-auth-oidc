@@ -306,11 +306,13 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
     }
 
     /**
-     * Validates if this resolver can handle the given IdP.
-     * Returns true if the IdP has at least one enabled OIDC authenticator.
+     * Validates if this resolver can potentially handle the given IdP ID.
+     * Performs format validation only — does not make database calls or verify
+     * that the IdP has an OIDC authenticator configured.
+     * Full validation occurs in {@link #resolveContext(String, String)}.
      *
      * @param idpId Identity Provider ID to check.
-     * @return true if this resolver can handle the IdP, false otherwise.
+     * @return true if idpId is non-empty and contains only safe characters, false otherwise.
      */
     @Override
     public boolean canResolve(String idpId) {
@@ -491,16 +493,16 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
         }
 
         Map<String, String> propertyMap = OIDCConfigurationExtractor.buildPropertyMap(properties);
-    OpenIDConnectExecutor executor = createExecutorForAuthenticator(config.getName());
+        OpenIDConnectExecutor executor = createExecutorForAuthenticator(config.getName());
 
         // Extract required parameters.
         extractAndStoreClientId(propertyMap, context);
-    extractAndStoreAuthorizationEndpoint(propertyMap, executor, context);
-    extractAndStoreTokenEndpoint(propertyMap, executor, context);
-    extractAndStoreScope(propertyMap, executor, context);
+        extractAndStoreAuthorizationEndpoint(propertyMap, executor, context);
+        extractAndStoreTokenEndpoint(propertyMap, executor, context);
+        extractAndStoreScope(propertyMap, executor, context);
 
         // Extract optional parameters.
-    extractAndStoreOptionalParameters(propertyMap, context);
+        extractAndStoreOptionalParameters(propertyMap, context);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("OIDC parameters extracted successfully. ClientId: FOUND");

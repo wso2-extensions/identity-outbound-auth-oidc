@@ -224,7 +224,9 @@ public class OIDCConfiguration {
     public String toString() {
 
         return "OIDCConfiguration{" +
-                "tokenEndpoint='" + (tokenEndpoint != null ? "****" : "null") + '\'' +
+                // tokenEndpoint is a public URL — not masked
+                "tokenEndpoint='" + tokenEndpoint + '\'' +
+                // clientId and clientSecret are credentials — masked
                 ", clientId='" + (clientId != null ? "****" : "null") + '\'' +
                 ", clientSecret='" + (clientSecret != null ? "****" : "null") + '\'' +
                 ", callbackUrl='" + callbackUrl + '\'' +

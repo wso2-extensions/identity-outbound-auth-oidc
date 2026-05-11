@@ -34,7 +34,6 @@ import org.wso2.carbon.identity.debug.framework.model.DebugResult;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.Map;
 import java.util.UUID;
 
@@ -52,7 +51,6 @@ import java.util.UUID;
 public class OIDCDebugExecutor extends DebugExecutor {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugExecutor.class);
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String RESULT_AUTHORIZATION_URL = "authorizationUrl";
     private static final String RESULT_DEBUG_ID = "debugId";
 
@@ -108,7 +106,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
             String codeChallenge = OIDCDebugUtil.generatePKCECodeChallenge(codeVerifier);
 
             // Generate cryptographic nonce for ID Token replay mitigation (OIDC Core §3.1.2.1).
-            String nonce = generateNonce();
+            String nonce = OIDCDebugUtil.generateNonce();
 
             // Use debugId as the callback state token for consistency between initial response and callback.
             String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
@@ -148,13 +146,12 @@ public class OIDCDebugExecutor extends DebugExecutor {
             // Build result.
             result.setSuccessful(true);
             result.setStatus("Configurations validated successfully.");
+            result.setDebugId(debugId);
             result.addResultData(RESULT_AUTHORIZATION_URL, authorizationUrl);
             result.addResultData(RESULT_DEBUG_ID, debugId);
             // Note: codeVerifier is intentionally NOT included in metadata to prevent PKCE bypass.
             // It is stored securely in DebugSessionStore for use during the callback token exchange.
             result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
-            result.addMetadata(RESULT_AUTHORIZATION_URL, authorizationUrl);
-            result.addMetadata(RESULT_DEBUG_ID, debugId);
             result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
 
             if (LOG.isDebugEnabled()) {
@@ -392,8 +389,13 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
             DebugContext sanitizedContext = DebugContext.buildFromMap(context.getProperties());
             sanitizedContext.setResourceType(context.getResourceType());
+            // Sanitize credentials and non-serializable typed objects before persisting to session store.
             sanitizedContext.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
+            sanitizedContext.setProperty(OIDCDebugConstants.IDP_CONFIG, null);
             DebugSessionStore.getInstance().put(debugId, sanitizedContext);
+
+            // to prevent exposure if caller code inspects or logs context after this call.
+            context.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Debug context cached successfully with debugId: " + debugId);
@@ -401,19 +403,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         } catch (Exception e) {
             LOG.error("Error caching debug context: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Generates a cryptographic nonce for OIDC ID Token replay protection.
-     * Uses SecureRandom for 32 bytes of entropy, encoded as URL-safe Base64.
-     *
-     * @return Cryptographically random nonce string.
-     */
-    private String generateNonce() {
-
-        byte[] nonceBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(nonceBytes);
-        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(nonceBytes);
     }
 
 }

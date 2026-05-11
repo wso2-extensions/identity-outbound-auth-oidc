@@ -77,4 +77,19 @@ public class OIDCDebugUtil {
             throw new IllegalStateException("SHA-256 algorithm not available for PKCE code challenge generation", e);
         }
     }
+
+    /**
+     * Generates a cryptographic nonce for OIDC ID Token replay protection.
+     * Uses SecureRandom for 32 bytes of entropy, encoded as URL-safe Base64.
+     * The nonce is included in the authorization request and validated against
+     * the ID token nonce claim per OIDC Core §3.1.2.1.
+     *
+     * @return Cryptographically random nonce string.
+     */
+    public static String generateNonce() {
+
+        byte[] nonceBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(nonceBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(nonceBytes);
+    }
 }

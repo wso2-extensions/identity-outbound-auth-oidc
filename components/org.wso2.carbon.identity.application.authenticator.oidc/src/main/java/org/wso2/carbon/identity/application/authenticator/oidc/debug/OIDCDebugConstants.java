@@ -135,7 +135,7 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_NONCE = "DEBUG_NONCE";
     public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
-    public static final String DEBUG_CUSTOM_ACCESS_TYPE = "DEBUG_CUSTOM_access_type";
+    public static final String DEBUG_CUSTOM_ACCESS_TYPE = "access_type";
     public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
     public static final String DEBUG_IDP_RESOURCE_ID = "debugIdpResourceId";
     public static final String DEBUG_IDP_DESCRIPTION = "debugIdpDescription";
