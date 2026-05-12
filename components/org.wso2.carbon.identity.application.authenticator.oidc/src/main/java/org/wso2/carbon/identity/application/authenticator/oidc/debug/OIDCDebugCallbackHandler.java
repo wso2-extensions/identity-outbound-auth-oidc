@@ -23,13 +23,14 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.identity.debug.framework.model.DebugContext;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.idp.core.IdpDebugConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
-import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
+import org.wso2.carbon.identity.debug.framework.exception.DebugFrameworkException;
 import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
+import org.wso2.carbon.identity.debug.framework.model.DebugContext;
+import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -100,9 +101,8 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
         boolean isDebugState = state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
-        boolean isDebugSessionKey = sessionDataKey != null && sessionDataKey.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
 
-        if (!isDebugState && !isDebugSessionKey) {
+        if (!isDebugState) {
             return false;
         }
 
@@ -133,12 +133,6 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             // Return false to signal that the callback was not successfully handled,
             // allowing the framework to try other handlers or surface the error.
             return false;
-        } catch (RuntimeException e) {
-            LOG.error("Unexpected runtime error while processing debug flow callback", e);
-            if (!response.isCommitted()) {
-                sendIOErrorResponse(response);
-            }
-            return false;
         }
 
         return true;
@@ -162,7 +156,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             }
 
             return supportedProtocols.contains(protocol.toString().trim().toLowerCase(Locale.ENGLISH));
-        } catch (Exception e) {
+        } catch (DebugFrameworkException e) {
             LOG.debug("Unable to resolve cached debug protocol for state: " + state, e);
             return false;
         }
@@ -222,7 +216,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             if (cachedContextMap != null && !cachedContextMap.isEmpty()) {
                 return DebugContext.buildFromMap(cachedContextMap);
             }
-        } catch (Exception e) {
+        } catch (DebugFrameworkException e) {
             LOG.debug("Error retrieving debug context from session store for state: " + state, e);
         }
 
