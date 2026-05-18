@@ -66,8 +66,8 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
                 throw new ContextResolutionException("HTTP request is null");
             }
 
-            String idpId = request.getParameter("idpId");
-            String authenticatorName = request.getParameter("authenticator");
+            String idpId = request.getParameter(OIDCDebugConstants.PARAM_IDP_ID);
+            String authenticatorName = request.getParameter(OIDCDebugConstants.PARAM_AUTHENTICATOR);
 
             if (StringUtils.isEmpty(idpId)) {
                 throw new ContextResolutionException("IdP ID parameter is missing");
@@ -497,7 +497,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
         }
 
         // Strategy 2: Check AdditionalQueryParameters.
-        String additionalParams = propertyMap.get("AdditionalQueryParameters");
+        String additionalParams = propertyMap.get(OIDCDebugConstants.PROP_ADDITIONAL_QUERY_PARAMS);
         if (additionalParams != null && !additionalParams.isEmpty()) {
             scope = extractScopeFromQueryParams(additionalParams);
             if (StringUtils.isNotEmpty(scope)) {
@@ -523,7 +523,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
         if (LOG.isDebugEnabled()) {
             LOG.debug("No scope found in configuration, defaulting to 'openid'");
         }
-        return "openid";
+        return OIDCDebugConstants.DEFAULT_SCOPE;
     }
 
     private void extractAndStoreOptionalParameters(Map<String, String> propertyMap, Map<String, Object> context) {
@@ -534,7 +534,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
             context.put(OIDCDebugConstants.CLIENT_SECRET, clientSecret);
         }
 
-        String responseType = propertyMap.get("ResponseType");
+        String responseType = propertyMap.get(OIDCDebugConstants.PROP_RESPONSE_TYPE);
         if (StringUtils.isEmpty(responseType)) {
             responseType = "code";
         }

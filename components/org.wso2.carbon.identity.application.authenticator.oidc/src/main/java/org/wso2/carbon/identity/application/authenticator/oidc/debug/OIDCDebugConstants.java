@@ -133,4 +133,41 @@ public final class OIDCDebugConstants {
     public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "CONTEXT_ACCOUNT_LINKING_MESSAGE";
     public static final String ACCOUNT_LINKING_REASON = "reason";
+
+    // Claim status values.
+    public static final String CLAIM_STATUS_SUCCESSFUL = "Successful";
+    public static final String CLAIM_STATUS_NOT_MAPPED = "Not Mapped";
+
+    // Debug result response keys.
+    public static final String RESULT_MAPPED_CLAIMS = "mappedClaims";
+    public static final String RESULT_EXTERNAL_REDIRECT_URL = "externalRedirectUrl";
+    public static final String RESULT_CALLBACK_URL = "callbackUrl";
+    public static final String RESULT_ERROR_CODE = "error_code";
+    public static final String RESULT_ERROR_DESCRIPTION = "error_description";
+
+    // Diagnostic detail keys.
+    public static final String DIAG_ERROR_CODE = "errorCode";
+    public static final String DIAG_ERROR_DESCRIPTION = "errorDescription";
+
+    // OIDC standard claim names.
+    public static final String CLAIM_NONCE = "nonce";
+    public static final String CLAIM_ADDRESS = "address";
+    public static final String CLAIM_EMAIL = "email";
+    public static final String CLAIM_SUB = "sub";
+    public static final String CLAIM_USER_ID = "user_id";
+    public static final String CLAIM_USER_ID_ALT = "userId";
+
+    // Request parameter names.
+    public static final String PARAM_IDP_ID = "idpId";
+    public static final String PARAM_AUTHENTICATOR = "authenticator";
+
+    // Authenticator property names.
+    public static final String PROP_ADDITIONAL_QUERY_PARAMS = "AdditionalQueryParameters";
+    public static final String PROP_RESPONSE_TYPE = "ResponseType";
+    public static final String DEFAULT_SCOPE = "openid";
+
+    // Extracted configuration keys (from OIDCConfigurationExtractor).
+    public static final String EXTRACTED_TOKEN_ENDPOINT = "tokenEndpoint";
+    public static final String EXTRACTED_CLIENT_ID = "clientId";
+    public static final String EXTRACTED_CLIENT_SECRET = "clientSecret";
 }

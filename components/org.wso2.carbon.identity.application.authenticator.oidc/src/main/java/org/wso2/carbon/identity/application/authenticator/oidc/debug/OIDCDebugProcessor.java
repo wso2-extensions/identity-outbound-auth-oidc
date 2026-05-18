@@ -380,14 +380,14 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             if (extracted.isEmpty()) {
                 continue;
             }
-            if (StringUtils.isNotEmpty(extracted.get("tokenEndpoint"))) {
-                config.setTokenEndpoint(extracted.get("tokenEndpoint"));
+            if (StringUtils.isNotEmpty(extracted.get(OIDCDebugConstants.EXTRACTED_TOKEN_ENDPOINT))) {
+                config.setTokenEndpoint(extracted.get(OIDCDebugConstants.EXTRACTED_TOKEN_ENDPOINT));
             }
-            if (StringUtils.isNotEmpty(extracted.get("clientId"))) {
-                config.setClientId(extracted.get("clientId"));
+            if (StringUtils.isNotEmpty(extracted.get(OIDCDebugConstants.EXTRACTED_CLIENT_ID))) {
+                config.setClientId(extracted.get(OIDCDebugConstants.EXTRACTED_CLIENT_ID));
             }
-            if (StringUtils.isNotEmpty(extracted.get("clientSecret"))) {
-                config.setClientSecret(extracted.get("clientSecret"));
+            if (StringUtils.isNotEmpty(extracted.get(OIDCDebugConstants.EXTRACTED_CLIENT_SECRET))) {
+                config.setClientSecret(extracted.get(OIDCDebugConstants.EXTRACTED_CLIENT_SECRET));
             }
             if (config.hasRequiredEndpoints()) {
                 break;
@@ -611,7 +611,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        Object tokenNonceObj = claims.get("nonce");
+        Object tokenNonceObj = claims.get(OIDCDebugConstants.CLAIM_NONCE);
         String tokenNonce = tokenNonceObj != null ? String.valueOf(tokenNonceObj) : null;
         if (StringUtils.isBlank(tokenNonce)) {
             LOG.error("ID token nonce claim is missing while request nonce is present.");
@@ -670,8 +670,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        if (!claims.containsKey("sub") && !claims.containsKey("user_id") &&
-                !claims.containsKey("userId") && !claims.containsKey("email")) {
+        if (!claims.containsKey(OIDCDebugConstants.CLAIM_SUB) && !claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID) &&
+                !claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID_ALT) && !claims.containsKey(OIDCDebugConstants.CLAIM_EMAIL)) {
             LOG.error("Required user identifier claim not found in extracted claims");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "User identifier claim missing");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
@@ -740,7 +740,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
 
         List<Map<String, Object>> mappedClaimsArray = buildMappedClaimsArray(idpClaimMappings, incomingClaims);
-        debugResult.put("mappedClaims", mappedClaimsArray);
+        debugResult.put(OIDCDebugConstants.RESULT_MAPPED_CLAIMS, mappedClaimsArray);
 
         // SUCCESS if all mappings resolved, PARTIAL if any remain unmapped.
         String claimMappingStatus = determineClaimMappingStatus(mappedClaimsArray, idpClaimMappings);
@@ -771,9 +771,9 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         String unmappedIdpClaim = unmappedClaimPair.get("idpClaim");
         String unmappedIsClaim = unmappedClaimPair.get("isClaim");
         if (StringUtils.isNotBlank(unmappedIdpClaim) || StringUtils.isNotBlank(unmappedIsClaim)) {
-            details.put("errorDescription", buildUnmappedClaimErrorDescription(unmappedIdpClaim, unmappedIsClaim));
+            details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, buildUnmappedClaimErrorDescription(unmappedIdpClaim, unmappedIsClaim));
         } else {
-            details.put("errorDescription",
+            details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION,
                     "Couldn't map one or more IdP claims to local claims. Please review claim mappings.");
         }
         return details;
@@ -783,7 +783,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         for (Map<String, Object> claim : mappedClaimsArray) {
             String status = (String) claim.get(OIDCDebugConstants.CLAIM_MAPPING_STATUS);
-            if (!"Not Mapped".equals(status)) {
+            if (!OIDCDebugConstants.CLAIM_STATUS_NOT_MAPPED.equals(status)) {
                 continue;
             }
 
@@ -834,9 +834,9 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         int unmappedCount = 0;
         for (Map<String, Object> claim : mappedClaimsArray) {
             String status = (String) claim.get(OIDCDebugConstants.CLAIM_MAPPING_STATUS);
-            if ("Successful".equals(status)) {
+            if (OIDCDebugConstants.CLAIM_STATUS_SUCCESSFUL.equals(status)) {
                 mappedCount++;
-            } else if ("Not Mapped".equals(status)) {
+            } else if (OIDCDebugConstants.CLAIM_STATUS_NOT_MAPPED.equals(status)) {
                 unmappedCount++;
             }
         }
@@ -881,11 +881,11 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         claimEntry.put(OIDCDebugConstants.CLAIM_MAPPING_LOCAL_CLAIM, localClaimUri != null ? localClaimUri : "");
 
         Object claimValue = null;
-        String claimStatus = "Not Mapped";
+        String claimStatus = OIDCDebugConstants.CLAIM_STATUS_NOT_MAPPED;
 
         if (remoteClaimUri != null && incomingClaims.containsKey(remoteClaimUri)) {
             claimValue = incomingClaims.get(remoteClaimUri);
-            claimStatus = "Successful";
+            claimStatus = OIDCDebugConstants.CLAIM_STATUS_SUCCESSFUL;
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Mapped claim: " + remoteClaimUri + " -> " + localClaimUri);
             }
@@ -896,8 +896,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         claimEntry.put(OIDCDebugConstants.CLAIM_MAPPING_VALUE,
                 claimValue != null ? claimValue.toString() : null);
         claimEntry.put(OIDCDebugConstants.CLAIM_MAPPING_STATUS, claimStatus);
-        if ("Not Mapped".equals(claimStatus)) {
-            claimEntry.put("errorDescription", "IdP claim is not mapped: " + remoteClaimUri);
+        if (OIDCDebugConstants.CLAIM_STATUS_NOT_MAPPED.equals(claimStatus)) {
+            claimEntry.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, "IdP claim is not mapped: " + remoteClaimUri);
         }
 
         return claimEntry;
@@ -907,7 +907,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
         if (StringUtils.isNotBlank(externalRedirectUrl)) {
-            debugResult.put("externalRedirectUrl", externalRedirectUrl);
+            debugResult.put(OIDCDebugConstants.RESULT_EXTERNAL_REDIRECT_URL, externalRedirectUrl);
         }
 
         String idToken = resolveIdTokenFromContext(context);
@@ -915,7 +915,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             debugResult.put(OIDCDebugConstants.ID_TOKEN, idToken);
         }
 
-        debugResult.put("callbackUrl", context.getProperty(OIDCDebugConstants.REDIRECT_URI));
+        debugResult.put(OIDCDebugConstants.RESULT_CALLBACK_URL, context.getProperty(OIDCDebugConstants.REDIRECT_URI));
         debugResult.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
         debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS,
                 transformDiagnostics(DebugDiagnosticsUtil.getDiagnostics(context)));
@@ -1007,13 +1007,13 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         try {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.FALSE);
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error_code", errorCode);
-            errorResponse.put("error_description", resolveErrorDescription(errorDescription));
+            errorResponse.put(OIDCDebugConstants.DEBUG_RESULT_SUCCESS, false);
+            errorResponse.put(OIDCDebugConstants.RESULT_ERROR_CODE, errorCode);
+            errorResponse.put(OIDCDebugConstants.RESULT_ERROR_DESCRIPTION, resolveErrorDescription(errorDescription));
 
             String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
             if (externalRedirectUrl != null && !externalRedirectUrl.isEmpty()) {
-                errorResponse.put("externalRedirectUrl", externalRedirectUrl);
+                errorResponse.put(OIDCDebugConstants.RESULT_EXTERNAL_REDIRECT_URL, externalRedirectUrl);
             }
 
             errorResponse.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
@@ -1208,7 +1208,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     @SuppressWarnings("unchecked")
     private void addAddressScopeClaims(Map<String, Object> incomingClaims, Map<String, Object> normalizedClaims) {
 
-        Object addressClaim = incomingClaims.get("address");
+        Object addressClaim = incomingClaims.get(OIDCDebugConstants.CLAIM_ADDRESS);
         if (!(addressClaim instanceof Map)) {
             return;
         }
@@ -1226,7 +1226,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     private void evaluateDefaultAccountLinkingAttribute(DebugContext context,
             Map<String, Object> incomingClaims) {
 
-        String email = getStringClaim(incomingClaims, "email");
+        String email = getStringClaim(incomingClaims, OIDCDebugConstants.CLAIM_EMAIL);
         if (StringUtils.isBlank(email)) {
             setAccountLinkingFailure(context, "\"email\" is missing.");
             return;
@@ -1423,10 +1423,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         Map<String, Object> details = new LinkedHashMap<>();
         if (StringUtils.isNotBlank(errorCode)) {
-            details.put("errorCode", errorCode);
+            details.put(OIDCDebugConstants.DIAG_ERROR_CODE, errorCode);
         }
         if (StringUtils.isNotBlank(errorDescription)) {
-            details.put("errorDescription", errorDescription);
+            details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, errorDescription);
         }
         return details;
     }
@@ -1450,21 +1450,21 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
 
         Map<String, Object> details = new LinkedHashMap<>((Map<String, Object>) detailsObj);
-        Object errorCode = details.remove("errorCode");
-        Object errorDescription = details.remove("errorDescription");
+        Object errorCode = details.remove(OIDCDebugConstants.DIAG_ERROR_CODE);
+        Object errorDescription = details.remove(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION);
         Object accountLinkingReason = details.remove(OIDCDebugConstants.ACCOUNT_LINKING_REASON);
         Object federatedAttribute = details.remove("federatedAttribute");
         details.remove("idpName");
-        details.remove("tokenEndpoint");
+        details.remove(OIDCDebugConstants.EXTRACTED_TOKEN_ENDPOINT);
 
         if (errorCode != null) {
-            sanitizedEvent.put("errorCode", errorCode);
+            sanitizedEvent.put(OIDCDebugConstants.DIAG_ERROR_CODE, errorCode);
         }
         if (errorDescription == null && accountLinkingReason != null) {
             errorDescription = accountLinkingReason;
         }
         if (errorDescription != null) {
-            sanitizedEvent.put("errorDescription", errorDescription);
+            sanitizedEvent.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, errorDescription);
         }
         if (federatedAttribute != null) {
             sanitizedEvent.put("federatedAttribute", federatedAttribute);
