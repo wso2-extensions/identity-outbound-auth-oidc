@@ -21,36 +21,21 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 
 /**
- * OIDC debug extension constants.
- * 
- * This class contains protocol-specific constants for OIDC debug operations.
- * Constants are organized into categories:
- * OIDC Configuration Parameters (endpoints, client credentials)
- * OIDC Flow Parameters (PKCE, state, nonce)
- * OIDC Response Parameters (tokens, userinfo)
- * OIDC Error Codes
- * Debug Flow Steps
- * Debug Context Keys
- * 
+ * Constants for the OIDC debug extension.
  */
 public final class OIDCDebugConstants {
 
-    // OIDC callback parameters.
-    public static final String OIDC_CODE_PARAM = "code";
-    public static final String OIDC_STATE_PARAM = "state";
-    public static final String OIDC_ERROR_PARAM = "error";
-    public static final String OIDC_ERROR_DESCRIPTION_PARAM = "error_description";
-
     private OIDCDebugConstants() {
-        // Prevent instantiation
     }
 
-    // Debug Component Names
-    public static final String EXECUTOR_NAME = "OIDCExecutor";
+    // Protocol type identifier.
+    public static final String PROTOCOL_TYPE = "OIDC";
+
+    // Debug component names.
     public static final String DEBUG_EXECUTOR_NAME = "OIDCDebugExecutor";
     public static final String DEBUG_RESULT_CACHE_KEY = "DEBUG_RESULT_CACHE";
 
-    // OIDC Configuration Parameters
+    // OIDC configuration parameters.
     public static final String CLIENT_ID = "clientId";
     public static final String CLIENT_SECRET = "clientSecret";
     public static final String AUTHORIZATION_ENDPOINT = "authorizationEndpoint";
@@ -60,33 +45,27 @@ public final class OIDCDebugConstants {
     public static final String RESPONSE_TYPE = "responseType";
     public static final String IDP_CONFIG = "idpConfig";
     public static final String DEBUG_IDP_NAME = "debugIdpName";
-    public static final int HTTP_CONNECT_TIMEOUT_MS = 10000;
-    public static final int HTTP_READ_TIMEOUT_MS = 10000;
 
-    // OIDC Response Parameters
+    // OIDC callback parameters.
+    public static final String OIDC_CODE_PARAM = "code";
+    public static final String OIDC_STATE_PARAM = "state";
+    public static final String OIDC_ERROR_PARAM = "error";
+    public static final String OIDC_ERROR_DESCRIPTION_PARAM = "error_description";
+
+    // OIDC response token fields.
     public static final String ACCESS_TOKEN = "accessToken";
     public static final String TOKEN_TYPE = "tokenType";
-    public static final String EXPIRES_IN = "expiresIn";
-    public static final String REFRESH_TOKEN = "refreshToken";
     public static final String ID_TOKEN = "idToken";
 
-    // OIDC Error Codes
-    public static final String INVALID_REQUEST = "invalid_request";
-    public static final String INVALID_CLIENT = "invalid_client";
-    public static final String INVALID_GRANT = "invalid_grant";
-    public static final String UNAUTHORIZED_CLIENT = "unauthorized_client";
-    public static final String UNSUPPORTED_GRANT_TYPE = "unsupported_grant_type";
-    public static final String INVALID_SCOPE = "invalid_scope";
-    public static final String SERVER_ERROR = "server_error";
-    public static final String TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
-    public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
-
-    // OIDC Flow Parameters
+    // OIDC PKCE parameters.
     public static final String PKCE_ENABLED = "pkceEnabled";
     public static final String PKCE_METHOD = "pkceMethod";
     public static final String PKCE_METHOD_S256 = "S256";
 
-    // Debug Flow Steps
+    // Error codes.
+    public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
+
+    // Debug flow step status keys.
     public static final String STEP_STATUS = "stepStatus";
     public static final String STEP_CONNECTION_STATUS = "connectionCreation";
     public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
@@ -95,7 +74,7 @@ public final class OIDCDebugConstants {
     public static final String STEP_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String DEBUG_DIAGNOSTICS = DebugFrameworkConstants.DEBUG_DIAGNOSTICS;
 
-    // Diagnostic Stages
+    // Diagnostic stage identifiers.
     public static final String STAGE_AUTHORIZATION_REQUEST = "authorizationRequest";
     public static final String STAGE_CALLBACK_VALIDATION = "callbackValidation";
     public static final String STAGE_TOKEN_EXCHANGE = "tokenExchange";
@@ -104,7 +83,7 @@ public final class OIDCDebugConstants {
     public static final String STAGE_CLAIM_MAPPING = "claimMapping";
     public static final String STAGE_ACCOUNT_LINKING = "accountLinking";
 
-    // Status Values
+    // Step status values.
     public static final String STATUS_STARTED = "started";
     public static final String STATUS_SUCCESS = "success";
     public static final String STATUS_PARTIAL = "partial";
@@ -114,23 +93,20 @@ public final class OIDCDebugConstants {
     public static final String STATUS_ABSENT = "absent";
     public static final String STATUS_FOUND = "found";
 
-    // Context/Session Keys
+    // Debug context/session property keys.
     public static final String DEBUG_ID = "debugId";
-    public static final String DEBUG_FLOW_ID = "debugFlowId";
     public static final String DEBUG_TIMESTAMP = "debugTimestamp";
     public static final String DEBUG_TENANT_DOMAIN = "debugTenantDomain";
-    public static final String DEBUG_REQUEST_TYPE = "debugRequestType";
     public static final String DEBUG_AUTHENTICATOR_NAME = "debugAuthenticatorName";
     public static final String DEBUG_EXECUTOR_CLASS = "debugExecutorClass";
     public static final String IS_DEBUG_FLOW = "isDebugFlow";
     public static final String ADDITIONAL_OIDC_PARAMS = "additionalOIDCParams";
+    public static final String CONTEXT_PROTOCOL = "protocol";
 
-    // Status and context property keys
+    // Debug runtime state keys.
     public static final String DEBUG_AUTH_ERROR = "authError";
     public static final String DEBUG_AUTH_SUCCESS = "authSuccess";
-    public static final String DEBUG_STATE = "DEBUG_STATE";
     public static final String DEBUG_ID_TOKEN = "DEBUG_ID_TOKEN";
-    public static final String DEBUG_ACCESS_TOKEN = "DEBUG_ACCESS_TOKEN";
     public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_NONCE = "DEBUG_NONCE";
@@ -139,13 +115,8 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
     public static final String DEBUG_IDP_RESOURCE_ID = "debugIdpResourceId";
     public static final String DEBUG_IDP_DESCRIPTION = "debugIdpDescription";
-    public static final String CONTEXT_PROTOCOL = "protocol";
-    public static final String CONTEXT_KEY_CONNECTION_ID = "connectionId";
-    public static final String CONTEXT_KEY_RESOURCE_NAME = "resourceName";
-    public static final String REQUEST_KEY_CONNECTION_ID = "connectionId";
-    public static final String REQUEST_KEY_IDP_NAME = "idpName";
 
-    // Claim Mapping Keys
+    // Claim mapping field keys.
     public static final String CLAIM_MAPPING_REMOTE = "remote";
     public static final String CLAIM_MAPPING_LOCAL = "local";
     public static final String CLAIM_MAPPING_IDP_CLAIM = "idpClaim";
@@ -153,19 +124,12 @@ public final class OIDCDebugConstants {
     public static final String CLAIM_MAPPING_VALUE = "value";
     public static final String CLAIM_MAPPING_STATUS = "status";
 
-    // Debug Result Keys
+    // Debug result keys.
     public static final String DEBUG_RESULT_SUCCESS = "success";
-    public static final String DEBUG_RESULT_IDPNAME = "idpName";
-    public static final String DEBUG_RESULT_DEBUGID = "debugId";
-    public static final String DEBUG_RESULT_ID_TOKEN_PRESENT = "idTokenPresent";
     public static final String DEBUG_SUCCESS_PAGE = "/authenticationendpoint/debugSuccess.jsp";
+
+    // Account linking keys.
     public static final String CONTEXT_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String CONTEXT_ACCOUNT_LINKING_MESSAGE = "CONTEXT_ACCOUNT_LINKING_MESSAGE";
     public static final String ACCOUNT_LINKING_REASON = "reason";
-
-    // JSON/Response Property Keys
-    public static final String RESPONSE_SUCCESS = "success";
-
-    // Protocol Type Identifier
-    public static final String PROTOCOL_TYPE = "OIDC";
 }

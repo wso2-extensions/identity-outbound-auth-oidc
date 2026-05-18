@@ -21,8 +21,8 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug.client;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
-import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
+import org.wso2.carbon.identity.application.authenticator.oidc.CustomURLConnectionClient;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
@@ -68,7 +68,7 @@ public class OAuth2TokenClient {
                         " for IdP: " + idpName);
             }
 
-            OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
+            OAuthClient oAuthClient = new OAuthClient(new CustomURLConnectionClient());
             OAuthJSONAccessTokenResponse oAuthResponse = oAuthClient.accessToken(request);
 
             return extractTokenResponse(oAuthResponse, idpName);
@@ -91,24 +91,19 @@ public class OAuth2TokenClient {
             String clientId, String clientSecret, String redirectUri) {
 
         if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
-            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required",
-                    "Authorization code parameter was null or empty");
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required");
         }
         if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
-            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required",
-                    "Token endpoint URL was null or empty");
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required");
         }
         if (clientId == null || clientId.trim().isEmpty()) {
-            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required",
-                    "Client ID was null or empty");
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required");
         }
         if (clientSecret == null || clientSecret.trim().isEmpty()) {
-            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required",
-                    "Client secret was null or empty");
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required");
         }
         if (redirectUri == null || redirectUri.trim().isEmpty()) {
-            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required",
-                    "Redirect URI was null or empty");
+            return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required");
         }
         return null;
     }
@@ -187,7 +182,7 @@ public class OAuth2TokenClient {
 
         String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
         String errorCode = extractErrorCode(e);
-        String enhancedDetails = buildDetailedErrorDescription(e, errorCode);
+        String errorDescription = buildDetailedErrorDescription(e, errorCode);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Token exchange failed with error code: " + errorCode + ", message: " + errorMessage +
@@ -196,7 +191,7 @@ public class OAuth2TokenClient {
         LOG.error("Token exchange failed for IdP: " + idpName + " - Code: " + errorCode +
                 ", Message: " + errorMessage, e);
 
-        return TokenResponse.error(errorCode, errorMessage, enhancedDetails);
+        return TokenResponse.error(errorCode, errorDescription);
     }
 
     /**

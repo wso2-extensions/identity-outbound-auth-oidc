@@ -526,7 +526,8 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
     private boolean isKnownOidcImplementation(String implementationName) {
 
         return IdpDebugConstants.IMPLEMENTATION_OPENID_CONNECT.equals(implementationName)
-                || IdpDebugConstants.IMPLEMENTATION_GOOGLE_OIDC.equals(implementationName);
+                || IdpDebugConstants.IMPLEMENTATION_GOOGLE_OIDC.equals(implementationName)
+                || IdpDebugConstants.IMPLEMENTATION_GITHUB.equals(implementationName);
     }
 
     /**

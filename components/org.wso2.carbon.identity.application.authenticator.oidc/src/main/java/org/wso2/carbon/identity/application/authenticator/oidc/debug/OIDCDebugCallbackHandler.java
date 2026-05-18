@@ -167,9 +167,10 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         String code = request.getParameter(OIDCDebugConstants.OIDC_CODE_PARAM);
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
         String error = request.getParameter(OIDCDebugConstants.OIDC_ERROR_PARAM);
+        String errorDescription = request.getParameter(OIDCDebugConstants.OIDC_ERROR_DESCRIPTION_PARAM);
         String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
-        if (handleOAuthError(error, response)) {
+        if (handleOAuthError(error, errorDescription, response)) {
             return;
         }
 
@@ -195,15 +196,16 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         }
     }
 
-    private boolean handleOAuthError(String error, HttpServletResponse response) {
+    private boolean handleOAuthError(String error, String errorDescription, HttpServletResponse response) {
 
         if (error == null) {
             return false;
         }
-        LOG.error("OAuth error in debug callback.");
+        LOG.error("OAuth error in debug callback: " + error +
+                (errorDescription != null ? " - " + errorDescription : ""));
         if (!response.isCommitted()) {
-            sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST,
-                    "OAUTH_ERROR", "OAuth error occurred.");
+            String message = errorDescription != null ? error + ": " + errorDescription : error;
+            sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST, "OAUTH_ERROR", message);
         }
         return true;
     }

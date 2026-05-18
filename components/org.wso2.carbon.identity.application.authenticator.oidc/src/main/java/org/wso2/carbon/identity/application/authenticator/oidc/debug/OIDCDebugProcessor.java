@@ -98,7 +98,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "OIDC callback returned an error response.",
                     buildErrorDetails(error, errorDescription));
-            buildAndCacheTokenExchangeErrorResponse(error, errorDescription, "", state, context);
+            buildAndCacheTokenExchangeErrorResponse(error, errorDescription, state, context);
             return false;
         }
 
@@ -110,7 +110,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "Authorization code is missing in the callback.");
             buildAndCacheTokenExchangeErrorResponse("NO_CODE",
-                    "Authorization code not received from IdP", "", state, context);
+                    "Authorization code not received from IdP", state, context);
             return false;
         }
 
@@ -123,13 +123,13 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CALLBACK_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "State parameter is missing in the callback.");
             buildAndCacheTokenExchangeErrorResponse("NO_STATE",
-                    "State parameter missing - possible CSRF attack", "", state, context);
+                    "State parameter missing - possible CSRF attack", state, context);
             return false;
         }
 
         // Validate callback correlation value against the debug identifier.
         String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
-        if (debugId == null || !state.equals(debugId)) {
+        if (debugId == null || !state.trim().equals(debugId)) {
             LOG.error("State parameter mismatch - CSRF attack detected");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR,
                     "State validation failed - possible CSRF attack");
@@ -138,7 +138,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                     OIDCDebugConstants.STATUS_FAILED, "State parameter validation failed.",
             buildErrorDetails("STATE_MISMATCH", "Received state does not match debug identifier."));
             buildAndCacheTokenExchangeErrorResponse("STATE_MISMATCH",
-                    "State validation failed - possible CSRF attack", "", state, context);
+                    "State validation failed - possible CSRF attack", state, context);
             return false;
         }
 
@@ -226,7 +226,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "Token exchange error: " + e.getMessage());
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
             buildAndCacheTokenExchangeErrorResponse("TOKEN_EXCHANGE_ERROR",
-                    "Token exchange error: " + e.getMessage(), e.toString(), state, context);
+                    "Token exchange error: " + e.getMessage(), state, context);
             return false;
         }
     }
@@ -248,7 +248,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Identity Provider configuration was not found.");
             buildAndCacheTokenExchangeErrorResponse("IDP_CONFIG_MISSING",
-                    "Identity Provider configuration not found", "", state, context);
+                    "Identity Provider configuration not found", state, context);
             return false;
         }
 
@@ -257,7 +257,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                     OIDCDebugConstants.STATUS_FAILED, "Authorization code is missing for token exchange.");
             buildAndCacheTokenExchangeErrorResponse("NO_CODE",
-                    "Authorization code not received from IdP", "", state, context);
+                    "Authorization code not received from IdP", state, context);
             return false;
         }
 
@@ -432,21 +432,29 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
      */
     private void handleConfigurationError(OIDCConfiguration config, String state, DebugContext context) {
 
-        if (config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty()) {
+        boolean missingEndpoint = config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty();
+        boolean missingClientId = config.getClientId() == null || config.getClientId().trim().isEmpty();
+
+        String errorCode;
+        String errorDescription;
+
+        if (missingEndpoint && missingClientId) {
+            LOG.error("Token endpoint and client ID not found in context or IdP configuration");
+            errorCode = "CONFIG_MISSING";
+            errorDescription = "Token endpoint and client ID are not configured for the IdP.";
+        } else if (missingEndpoint) {
             LOG.error("Token endpoint not found in context or IdP configuration");
-            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
-                    OIDCDebugConstants.STATUS_FAILED, "Token endpoint is not configured for the IdP.");
-            buildAndCacheTokenExchangeErrorResponse("TOKEN_ENDPOINT_MISSING",
-                    "Token endpoint is not configured", "", state, context);
+            errorCode = "TOKEN_ENDPOINT_MISSING";
+            errorDescription = "Token endpoint is not configured for the IdP.";
+        } else {
+            LOG.error("Client ID not found in context or IdP configuration");
+            errorCode = "CLIENT_ID_MISSING";
+            errorDescription = "Client ID is not configured for the IdP.";
         }
 
-        if (config.getClientId() == null || config.getClientId().trim().isEmpty()) {
-            LOG.error("Client ID not found in context or IdP configuration");
-            DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
-                    OIDCDebugConstants.STATUS_FAILED, "Client ID is not configured for the IdP.");
-            buildAndCacheTokenExchangeErrorResponse("CLIENT_ID_MISSING",
-                    "Client ID is not configured", "", state, context);
-        }
+        DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
+                OIDCDebugConstants.STATUS_FAILED, errorDescription);
+        buildAndCacheTokenExchangeErrorResponse(errorCode, errorDescription, state, context);
     }
 
     /**
@@ -471,11 +479,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return handleTokenExchangeSuccess(tokenResponse, config, context);
     }
 
-    /**
-     * Logs the start of token exchange process.
-     *
-     * @param config OIDCConfiguration.
-     */
     private void logTokenExchangeStart(OIDCConfiguration config) {
 
         if (LOG.isDebugEnabled()) {
@@ -514,14 +517,13 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         String errorCode = tokenResponse.getErrorCode();
         String errorDesc = tokenResponse.getErrorDescription();
-        String errorDetails = tokenResponse.getErrorDetails();
 
         DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_FAILED, "Failed to obtain tokens",
                 buildTokenExchangeFailureDetails(errorCode, errorDesc));
 
         markContextAsFailedExchange(context, errorDesc);
-        buildAndCacheTokenExchangeErrorResponse(errorCode, errorDesc, errorDetails, state, context);
+        buildAndCacheTokenExchangeErrorResponse(errorCode, errorDesc, state, context);
 
         return false;
     }
@@ -557,11 +559,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return true;
     }
 
-    /**
-     * Marks the debug context as successful exchange.
-     *
-     * @param context DebugContext.
-     */
     private void markContextAsSuccessfulExchange(DebugContext context) {
 
         context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
@@ -799,7 +796,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_VALIDATION,
                     OIDCDebugConstants.STATUS_FAILED, "No claims are available to validate.");
             buildAndCacheTokenExchangeErrorResponse("NO_CLAIMS",
-                    "No user claims available from IdP", "", state, context);
+                    "No user claims available from IdP", state, context);
             return false;
         }
 
@@ -813,7 +810,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                     OIDCDebugConstants.STATUS_FAILED,
                     "Required user identifier claim is missing from the extracted claims.");
             buildAndCacheTokenExchangeErrorResponse("NO_USER_IDENTIFIER",
-                    "User identifier (sub/user_id/email) not found in claims", "", state, context);
+                    "User identifier (sub/user_id/email) not found in claims", state, context);
             return false;
         }
 
@@ -1023,8 +1020,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Builds the mapped claims array by processing configured mappings and
-    * configured mappings.
+     * Builds the mapped claims array by cross-referencing configured mappings
+     * against incoming claims.
      *
      * @param idpClaimMappings IdP configured claim mappings.
      * @param incomingClaims Incoming claims from tokens.
@@ -1151,7 +1148,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
             // Get context ID and persist to DebugResultCache.
             String contextId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
-            persistDebugResultToCache(state, contextId, debugResultJson);
+            persistJsonToSessionStore(state, contextId, debugResultJson);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Debug result cached and persisted for state: " + state);
@@ -1198,9 +1195,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 idp.getClaimConfig().getClaimMappings() != null;
     }
 
-    /**
-     * Logs when no claim configuration is found.
-     */
     private void logNoClaimConfiguration() {
 
         if (LOG.isDebugEnabled()) {
@@ -1277,12 +1271,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return mapping;
     }
 
-    /**
-     * Logs the extraction of a claim mapping.
-     *
-     * @param remoteClaimUri The remote claim URI.
-     * @param localClaimUri  The local claim URI.
-     */
     private void logClaimMappingExtracted(String remoteClaimUri, String localClaimUri) {
 
         if (LOG.isDebugEnabled()) {
@@ -1302,27 +1290,15 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Builds and caches token exchange error response with detailed error
-     * information.
-     * Formats error details for debug API response.
-     * Persists to DebugResultCache for API retrieval.
-     *
-     * @param errorCode The error code from token exchange failure.
-     * @param errorDescription The error description/message.
-     * @param errorDetails Additional error details or stack trace.
-     * @param state The state parameter for session identification.
-     * @param context DebugContext.
-     */
     private void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
-            String errorDetails, String state, DebugContext context) {
+            String state, DebugContext context) {
 
         try {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.FALSE);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error_code", errorCode);
-            errorResponse.put("error_description", resolveErrorDescription(errorDescription, errorDetails));
+            errorResponse.put("error_description", resolveErrorDescription(errorDescription));
 
             // Add external redirect URL if available.
             String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
@@ -1344,7 +1320,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
             // Persist to DebugResultCache for API endpoint retrieval (with both state and
             // contextId as keys).
-            persistDebugResultToCache(state, contextId, errorResponseJson);
+            persistJsonToSessionStore(state, contextId, errorResponseJson);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error response cached and persisted for state: " + state + " with error: " + errorCode);
@@ -1355,7 +1331,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    private String resolveErrorDescription(String errorDescription, String errorDetails) {
+    private String resolveErrorDescription(String errorDescription) {
 
         if (StringUtils.isNotBlank(errorDescription)) {
             return errorDescription;
@@ -1636,17 +1612,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return authSuccess instanceof Boolean && !((Boolean) authSuccess);
     }
 
-    /**
-     * Persists debug result to DebugResultCache.
-     * The result can then be retrieved via the GET /debug/result/{session-id}
-     * endpoint.
-     * Caches under both state and contextId to support flexible lookups.
-     *
-     * @param state The state parameter (primary cache key).
-     * @param contextId The context ID/session ID (alternate cache key).
-     * @param resultJson The JSON-serialized debug result to cache.
-     */
-    private void persistDebugResultToCache(String state, String contextId, String resultJson) {
+    private void persistJsonToSessionStore(String state, String contextId, String resultJson) {
 
         try {
             DebugSessionStore.getInstance().putResult(state, resultJson);

@@ -147,7 +147,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
             result.setSuccessful(true);
             result.setDebugId(debugId);
             result.setStatus(DebugFrameworkConstants.DEBUG_STATUS_SUCCESS_INCOMPLETE);
-            result.setErrorMessage("Configurations validated successfully.");
             result.addResultData(RESULT_AUTHORIZATION_URL, authorizationUrl);
 
             if (LOG.isDebugEnabled()) {
@@ -359,56 +358,43 @@ public class OIDCDebugExecutor extends DebugExecutor {
         }
     }
 
-    /**
-     * Gets the default redirect URI for debug callback.
-     * Configurable via system property 'debug.OIDC.redirect.uri'.
-     */
     private String getDefaultRedirectUri() {
 
-        String customUri = System.getProperty("debug.OIDC.redirect.uri");
-        if (StringUtils.isNotEmpty(customUri)) {
-            return customUri;
-        }
-
-        // Use IdentityUtil to resolve the actual server URL dynamically.
         return IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
     }
 
-    /**
-     * Stores the debug context using the shared DebugSessionStore.
-     */
-    private void cacheDebugContext(DebugContext context) {
+    private void cacheDebugContext(DebugContext context) throws DebugExecutionException {
+
+        String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
+        if (debugId == null) {
+            throw new DebugExecutionException("Cannot cache debug context - debugId is null");
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Caching debug context with debugId: " + debugId +
+                    ", TOKEN_ENDPOINT=" +
+                    (context.getProperty(OIDCDebugConstants.TOKEN_ENDPOINT) != null ? "FOUND" : "null") +
+                    ", CLIENT_ID=" +
+                    (context.getProperty(OIDCDebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
+        }
 
         try {
-            String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
-            if (debugId == null) {
-                LOG.warn("Cannot cache debug context - debugId is null");
-                return;
-            }
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Caching debug context with debugId: " + debugId +
-                        ", TOKEN_ENDPOINT=" +
-                        (context.getProperty(OIDCDebugConstants.TOKEN_ENDPOINT) != null ? "FOUND" : "null") +
-                        ", CLIENT_ID=" +
-                        (context.getProperty(OIDCDebugConstants.CLIENT_ID) != null ? "FOUND" : "null"));
-            }
-
             DebugContext sanitizedContext = DebugContext.buildFromMap(context.getProperties());
             sanitizedContext.setResourceType(context.getResourceType());
             // Sanitize credentials and non-serializable typed objects before persisting to session store.
             sanitizedContext.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
             sanitizedContext.setProperty(OIDCDebugConstants.IDP_CONFIG, null);
             DebugSessionStore.getInstance().put(debugId, sanitizedContext);
-
-            // to prevent exposure if caller code inspects or logs context after this call.
-            context.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
-
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Debug context cached successfully with debugId: " + debugId);
-            }
         } catch (Exception e) {
             LOG.error("Error caching debug context: " + e.getMessage(), e);
+            throw new DebugExecutionException("Failed to cache debug context for debugId: " + debugId, e);
+        }
+
+        // Prevent exposure if caller code inspects or logs context after this call.
+        context.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Debug context cached successfully with debugId: " + debugId);
         }
     }
 

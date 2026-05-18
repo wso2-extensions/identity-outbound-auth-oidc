@@ -21,7 +21,9 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug.client;
 import java.util.Objects;
 
 /**
- * Simple holder for OAuth2 token response values and error details.
+ * Immutable value object representing the outcome of an OAuth2 token exchange.
+ * Constructed exclusively through the {@link #success} and {@link #error} factory methods.
+ * Callers should check {@link #hasError()} before accessing token fields.
  */
 public class TokenResponse {
 
@@ -31,10 +33,9 @@ public class TokenResponse {
     private final String tokenType;
     private final String errorCode;
     private final String errorDescription;
-    private final String errorDetails;
 
     private TokenResponse(String accessToken, String idToken, String refreshToken, String tokenType,
-            String errorCode, String errorDescription, String errorDetails) {
+            String errorCode, String errorDescription) {
 
         this.accessToken = accessToken;
         this.idToken = idToken;
@@ -42,61 +43,109 @@ public class TokenResponse {
         this.tokenType = tokenType;
         this.errorCode = errorCode;
         this.errorDescription = errorDescription;
-        this.errorDetails = errorDetails;
     }
 
+    /**
+     * Creates a successful token response.
+     *
+     * @param accessToken  OAuth2 access token (required).
+     * @param idToken      OIDC ID token, may be null for non-OIDC flows.
+     * @param refreshToken Refresh token, may be null.
+     * @param tokenType    Token type (e.g. "Bearer"), may be null.
+     * @return TokenResponse representing a successful exchange.
+     */
     public static TokenResponse success(String accessToken, String idToken, String refreshToken, String tokenType) {
 
         Objects.requireNonNull(accessToken, "accessToken required for success response");
-        return new TokenResponse(accessToken, idToken, refreshToken, tokenType, null, null, null);
+        return new TokenResponse(accessToken, idToken, refreshToken, tokenType, null, null);
     }
 
-    public static TokenResponse error(String errorCode, String errorDescription, String errorDetails) {
+    /**
+     * Creates an error token response.
+     *
+     * @param errorCode        OAuth2 error code (e.g. {@code "invalid_grant"}, required).
+     * @param errorDescription Human-readable description of the error.
+     * @return TokenResponse representing a failed exchange.
+     */
+    public static TokenResponse error(String errorCode, String errorDescription) {
 
         Objects.requireNonNull(errorCode, "errorCode required for error response");
-        return new TokenResponse(null, null, null, null, errorCode, errorDescription, errorDetails);
+        return new TokenResponse(null, null, null, null, errorCode, errorDescription);
     }
 
+    /**
+     * Returns the OAuth2 access token.
+     * Null when {@link #hasError()} is true.
+     *
+     * @return Access token string, or null on error.
+     */
     public String getAccessToken() {
 
         return accessToken;
     }
 
+    /**
+     * Returns the OIDC ID token.
+     * May be null even on success for non-OIDC IdPs.
+     *
+     * @return ID token string, or null if not present.
+     */
     public String getIdToken() {
 
         return idToken;
     }
 
+    /**
+     * Returns the OAuth2 refresh token.
+     * May be null if the IdP did not issue one.
+     *
+     * @return Refresh token string, or null if not present.
+     */
     public String getRefreshToken() {
 
         return refreshToken;
     }
 
+    /**
+     * Returns the token type (e.g. {@code "Bearer"}).
+     *
+     * @return Token type string, or null if not present.
+     */
     public String getTokenType() {
 
         return tokenType;
     }
 
     /**
-     * Returns true if this response contains an error.
+     * Returns true if this response represents a failed token exchange.
+     * When true, {@link #getErrorCode()} and {@link #getErrorDescription()} contain failure details.
+     *
+     * @return true if the exchange failed, false on success.
      */
     public boolean hasError() {
 
         return errorCode != null;
     }
 
+    /**
+     * Returns the OAuth2 error code from a failed exchange.
+     * Null when {@link #hasError()} is false.
+     *
+     * @return Error code string, or null on success.
+     */
     public String getErrorCode() {
 
         return errorCode;
     }
 
+    /**
+     * Returns a human-readable description of the error.
+     * Null when {@link #hasError()} is false.
+     *
+     * @return Error description string, or null on success.
+     */
     public String getErrorDescription() {
 
         return errorDescription;
-    }
-
-    public String getErrorDetails() {
-        
-        return errorDetails;
     }
 }
