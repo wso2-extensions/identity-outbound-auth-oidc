@@ -22,6 +22,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
+import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.framework.store.DebugSessionStore;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.util.OIDCDebugUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
@@ -52,7 +53,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugExecutor.class);
     private static final String RESULT_AUTHORIZATION_URL = "authorizationUrl";
-    private static final String RESULT_DEBUG_ID = "debugId";
 
     /**
      * Executes OIDC debug flow and generates authorization URL.
@@ -140,19 +140,15 @@ public class OIDCDebugExecutor extends DebugExecutor {
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_SUCCESS, "Configurations validated successfully.");
 
-            // Cache authentication context for retrieval during callback.
+            // Cache debug context for retrieval during callback.
             cacheDebugContext(context);
 
             // Build result.
             result.setSuccessful(true);
-            result.setStatus("Configurations validated successfully.");
             result.setDebugId(debugId);
+            result.setStatus(DebugFrameworkConstants.DEBUG_STATUS_SUCCESS_INCOMPLETE);
+            result.setErrorMessage("Configurations validated successfully.");
             result.addResultData(RESULT_AUTHORIZATION_URL, authorizationUrl);
-            result.addResultData(RESULT_DEBUG_ID, debugId);
-            // Note: codeVerifier is intentionally NOT included in metadata to prevent PKCE bypass.
-            // It is stored securely in DebugSessionStore for use during the callback token exchange.
-            result.addMetadata("idpName", context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME));
-            result.addMetadata(OIDCDebugConstants.DEBUG_DIAGNOSTICS, DebugDiagnosticsUtil.getDiagnostics(context));
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OIDC Authorization URL result: debugId=" + debugId +
@@ -199,6 +195,17 @@ public class OIDCDebugExecutor extends DebugExecutor {
     public String getExecutorName() {
 
         return OIDCDebugConstants.DEBUG_EXECUTOR_NAME;
+    }
+
+    /**
+     * Performs cleanup after the OIDC debug operation completes.
+     * The session store manages its own entry lifecycle, so no explicit
+     * resource release is required here.
+     */
+    @Override
+    public void cleanup() {
+
+        // No OIDC-specific resources to release; DebugSessionStore entries expire automatically.
     }
 
     /**

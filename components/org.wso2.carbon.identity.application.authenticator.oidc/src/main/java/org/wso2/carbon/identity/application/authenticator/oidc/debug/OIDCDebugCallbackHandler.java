@@ -26,7 +26,7 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants;
 import org.wso2.carbon.identity.debug.idp.core.IdpDebugConstants;
 import org.wso2.carbon.identity.debug.framework.DebugFrameworkConstants.ErrorMessages;
-import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
+import org.wso2.carbon.identity.debug.idp.core.IdpDebugProcessor;
 import org.wso2.carbon.identity.debug.framework.exception.DebugFrameworkException;
 import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 import org.wso2.carbon.identity.debug.framework.model.DebugContext;
@@ -53,7 +53,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     private static final Log LOG = LogFactory.getLog(OIDCDebugCallbackHandler.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private final DebugProcessor processor;
+    private final IdpDebugProcessor processor;
     private final Set<String> supportedProtocols;
 
     /**
@@ -61,9 +61,9 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
      * Registers support for OIDC, Google, and GitHub protocols.
      * Google and GitHub currently share the same OAuth2/OIDC callback handling flow.
      *
-     * @param processor {@link DebugProcessor} to be used for processing callbacks.
+     * @param processor {@link IdpDebugProcessor} to be used for processing callbacks.
      */
-    public OIDCDebugCallbackHandler(DebugProcessor processor) {
+    public OIDCDebugCallbackHandler(IdpDebugProcessor processor) {
 
         this(processor, OIDCDebugConstants.PROTOCOL_TYPE, IdpDebugConstants.PROTOCOL_TYPE_GOOGLE,
                 IdpDebugConstants.PROTOCOL_TYPE_GITHUB);
@@ -75,7 +75,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
      * @param processor          {@link DebugProcessor} to be used for processing callbacks.
      * @param supportedProtocols Array of protocol types supported by this handler.
      */
-    public OIDCDebugCallbackHandler(DebugProcessor processor, String... supportedProtocols) {
+    public OIDCDebugCallbackHandler(IdpDebugProcessor processor, String... supportedProtocols) {
 
         this.processor = processor;
         Set<String> normalizedProtocols = new HashSet<>();
@@ -90,9 +90,10 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
     /**
      * Checks if this handler can process the given OIDC callback request.
+     * The request is already guaranteed to be a debug request by the interceptor.
      *
      * @param request {@link HttpServletRequest} representing the callback.
-     * @return True if the request is a valid debug OIDC callback for a supported protocol.
+     * @return True if the request is for a supported protocol.
      */
     @Override
     public boolean canHandle(HttpServletRequest request) {
@@ -100,13 +101,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
         String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
-        boolean isDebugState = state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX);
-
-        if (!isDebugState) {
-            return false;
-        }
-
-        return isSupportedProtocol(isDebugState ? state : sessionDataKey);
+        return isSupportedProtocol(state != null ? state : sessionDataKey);
     }
 
     /**
@@ -125,13 +120,17 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
         try {
             processDebugFlowCallback(request, response);
+        } catch (DebugFrameworkException e) {
+            LOG.error("Error processing debug flow callback", e);
+            if (!response.isCommitted()) {
+                sendIOErrorResponse(response);
+            }
+            return false;
         } catch (IOException e) {
             LOG.error("Error processing debug flow callback", e);
             if (!response.isCommitted()) {
                 sendIOErrorResponse(response);
             }
-            // Return false to signal that the callback was not successfully handled,
-            // allowing the framework to try other handlers or surface the error.
             return false;
         }
 
@@ -163,7 +162,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     }
 
     private void processDebugFlowCallback(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
+            throws DebugFrameworkException, IOException {
 
         String code = request.getParameter(OIDCDebugConstants.OIDC_CODE_PARAM);
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);

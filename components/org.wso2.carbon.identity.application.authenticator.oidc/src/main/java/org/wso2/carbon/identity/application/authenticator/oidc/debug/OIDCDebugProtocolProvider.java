@@ -22,6 +22,7 @@ import org.wso2.carbon.identity.debug.idp.core.IdpDebugConstants;
 import org.wso2.carbon.identity.debug.framework.core.DebugContextProvider;
 import org.wso2.carbon.identity.debug.framework.core.DebugExecutor;
 import org.wso2.carbon.identity.debug.framework.core.DebugProcessor;
+import org.wso2.carbon.identity.debug.idp.core.IdpDebugProcessor;
 import org.wso2.carbon.identity.debug.framework.extension.DebugCallbackHandler;
 import org.wso2.carbon.identity.debug.framework.extension.DebugProtocolProvider;
 
@@ -32,7 +33,7 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
 
     private final DebugContextProvider contextProvider;
     private final DebugExecutor executor;
-    private final DebugProcessor processor;
+    private final IdpDebugProcessor processor;
     private final DebugCallbackHandler callbackHandler;
 
     public OIDCDebugProtocolProvider() {
@@ -41,7 +42,7 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
     }
 
     public OIDCDebugProtocolProvider(DebugContextProvider contextProvider, DebugExecutor executor,
-            DebugProcessor processor) {
+            IdpDebugProcessor processor) {
 
         this.contextProvider = contextProvider;
         this.executor = executor;

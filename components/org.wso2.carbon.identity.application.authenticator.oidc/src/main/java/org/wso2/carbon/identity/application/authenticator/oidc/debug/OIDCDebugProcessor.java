@@ -527,7 +527,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Marks the authentication context as failed exchange.
+     * Marks the debug context as failed exchange.
      *
      * @param context   DebugContext.
      * @param errorDesc Error description.
@@ -558,7 +558,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Marks the authentication context as successful exchange.
+     * Marks the debug context as successful exchange.
      *
      * @param context DebugContext.
      */
@@ -718,7 +718,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     /**
      * Validates the nonce claim in the ID token claims map against expected nonce from context.
      *
-     * @param context Authentication context holding expected nonce.
+     * @param context debug context holding expected nonce.
      * @param claims ID token claims.
      * @return true if nonce is valid, false otherwise.
      */
@@ -1727,10 +1727,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Restores individual properties from cached context to authentication context.
+     * Restores individual properties from cached context to debug context.
      *
      * @param cachedContext The cached context map.
-     * @param context       The authentication context to populate.
+     * @param context       The debug context to populate.
      */
     private void restorePropertiesToContext(Map<String, Object> cachedContext, DebugContext context) {
 
@@ -1759,7 +1759,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
      * Restores a single property from cached context if it exists.
      *
      * @param cachedContext The cached context map.
-     * @param context The authentication context to populate.
+     * @param context The debug context to populate.
      * @param property The property name to restore.
      */
     private void restorePropertyIfPresent(Map<String, Object> cachedContext, DebugContext context,

@@ -315,7 +315,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
      * @return true if idpId is non-empty and contains only safe characters, false otherwise.
      */
     @Override
-    public boolean canResolve(String idpId) {
+    public boolean canHandle(String idpId) {
 
         return StringUtils.isNotEmpty(idpId) && SAFE_ID_PATTERN.matcher(idpId).matches();
     }
