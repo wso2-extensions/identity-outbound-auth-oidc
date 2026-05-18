@@ -37,19 +37,11 @@ public class OIDCConfigurationExtractor {
 
     private static final Log LOG = LogFactory.getLog(OIDCConfigurationExtractor.class);
 
-    /**
-     * Private constructor to prevent instantiation of utility class.
-     */
     private OIDCConfigurationExtractor() {
-        
-        // Prevent instantiation
+
     }
 
-    /**
-     * Property name variations for OAuth2/OIDC configuration parameters.
-     * These arrays are the single source of truth for property key lookups used by
-     * both this extractor and OIDCContextProvider.
-     */
+    // Single source of truth for property key lookups — shared with OIDCContextProvider.
     private static final List<String> CLIENT_ID_PROPERTY_NAMES = Arrays.asList(
             "ClientId", "client_id", "OAuth2ClientId", "OIDCClientId");
     private static final List<String> CLIENT_SECRET_PROPERTY_NAMES = Arrays.asList(
@@ -64,8 +56,8 @@ public class OIDCConfigurationExtractor {
 
     /**
      * Extracts OAuth2 configuration from a FederatedAuthenticatorConfig.
-     * Returns a map with extracted configuration values (may be incomplete if some values are missing).
-     * Caller should validate required fields are present.
+     * Returns a map with extracted configuration values; may be incomplete if some values are missing.
+     * Caller is responsible for validating required fields are present.
      *
      * @param authenticatorConfig The authenticator configuration to extract from.
      * @return Map with extracted OAuth2 parameters (clientId, clientSecret, endpoints, etc.).
@@ -78,10 +70,8 @@ public class OIDCConfigurationExtractor {
             return result;
         }
 
-        // Build property map from authenticator properties.
         Map<String, String> propertyMap = buildPropertyMap(authenticatorConfig.getProperties());
 
-        // Extract OAuth2 parameters using fallback strategies.
         extractClientId(propertyMap, result);
         extractClientSecret(propertyMap, result);
         extractTokenEndpoint(propertyMap, result);
@@ -91,8 +81,7 @@ public class OIDCConfigurationExtractor {
     }
 
     /**
-     * Builds a property map from Property array for easier lookups.
-     * Handles null properties gracefully.
+     * Builds a name-to-value map from a Property array.
      * Public to allow reuse across the debug package hierarchy.
      *
      * @param properties Array of Property objects from authenticator config.
@@ -111,12 +100,6 @@ public class OIDCConfigurationExtractor {
         return propertyMap;
     }
 
-    /**
-     * Extracts client ID from property map using multiple fallback property names.
-     *
-     * @param propertyMap Source property map.
-     * @param result Result map to populate with "clientId" key.
-     */
     private static void extractClientId(Map<String, String> propertyMap, Map<String, String> result) {
 
         String value = findPropertyValue(propertyMap, CLIENT_ID_PROPERTY_NAMES);
@@ -125,13 +108,6 @@ public class OIDCConfigurationExtractor {
         }
     }
 
-    /**
-     * Extracts client secret from property map using multiple fallback property names.
-     * Logs extraction with masked value for security.
-     *
-     * @param propertyMap Source property map.
-     * @param result Result map to populate with "clientSecret" key.
-     */
     private static void extractClientSecret(Map<String, String> propertyMap, Map<String, String> result) {
 
         String value = findPropertyValue(propertyMap, CLIENT_SECRET_PROPERTY_NAMES);
@@ -143,12 +119,6 @@ public class OIDCConfigurationExtractor {
         }
     }
 
-    /**
-     * Extracts token endpoint from property map using multiple fallback property names.
-     *
-     * @param propertyMap Source property map.
-     * @param result Result map to populate with "tokenEndpoint" key.
-     */
     private static void extractTokenEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
 
         String value = findPropertyValue(propertyMap, TOKEN_ENDPOINT_PROPERTY_NAMES);
@@ -160,12 +130,6 @@ public class OIDCConfigurationExtractor {
         }
     }
 
-    /**
-     * Extracts authorization endpoint from property map using multiple fallback property names.
-     *
-     * @param propertyMap Source property map.
-     * @param result Result map to populate with "authzEndpoint" key.
-     */
     private static void extractAuthorizationEndpoint(Map<String, String> propertyMap, Map<String, String> result) {
 
         String value = findPropertyValue(propertyMap, AUTHZ_ENDPOINT_PROPERTY_NAMES);
@@ -178,13 +142,12 @@ public class OIDCConfigurationExtractor {
     }
 
     /**
-     * Finds a property value using multiple fallback property names.
-     * Returns first non-empty value found.
+     * Returns the first non-empty value from the property map matching any of the given names, or null if none found.
      * Public to allow reuse across the debug package hierarchy.
      *
-     * @param propertyMap Source property map.
-     * @param propertyNames Array of property names to try in order.
-     * @return First non-empty value found, or null if none found.
+     * @param propertyMap   Source property map.
+     * @param propertyNames Property names to try in order.
+     * @return First non-empty value found, or null.
      */
     public static String findPropertyValue(Map<String, String> propertyMap, List<String> propertyNames) {
 
@@ -225,41 +188,5 @@ public class OIDCConfigurationExtractor {
     public static List<String> getScopePropertyNames() {
 
         return SCOPE_PROPERTY_NAMES;
-    }
-
-    /**
-     * Validates that required OAuth2 configuration parameters are present.
-     *
-     * @param config Configuration map to validate.
-     * @return true if clientId and tokenEndpoint are present, false otherwise.
-     */
-    public static boolean isValid(Map<String, String> config) {
-
-        if (config == null) {
-            return false;
-        }
-
-        String clientId = config.get("clientId");
-        String tokenEndpoint = config.get("tokenEndpoint");
-
-        return clientId != null && !clientId.trim().isEmpty() &&
-               tokenEndpoint != null && !tokenEndpoint.trim().isEmpty();
-    }
-
-    /**
-     * Retrieves a configuration value safely with null handling.
-     *
-     * @param config Configuration map.
-     * @param key Key to retrieve.
-     * @return Value or null if not present or empty.
-     */
-    public static String getConfigValue(Map<String, String> config, String key) {
-
-        if (config == null || key == null) {
-            return null;
-        }
-
-        String value = config.get(key);
-        return (value != null && !value.trim().isEmpty()) ? value : null;
     }
 }

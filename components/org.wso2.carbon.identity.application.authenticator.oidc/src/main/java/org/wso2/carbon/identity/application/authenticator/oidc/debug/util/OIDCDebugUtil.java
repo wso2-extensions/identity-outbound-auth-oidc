@@ -21,6 +21,7 @@ package org.wso2.carbon.identity.application.authenticator.oidc.debug.util;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -36,7 +37,6 @@ import java.util.Base64;
 public class OIDCDebugUtil {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugUtil.class);
-    private static final String SHA256 = "SHA-256";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private OIDCDebugUtil() {
@@ -69,7 +69,7 @@ public class OIDCDebugUtil {
         }
 
         try {
-            MessageDigest messageDigest = MessageDigest.getInstance(SHA256);
+            MessageDigest messageDigest = MessageDigest.getInstance(OIDCDebugConstants.SHA256_ALGORITHM);
             byte[] hash = messageDigest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {

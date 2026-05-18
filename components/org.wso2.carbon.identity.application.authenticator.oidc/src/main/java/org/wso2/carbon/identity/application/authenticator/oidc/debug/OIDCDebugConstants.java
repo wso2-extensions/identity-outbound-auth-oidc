@@ -61,6 +61,7 @@ public final class OIDCDebugConstants {
     public static final String PKCE_ENABLED = "pkceEnabled";
     public static final String PKCE_METHOD = "pkceMethod";
     public static final String PKCE_METHOD_S256 = "S256";
+    public static final String SHA256_ALGORITHM = "SHA-256";
 
     // Error codes.
     public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
