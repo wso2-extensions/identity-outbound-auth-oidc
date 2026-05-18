@@ -40,14 +40,9 @@ import java.util.UUID;
 
 /**
  * OIDC debug flow executor.
- * Extends the framework's DebugExecutor to provide OIDC-specific execution
- * logic.
- * Generates OIDC Authorization URLs with PKCE parameters and handles debug
- * state management.
- *
- * PKCE generation is delegated to {@link OIDCDebugUtil} (single source of
- * truth).
- * Session persistence is delegated to {@link DebugSessionStore}.
+ * Reads resolved OIDC parameters from the context (populated by OIDCContextProvider) and generates a complete
+ * Authorization URL with PKCE and nonce parameters, then persists the context to the session store for callback
+ * retrieval.
  */
 public class OIDCDebugExecutor extends DebugExecutor {
 
@@ -55,15 +50,12 @@ public class OIDCDebugExecutor extends DebugExecutor {
     private static final String RESULT_AUTHORIZATION_URL = "authorizationUrl";
 
     /**
-     * Executes OIDC debug flow and generates authorization URL.
-     * Reads resolved OIDC parameters from context map (populated by
-     * OIDCContextProvider) and generates a complete Authorization URL with PKCE
-     * parameters.
+     * Executes the OIDC debug flow: validates context, generates PKCE and nonce, builds the authorization URL,
+     * caches the context, and returns a result containing the URL for the caller to redirect to.
      *
-     * @param context DebugContext containing debug configuration and state (prepared by
-     *                DebugContextProvider).
+     * @param context DebugContext containing OIDC configuration prepared by OIDCContextProvider.
      * @return DebugResult containing the generated authorization URL and metadata.
-     * @throws DebugExecutionException If execution fails.
+     * @throws DebugExecutionException If a required parameter is missing or URL generation fails.
      */
     @Override
     public DebugResult execute(DebugContext context) throws DebugExecutionException {
@@ -79,17 +71,14 @@ public class OIDCDebugExecutor extends DebugExecutor {
         }
 
         try {
-            // Initialize step status.
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_STARTED);
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_STARTED);
 
-            // Validate required parameters from context (populated by DebugContextProvider).
             String clientId = (String) context.getProperty(OIDCDebugConstants.CLIENT_ID);
             String authzEndpoint = (String) context.getProperty(OIDCDebugConstants.AUTHORIZATION_ENDPOINT);
             String redirectUri = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
 
-            // Use default callback URI if custom one not provided.
             if (StringUtils.isEmpty(redirectUri)) {
                 redirectUri = getDefaultRedirectUri();
             }
@@ -101,26 +90,26 @@ public class OIDCDebugExecutor extends DebugExecutor {
                         authzEndpoint);
             }
 
-            // Generate PKCE parameters using the single source of truth.
             String codeVerifier = OIDCDebugUtil.generatePKCECodeVerifier();
             String codeChallenge = OIDCDebugUtil.generatePKCECodeChallenge(codeVerifier);
 
-            // Generate cryptographic nonce for ID Token replay mitigation (OIDC Core §3.1.2.1).
+            // Nonce mitigates ID Token replay attacks (OIDC Core §3.1.2.1).
             String nonce = OIDCDebugUtil.generateNonce();
 
-            // Use debugId as the callback state token for consistency between initial response and callback.
+            // debugId doubles as the OAuth state parameter — ties the callback back to this session.
             String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
             if (debugId == null) {
-                debugId = "debug-" + UUID.randomUUID().toString();
+                debugId = "debug-" + UUID.randomUUID();
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("No debugId found in context (expected from ContextProvider). " +
                             "Generated fallback debugId: " + debugId);
                 }
             }
+
             context.setProperty(OIDCDebugConstants.DEBUG_CODE_VERIFIER, codeVerifier);
-            // Store nonce in context for validation during callback token processing.
+            // Nonce stored here is validated against the id_token nonce claim during callback processing.
             context.setProperty(OIDCDebugConstants.DEBUG_NONCE, nonce);
-            // Build OIDC Authorization URL.
+
             String authorizationUrl = buildAuthorizationUrl(authzEndpoint, clientId, redirectUri, debugId,
                     codeChallenge, context);
 
@@ -129,29 +118,24 @@ public class OIDCDebugExecutor extends DebugExecutor {
                 throw new DebugExecutionException("Failed to build authorization URL");
             }
 
-            // Store authorization URL in context.
             context.setProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL, authorizationUrl);
             context.setProperty(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
 
-            // Update step status.
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
-            context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, "pending");
+            context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, OIDCDebugConstants.STATUS_PENDING);
             DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_AUTHORIZATION_REQUEST,
                     OIDCDebugConstants.STATUS_SUCCESS, "Configurations validated successfully.");
 
-            // Cache debug context for retrieval during callback.
             cacheDebugContext(context);
 
-            // Build result.
             result.setSuccessful(true);
             result.setDebugId(debugId);
             result.setStatus(DebugFrameworkConstants.DEBUG_STATUS_SUCCESS_INCOMPLETE);
             result.addResultData(RESULT_AUTHORIZATION_URL, authorizationUrl);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("OIDC Authorization URL result: debugId=" + debugId +
-                        ", authorizationUrl present: true");
+                LOG.debug("OIDC Authorization URL result: debugId=" + debugId + ", authorizationUrl present: true");
             }
 
             return result;
@@ -170,12 +154,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         }
     }
 
-    /**
-     * Checks if this executor can handle the given debug context.
-     *
-     * @param debugContext The debug context to validate.
-     * @return true if this executor can handle the context, false otherwise.
-     */
     @Override
     public boolean canExecute(DebugContext debugContext) {
 
@@ -185,32 +163,18 @@ public class OIDCDebugExecutor extends DebugExecutor {
                 debugContext.getProperty(OIDCDebugConstants.IDP_SCOPE) != null;
     }
 
-    /**
-     * Gets the executor name.
-     *
-     * @return Executor name string.
-     */
     @Override
     public String getExecutorName() {
 
         return OIDCDebugConstants.DEBUG_EXECUTOR_NAME;
     }
 
-    /**
-     * Performs cleanup after the OIDC debug operation completes.
-     * The session store manages its own entry lifecycle, so no explicit
-     * resource release is required here.
-     */
     @Override
     public void cleanup() {
 
         // No OIDC-specific resources to release; DebugSessionStore entries expire automatically.
     }
 
-    /**
-     * Validates required parameters and throws DebugExecutionException if any are
-     * missing.
-     */
     private void validateRequiredParams(DebugContext context, String clientId,
             String authzEndpoint, String redirectUri) throws DebugExecutionException {
 
@@ -228,9 +192,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         }
     }
 
-    /**
-     * Marks all step statuses as failed in the context.
-     */
     private void markAllStepsFailed(DebugContext context) {
 
         context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_FAILED);
@@ -239,13 +200,15 @@ public class OIDCDebugExecutor extends DebugExecutor {
     }
 
     /**
-     * Builds the complete OIDC Authorization URL with PKCE parameters.
+     * Builds the complete OIDC Authorization URL with required parameters (client_id, redirect_uri, scope, state),
+     * PKCE (code_challenge/method), nonce, and any optional context parameters (access_type, login_hint, extras).
      */
     private String buildAuthorizationUrl(String authzEndpoint, String clientId, String redirectUri,
             String state, String codeChallenge, DebugContext context) throws DebugExecutionException {
 
         try {
             validateAuthorizationEndpoint(authzEndpoint);
+
             StringBuilder urlBuilder = new StringBuilder();
             urlBuilder.append(authzEndpoint);
             urlBuilder.append("?response_type=code");
@@ -259,29 +222,28 @@ public class OIDCDebugExecutor extends DebugExecutor {
             urlBuilder.append("&scope=").append(encodeParam(scope));
             urlBuilder.append("&state=").append(encodeParam(state));
 
-            // Add PKCE parameters (always enabled for debug flow).
+            // PKCE is always required for debug flows.
             urlBuilder.append("&code_challenge=").append(encodeParam(codeChallenge));
             urlBuilder.append("&code_challenge_method=S256");
 
-            // Add nonce for ID Token replay protection (OIDC Core §3.1.2.1).
+            // Nonce for ID Token replay protection (OIDC Core §3.1.2.1).
             String nonce = (String) context.getProperty(OIDCDebugConstants.DEBUG_NONCE);
             if (StringUtils.isNotEmpty(nonce)) {
                 urlBuilder.append("&nonce=").append(encodeParam(nonce));
             }
 
-            // Add optional access_type for refresh token support.
+            // Optional: access_type for refresh token support (Google-specific).
             String accessType = (String) context.getProperty(OIDCDebugConstants.DEBUG_CUSTOM_ACCESS_TYPE);
             if (StringUtils.isNotEmpty(accessType)) {
                 urlBuilder.append("&access_type=").append(encodeParam(accessType));
             }
 
-            // Add login_hint if username is available.
+            // Optional: login_hint pre-fills the IdP login form with the known username.
             String username = (String) context.getProperty(OIDCDebugConstants.DEBUG_USERNAME);
             if (StringUtils.isNotEmpty(username)) {
                 urlBuilder.append("&login_hint=").append(encodeParam(username));
             }
 
-            // Add any additional custom parameters from context.
             appendAdditionalParams(urlBuilder, context);
 
             if (LOG.isDebugEnabled()) {
@@ -297,6 +259,10 @@ public class OIDCDebugExecutor extends DebugExecutor {
         }
     }
 
+    /**
+     * Validates that the authorization endpoint is an absolute HTTPS URL.
+     * HTTP is permitted only for localhost, to support local development environments.
+     */
     private void validateAuthorizationEndpoint(String authzEndpoint) throws DebugExecutionException {
 
         try {
@@ -321,9 +287,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
         return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host);
     }
 
-    /**
-     * Appends additional custom parameters from the context to the URL.
-     */
+    // Keys are validated against an allowlist to prevent open-redirect or parameter-injection via arbitrary keys.
     @SuppressWarnings("unchecked")
     private void appendAdditionalParams(StringBuilder urlBuilder, DebugContext context)
             throws DebugExecutionException {
@@ -346,9 +310,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         return StringUtils.isNotBlank(key) && key.matches("[A-Za-z0-9._-]+");
     }
 
-    /**
-     * URL-encodes a parameter value.
-     */
     private String encodeParam(String param) throws DebugExecutionException {
 
         try {
@@ -363,6 +324,11 @@ public class OIDCDebugExecutor extends DebugExecutor {
         return IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
     }
 
+    /**
+     * Persists a sanitized copy of the context to the session store so it can be retrieved during the OIDC callback.
+     * Credentials (clientSecret) and non-serializable objects (idpConfig) are nulled out before storage.
+     * The live context's clientSecret is also cleared after the store write to prevent post-call exposure.
+     */
     private void cacheDebugContext(DebugContext context) throws DebugExecutionException {
 
         String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
@@ -381,7 +347,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         try {
             DebugContext sanitizedContext = DebugContext.buildFromMap(context.getProperties());
             sanitizedContext.setResourceType(context.getResourceType());
-            // Sanitize credentials and non-serializable typed objects before persisting to session store.
             sanitizedContext.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
             sanitizedContext.setProperty(OIDCDebugConstants.IDP_CONFIG, null);
             DebugSessionStore.getInstance().put(debugId, sanitizedContext);
@@ -390,12 +355,11 @@ public class OIDCDebugExecutor extends DebugExecutor {
             throw new DebugExecutionException("Failed to cache debug context for debugId: " + debugId, e);
         }
 
-        // Prevent exposure if caller code inspects or logs context after this call.
+        // Clear from live context too — prevents exposure if caller code logs or inspects context after this call.
         context.setProperty(OIDCDebugConstants.CLIENT_SECRET, null);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Debug context cached successfully with debugId: " + debugId);
         }
     }
-
 }

@@ -53,25 +53,24 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * OIDC-specific implementation of abstract DebugProcessor.
- * Implements only protocol-specific OIDC logic.
- * All generic logic is inherited from DebugProcessor base class.
+ * OIDC-specific implementation of IdpDebugProcessor.
+ * Handles the OIDC authorization code callback: validates the callback parameters, exchanges the code for tokens,
+ * extracts and maps claims, evaluates account linking, and persists the debug result.
  */
-
 public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     private static final Log LOG = LogFactory.getLog(OIDCDebugProcessor.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * Validates OIDC-specific callback parameters.
-     * Checks for authorization code or error response, CSRF protection.
+     * Validates OIDC callback parameters: checks for authorization code or error response and validates the
+     * state parameter against the debug session to prevent CSRF.
      *
-     * @param request  HttpServletRequest.
-     * @param context  DebugContext.
-     * @param response HttpServletResponse.
-     * @param state    State parameter.
-     * @param idpId    IdP resource ID.
+     * @param request            HttpServletRequest containing callback parameters.
+     * @param context            DebugContext for the current debug session.
+     * @param response           HttpServletResponse.
+     * @param state              OAuth state parameter from the callback.
+     * @param resourceIdentifier IdP resource ID.
      * @return true if callback is valid, false otherwise.
      * @throws IOException If response cannot be sent.
      */
@@ -90,7 +89,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_IDP_NAME, resourceIdentifier);
         }
 
-        // Handle OIDC error responses.
         if (error != null) {
             LOG.error("OIDC error from IdP: " + error + " - " + errorDescription);
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, error + ": " + errorDescription);
@@ -102,7 +100,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        // Validate authorization code presence.
         if (code == null || code.trim().isEmpty()) {
             LOG.error("Authorization code missing in OIDC callback");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "Authorization code not received");
@@ -114,7 +111,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        // Validate state parameter.
         if (state == null || state.trim().isEmpty()) {
             LOG.error("State parameter missing in OIDC callback");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR,
@@ -127,7 +123,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        // Validate callback correlation value against the debug identifier.
+        // Validate callback state against the debug session ID to prevent CSRF.
         String debugId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
         if (debugId == null || !state.trim().equals(debugId)) {
             LOG.error("State parameter mismatch - CSRF attack detected");
@@ -152,16 +148,15 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Exchanges OIDC authorization code for tokens (access token + ID token).
-     * Stores tokens in context and handles errors with detailed diagnostic info.
-     * Delegates to smaller, focused methods for configuration extraction and token
-     * exchange.
+     * Exchanges the OIDC authorization code for tokens (access token + ID token).
+     * Resolves IdP configuration, performs the token exchange via {@link OAuth2TokenClient},
+     * and stores tokens in context. Errors are recorded as diagnostics and cached as debug results.
      *
-     * @param request HttpServletRequest.
-     * @param context DebugContext.
-     * @param response HttpServletResponse.
-     * @param state State parameter.
-     * @param idpId IdP resource ID.
+     * @param request            HttpServletRequest.
+     * @param context            DebugContext.
+     * @param response           HttpServletResponse.
+     * @param state              State parameter.
+     * @param resourceIdentifier IdP resource ID.
      * @return true if token exchange succeeds, false otherwise.
      * @throws IOException If response cannot be sent.
      */
@@ -186,7 +181,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 LOG.debug("Exchanging authorization code for OIDC tokens. Code present: " + (code != null));
             }
 
-            // Validate prerequisites.
             if (!validateAndExtractPrerequisites(code, state, context)) {
                 LOG.error("Token exchange failed: Prerequisites validation failed");
                 context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_FAILED);
@@ -194,7 +188,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 return false;
             }
 
-            // Extract configuration from IdP and context.
             OIDCConfiguration config = extractOIDCConfiguration(context, request);
 
             if (LOG.isDebugEnabled()) {
@@ -214,7 +207,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 return false;
             }
 
-            // Perform token exchange.
             return performTokenExchange(code, config, state, context);
 
         } catch (Exception e) {
@@ -231,14 +223,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Validates authorization code and IdP configuration.
-     *
-     * @param code Authorization code from callback.
-     * @param state State parameter from callback.
-     * @param context DebugContext.
-     * @return true if validation passes, false otherwise.
-     */
     private boolean validateAndExtractPrerequisites(String code, String state, DebugContext context) {
 
         IdentityProvider idp = resolveIdentityProvider(context, state);
@@ -268,18 +252,14 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Resolves IdP from cached context properties when IDP_CONFIG is not directly available.
-     * Uses stored IdP name or resource ID to look up the IdentityProvider.
-     *
-     * @param context DebugContext.
-     * @param state State parameter for debugging.
-     * @return IdentityProvider if found, null otherwise.
+     * Resolves the IdP from cached context properties when IDP_CONFIG is not directly available.
+     * Tries resource ID first, then falls back to name lookup — both may be stored from the initial request.
      */
     private IdentityProvider resolveIdpFromContext(DebugContext context, String state) {
 
         try {
             String tenantDomain = IdentityTenantUtil.resolveTenantDomain();
-            
+
             String resourceId = (String) context.getProperty(OIDCDebugConstants.DEBUG_IDP_RESOURCE_ID);
             String idpName = (String) context.getProperty(OIDCDebugConstants.DEBUG_IDP_NAME);
             if (StringUtils.isEmpty(resourceId) && StringUtils.isEmpty(idpName)) {
@@ -319,6 +299,12 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
+    /**
+     * Resolves the IdP for this debug session using a three-step strategy:
+     * 1. Direct IDP_CONFIG in context (fastest path, set by validateAndExtractPrerequisites).
+     * 2. Restore context from session store using state, then re-check IDP_CONFIG.
+     * 3. Re-resolve from stored resource ID or name via IdentityProviderManager.
+     */
     private IdentityProvider resolveIdentityProvider(DebugContext context, String state) {
 
         Object cachedIdp = context.getProperty(OIDCDebugConstants.IDP_CONFIG);
@@ -344,24 +330,15 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Extracts OIDC configuration from context and IdP settings.
-     * First tries context (set by OIDCContextResolver), then falls back to IdP
-     * config.
-     *
-     * @param context DebugContext.
-     * @param request HttpServletRequest.
-     * @return OIDCConfiguration containing all required endpoints and
-     *         credentials.
+     * Extracts OIDC configuration from context first (set by OIDCContextProvider), falling back to the IdP
+     * authenticator config via OIDCConfigurationExtractor if any required value is missing.
      */
     private OIDCConfiguration extractOIDCConfiguration(DebugContext context, HttpServletRequest request) {
 
         OIDCConfiguration config = new OIDCConfiguration();
         IdentityProvider idp = resolveIdentityProvider(context, null);
-        String idpName = idp != null ? idp.getIdentityProviderName() : "Unknown";
-        config.setIdpName(idpName);
+        config.setIdpName(idp != null ? idp.getIdentityProviderName() : "Unknown");
         config.setCodeVerifier((String) context.getProperty(OIDCDebugConstants.DEBUG_CODE_VERIFIER));
-
-        // Extract from context first (set by OIDCContextProvider).
         config.setTokenEndpoint((String) context.getProperty(OIDCDebugConstants.TOKEN_ENDPOINT));
         config.setClientId((String) context.getProperty(OIDCDebugConstants.CLIENT_ID));
         config.setClientSecret((String) context.getProperty(OIDCDebugConstants.CLIENT_SECRET));
@@ -374,14 +351,12 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                     + (config.getClientSecret() != null ? OIDCDebugConstants.STATUS_FOUND : "null"));
         }
 
-        // If not in context, extract from IdP authenticator config using
-        // OIDCConfigurationExtractor.
+        // Fall back to IdP authenticator config if any required value is still missing from context.
         if ((!config.hasRequiredEndpoints() || StringUtils.isBlank(config.getClientSecret()))
                 && idp != null && idp.getFederatedAuthenticatorConfigs() != null) {
             extractFromIdPConfig(idp, config);
         }
 
-        // Build callback URL.
         String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
         if (StringUtils.isEmpty(callbackUrl)) {
             callbackUrl = IdentityUtil.getServerURL(FrameworkConstants.COMMONAUTH, true, true);
@@ -392,11 +367,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Extracts OIDC configuration from IdP authenticator properties
-     * using {@link OIDCConfigurationExtractor} as single source of truth.
-     *
-     * @param idp    IdentityProvider containing authenticator configs.
-     * @param config OIDCConfiguration to populate.
+     * Populates OIDCConfiguration from IdP authenticator properties using OIDCConfigurationExtractor.
+     * Stops iterating authenticator configs as soon as required endpoints are found.
      */
     private void extractFromIdPConfig(IdentityProvider idp, OIDCConfiguration config) {
 
@@ -423,13 +395,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Handles configuration validation errors.
-     *
-     * @param config OIDCConfiguration with missing values.
-     * @param state State parameter.
-     * @param context DebugContext.
-     */
     private void handleConfigurationError(OIDCConfiguration config, String state, DebugContext context) {
 
         boolean missingEndpoint = config.getTokenEndpoint() == null || config.getTokenEndpoint().trim().isEmpty();
@@ -457,15 +422,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         buildAndCacheTokenExchangeErrorResponse(errorCode, errorDescription, state, context);
     }
 
-    /**
-     * Performs OIDC token exchange using the provided configuration.
-     *
-     * @param code Authorization code.
-     * @param config OIDCConfiguration.
-     * @param state State parameter.
-     * @param context DebugContext.
-     * @return true if exchange succeeds, false otherwise.
-     */
     private boolean performTokenExchange(String code, OIDCConfiguration config, String state,
             DebugContext context) {
 
@@ -488,13 +444,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Executes the actual token exchange call to the provider.
-     *
-     * @param code Authorization code.
-     * @param config OIDCConfiguration.
-     * @return Token response from provider.
-     */
     private TokenResponse executeTokenExchange(String code, OIDCConfiguration config) {
 
         OAuth2TokenClient tokenClient = new OAuth2TokenClient();
@@ -503,15 +452,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 config.getCallbackUrl(), config.getCodeVerifier(), config.getIdpName());
     }
 
-    /**
-     * Handles token exchange error response.
-     *
-     * @param tokenResponse Token response with error.
-     * @param config OIDCConfiguration.
-     * @param state State parameter.
-     * @param context DebugContext.
-     * @return false always, indicating exchange failed.
-     */
     private boolean handleTokenExchangeError(TokenResponse tokenResponse, OIDCConfiguration config,
             String state, DebugContext context) {
 
@@ -520,7 +460,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_FAILED, "Failed to obtain tokens",
-                buildTokenExchangeFailureDetails(errorCode, errorDesc));
+                buildErrorDetails(errorCode, errorDesc));
 
         markContextAsFailedExchange(context, errorDesc);
         buildAndCacheTokenExchangeErrorResponse(errorCode, errorDesc, state, context);
@@ -528,12 +468,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return false;
     }
 
-    /**
-     * Marks the debug context as failed exchange.
-     *
-     * @param context   DebugContext.
-     * @param errorDesc Error description.
-     */
     private void markContextAsFailedExchange(DebugContext context, String errorDesc) {
 
         context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_FAILED);
@@ -541,79 +475,53 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
     }
 
-    /**
-     * Handles successful token exchange.
-     *
-     * @param tokenResponse Token response from provider.
-     * @param config OIDCConfiguration.
-     * @param context DebugContext.
-     * @return true always, indicating exchange succeeded.
-     */
     private boolean handleTokenExchangeSuccess(TokenResponse tokenResponse, OIDCConfiguration config,
             DebugContext context) {
 
         storeTokensInContext(tokenResponse, config, context);
-        markContextAsSuccessfulExchange(context);
+        context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
         DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_TOKEN_EXCHANGE,
                 OIDCDebugConstants.STATUS_SUCCESS, "Token received successfully.");
         return true;
     }
 
-    private void markContextAsSuccessfulExchange(DebugContext context) {
-
-        context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
-    }
-
-    /**
-     * Stores tokens and configuration from successful exchange into context.
-     *
-     * @param tokenResponse Token response from provider.
-     * @param config OIDCConfiguration OIDCConfiguration used for exchange.
-     * @param context DebugContext to populate.
-     */
     private void storeTokensInContext(TokenResponse tokenResponse, OIDCConfiguration config,
             DebugContext context) {
 
-        String accessToken = tokenResponse.getAccessToken();
+        context.setProperty(OIDCDebugConstants.ACCESS_TOKEN, tokenResponse.getAccessToken());
         String idToken = tokenResponse.getIdToken();
-        String tokenType = tokenResponse.getTokenType();
-
-        context.setProperty(OIDCDebugConstants.ACCESS_TOKEN, accessToken);
         if (idToken != null && !idToken.trim().isEmpty()) {
             context.setProperty(OIDCDebugConstants.ID_TOKEN, idToken);
         }
+        String tokenType = tokenResponse.getTokenType();
         if (tokenType != null && !tokenType.trim().isEmpty()) {
             context.setProperty(OIDCDebugConstants.TOKEN_TYPE, tokenType);
         }
     }
 
     /**
-     * Extracts user claims from OIDC/OIDC tokens.
-     * OIDC-specific implementation that parses ID token claims and fetches
-     * UserInfo.
-     * Generic claim mapping and formatting is handled by parent DebugProcessor
-     * class.
+     * Extracts user claims from the OIDC ID token.
+     * Parses the JWT payload and validates the nonce claim against the value generated in the authorization request.
      *
-     * @param context DebugContext containing ID token and access token.
-     * @return Map of extracted claims, or empty map if extraction yields no
-     *         results.
+     * @param context DebugContext containing the ID token and nonce.
+     * @return Map of extracted claims, or empty map if extraction fails.
      */
     @Override
     protected Map<String, Object> extractDebugData(DebugContext context) {
 
         try {
-            // Extract and validate ID token.
             String idToken = (String) context.getProperty(OIDCDebugConstants.ID_TOKEN);
-            if (!isValidIdToken(idToken)) {
+            if (idToken == null || idToken.trim().isEmpty()) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("No ID token available for claim extraction");
+                }
                 DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                         OIDCDebugConstants.STATUS_FAILED, "ID token is not available for claim extraction.");
                 return new HashMap<>();
             }
 
-            // Parse ID token to extract initial claims.
             Map<String, Object> claims = parseIdTokenClaims(idToken);
 
-            // Validate nonce claim against value generated in authorization request.
             if (!isValidNonceClaim(context, claims)) {
                 DebugDiagnosticsUtil.recordEvent(context, OIDCDebugConstants.STAGE_CLAIM_EXTRACTION,
                         OIDCDebugConstants.STATUS_FAILED,
@@ -623,7 +531,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 return new HashMap<>();
             }
 
-            // Return extracted claims or empty map if none found.
             return returnExtractedClaims(claims, context);
 
         } catch (Exception e) {
@@ -635,32 +542,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Validates if the ID token is present and not empty.
-     *
-     * @param idToken The ID token to validate.
-     * @return true if token is valid, false otherwise.
-     */
-    private boolean isValidIdToken(String idToken) {
-
-        if (idToken == null || idToken.trim().isEmpty()) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("No ID token available for claim extraction");
-            }
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Returns extracted claims with appropriate logging.
-     *
-     * @param claims  Extracted claims.
-     * @param context DebugContext.
-     * @return Claims if not empty, empty map otherwise.
-     */
-    private Map<String, Object> returnExtractedClaims(Map<String, Object> claims,
-            DebugContext context) {
+    private Map<String, Object> returnExtractedClaims(Map<String, Object> claims, DebugContext context) {
 
         if (!claims.isEmpty()) {
             context.setProperty(OIDCDebugConstants.STEP_CLAIM_EXTRACTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
@@ -683,12 +565,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Parses JWT ID token and extracts claims from the payload.
-     * Handles JWT format with three parts: header.payload.signature.
+     * Parses JWT ID token claims from the base64url-encoded payload (the middle part of the three-part JWT).
      *
-     * @param idToken The JWT ID token.
-     * @return Map of claims extracted from the token payload, or empty map if
-     *         parsing fails.
+     * @param idToken The JWT ID token string.
+     * @return Map of claims from the token payload, or empty map if parsing fails.
      */
     private Map<String, Object> parseIdTokenClaims(String idToken) {
 
@@ -713,11 +593,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Validates the nonce claim in the ID token claims map against expected nonce from context.
-     *
-     * @param context debug context holding expected nonce.
-     * @param claims ID token claims.
-     * @return true if nonce is valid, false otherwise.
+     * Validates the nonce claim in the ID token against the nonce stored in the debug context.
+     * If no nonce was generated for this session (e.g. non-OIDC IdP), validation is skipped.
      */
     private boolean isValidNonceClaim(DebugContext context, Map<String, Object> claims) {
 
@@ -752,12 +629,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return true;
     }
 
-    /**
-     * Parses JSON string to claims map.
-     *
-     * @param json The JSON string to parse.
-     * @return Map of claims from the JSON, or empty map if parsing fails.
-     */
     private Map<String, Object> parseJsonToClaims(String json) {
 
         if (StringUtils.isEmpty(json)) {
@@ -774,15 +645,14 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Handles claim extraction result and validates successful extraction.
-     * For OIDC, validates that required claims (sub/user ID) are present.
+     * Validates that at least one user identifier claim (sub, user_id, userId, email) is present.
      *
-     * @param claims   Map of extracted claims.
-     * @param context  DebugContext.
-     * @param response HttpServletResponse.
-     * @param state    State parameter.
-     * @param idpId    IdP resource ID.
-     * @return true if claims extraction succeeded, false otherwise.
+     * @param claims             Extracted claims map.
+     * @param context            DebugContext.
+     * @param response           HttpServletResponse.
+     * @param state              State parameter.
+     * @param resourceIdentifier IdP resource ID.
+     * @return true if a user identifier is present, false otherwise.
      * @throws IOException If response cannot be sent.
      */
     @Override
@@ -800,7 +670,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        // Validate that at least a user identifier is present.
         if (!claims.containsKey("sub") && !claims.containsKey("user_id") &&
                 !claims.containsKey("userId") && !claims.containsKey("email")) {
             LOG.error("Required user identifier claim not found in extracted claims");
@@ -822,8 +691,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     /**
      * Builds and caches the final debug result after successful authentication.
-     * Includes comprehensive claim mapping information and diagnostic data.
-     * Persists to DebugResultCache for API retrieval.
+     * Includes claim mapping, account linking evaluation, step statuses, and diagnostics.
+     * Persists to DebugSessionStore for API retrieval.
      *
      * @param context DebugContext containing all debug information.
      * @param state   State parameter for session identification.
@@ -841,7 +710,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, Boolean.TRUE);
             buildResultMetadata(debugResult, context);
             determineOverallSuccessStatus(debugResult, context);
-            
             persistDebugResultToCache(state, context, debugResult);
 
         } catch (Exception e) {
@@ -851,12 +719,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Extracts incoming claims from context.
-     *
-     * @param context DebugContext.
-     * @return Incoming claims map or empty map if not available.
-     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractIncomingClaims(DebugContext context) {
 
@@ -865,13 +727,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return incomingClaims != null ? incomingClaims : new HashMap<>();
     }
 
-    /**
-     * Processes claim mappings from IdP configuration.
-     *
-     * @param context DebugContext.
-     * @param incomingClaims Incoming claims map.
-     * @param debugResult Debug result map to populate.
-     */
     private void processClaimMappings(DebugContext context,
             Map<String, Object> incomingClaims, Map<String, Object> debugResult) {
 
@@ -884,13 +739,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                     (incomingClaims.isEmpty() ? "none" : incomingClaims.keySet()));
         }
 
-        List<Map<String, Object>> mappedClaimsArray = buildMappedClaimsArray(
-                idpClaimMappings, incomingClaims);
-
+        List<Map<String, Object>> mappedClaimsArray = buildMappedClaimsArray(idpClaimMappings, incomingClaims);
         debugResult.put("mappedClaims", mappedClaimsArray);
 
-        // Determine claim mapping status: SUCCESS if all mappings succeed and PARTIAL
-        // for any incomplete mapping outcome.
+        // SUCCESS if all mappings resolved, PARTIAL if any remain unmapped.
         String claimMappingStatus = determineClaimMappingStatus(mappedClaimsArray, idpClaimMappings);
         context.setProperty(OIDCDebugConstants.STEP_CLAIM_MAPPING_STATUS, claimMappingStatus);
         Map<String, Object> claimMappingDetails = buildClaimMappingDiagnosticDetails(claimMappingStatus,
@@ -899,12 +751,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 resolveClaimMappingStatusMessage(claimMappingStatus), claimMappingDetails);
     }
 
-    /**
-     * Resolves the diagnostics message for claim mapping status.
-     *
-     * @param claimMappingStatus Claim mapping status.
-     * @return Diagnostics message.
-     */
     private String resolveClaimMappingStatusMessage(String claimMappingStatus) {
 
         if (OIDCDebugConstants.STATUS_PARTIAL.equals(claimMappingStatus)) {
@@ -974,19 +820,12 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Determines the claim mapping status based on whether all configured mappings
-     * were found in incoming claims.
-     * Returns SUCCESS if all configured mappings were resolved and PARTIAL for any
-     * incomplete mapping outcome.
-     *
-     * @param mappedClaimsArray List of mapped claim entries.
-     * @param idpClaimMappings IdP configured mappings.
-     * @return Claim mapping step status.
+     * Determines claim mapping status: SUCCESS if all configured mappings resolved, PARTIAL if any are missing.
+     * Returns SUCCESS immediately when there are no configured mappings (no mapping = nothing to fail).
      */
     private String determineClaimMappingStatus(List<Map<String, Object>> mappedClaimsArray,
             Map<String, Map<String, String>> idpClaimMappings) {
 
-        // If no configured mappings, status is success.
         if (idpClaimMappings.isEmpty()) {
             return OIDCDebugConstants.STATUS_SUCCESS;
         }
@@ -1020,41 +859,20 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Builds the mapped claims array by cross-referencing configured mappings
-     * against incoming claims.
-     *
-     * @param idpClaimMappings IdP configured claim mappings.
-     * @param incomingClaims Incoming claims from tokens.
-     * @return List of mapped claim entries with status information.
+     * Builds the mapped claims array by cross-referencing configured IdP claim mappings against incoming claims.
      */
     private List<Map<String, Object>> buildMappedClaimsArray(
             Map<String, Map<String, String>> idpClaimMappings, Map<String, Object> incomingClaims) {
 
         List<Map<String, Object>> mappedClaimsArray = new ArrayList<>();
-
-        // Process configured mappings.
-        if (!idpClaimMappings.isEmpty()) {
-            for (Map.Entry<String, Map<String, String>> mapping : idpClaimMappings.entrySet()) {
-                String remoteClaimUri = mapping.getValue().get(OIDCDebugConstants.CLAIM_MAPPING_REMOTE);
-                String localClaimUri = mapping.getValue().get(OIDCDebugConstants.CLAIM_MAPPING_LOCAL);
-
-                Map<String, Object> claimEntry = processConfiguredMapping(
-                        remoteClaimUri, localClaimUri, incomingClaims);
-                mappedClaimsArray.add(claimEntry);
-            }
+        for (Map.Entry<String, Map<String, String>> mapping : idpClaimMappings.entrySet()) {
+            String remoteClaimUri = mapping.getValue().get(OIDCDebugConstants.CLAIM_MAPPING_REMOTE);
+            String localClaimUri = mapping.getValue().get(OIDCDebugConstants.CLAIM_MAPPING_LOCAL);
+            mappedClaimsArray.add(processConfiguredMapping(remoteClaimUri, localClaimUri, incomingClaims));
         }
-
         return mappedClaimsArray;
     }
 
-    /**
-     * Processes a single configured claim mapping.
-     *
-     * @param remoteClaimUri Remote claim URI from IdP.
-     * @param localClaimUri Local claim URI mapping.
-     * @param incomingClaims Incoming claims from tokens.
-     * @return Claim entry map with status and value information.
-     */
     private Map<String, Object> processConfiguredMapping(String remoteClaimUri, String localClaimUri,
             Map<String, Object> incomingClaims) {
 
@@ -1085,15 +903,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return claimEntry;
     }
 
-    /**
-     * Builds debug result metadata and step status information.
-     *
-     * @param debugResult Debug result to populate.
-     * @param context DebugContext.
-     */
     private void buildResultMetadata(Map<String, Object> debugResult, DebugContext context) {
 
-        // Add URLs and tokens.
         String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
         if (StringUtils.isNotBlank(externalRedirectUrl)) {
             debugResult.put("externalRedirectUrl", externalRedirectUrl);
@@ -1104,19 +915,14 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             debugResult.put(OIDCDebugConstants.ID_TOKEN, idToken);
         }
 
-        String callbackUrl = (String) context.getProperty(OIDCDebugConstants.REDIRECT_URI);
-        debugResult.put("callbackUrl", callbackUrl);
-
+        debugResult.put("callbackUrl", context.getProperty(OIDCDebugConstants.REDIRECT_URI));
         debugResult.put(OIDCDebugConstants.STEP_STATUS, buildStepStatus(context));
         debugResult.put(OIDCDebugConstants.DEBUG_DIAGNOSTICS,
                 transformDiagnostics(DebugDiagnosticsUtil.getDiagnostics(context)));
     }
 
     /**
-     * Resolves ID token from context using primary and fallback keys.
-     *
-     * @param context DebugContext.
-     * @return ID token value, or null if unavailable.
+     * Resolves ID token from context, checking both the primary key and a fallback debug key.
      */
     private String resolveIdTokenFromContext(DebugContext context) {
 
@@ -1129,24 +935,12 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return fallbackIdToken != null ? String.valueOf(fallbackIdToken) : null;
     }
 
-    /**
-     * Persists debug result to cache with JSON serialization.
-     *
-     * @param state State parameter.
-     * @param context DebugContext.
-     * @param debugResult Debug result to persist.
-     */
-    private void persistDebugResultToCache(String state, DebugContext context,
-            Map<String, Object> debugResult) {
+    private void persistDebugResultToCache(String state, DebugContext context, Map<String, Object> debugResult) {
 
         try {
             String debugResultJson = OBJECT_MAPPER.writeValueAsString(debugResult);
-
-            // Cache in context.
             context.setProperty(OIDCDebugConstants.DEBUG_RESULT_CACHE_KEY, debugResultJson);
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, true);
-
-            // Get context ID and persist to DebugResultCache.
             String contextId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
             persistJsonToSessionStore(state, contextId, debugResultJson);
 
@@ -1159,135 +953,52 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Extracts claim mappings from IdP configuration.
-     * Converts ClaimMapping objects to a map format for easier processing.
-     *
-     * @param idp The IdentityProvider configuration.
-     * @return Map of claim mappings, empty if no mappings found.
+     * Extracts claim mappings from IdP configuration, converting ClaimMapping objects to a map keyed by remote URI.
      */
     private Map<String, Map<String, String>> extractIdPClaimMappings(IdentityProvider idp) {
 
         Map<String, Map<String, String>> mappings = new HashMap<>();
 
-        if (!hasClaimMappings(idp)) {
-            logNoClaimConfiguration();
+        if (idp == null || idp.getClaimConfig() == null || idp.getClaimConfig().getClaimMappings() == null) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("No claim configuration found in IdP");
+            }
             return mappings;
         }
 
         try {
-            processClaimMappingsFromIdP(idp, mappings);
+            for (ClaimMapping claimMapping : idp.getClaimConfig().getClaimMappings()) {
+                if (claimMapping == null || claimMapping.getRemoteClaim() == null
+                        || claimMapping.getLocalClaim() == null) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Skipping invalid claim mapping with null remote or local claim");
+                    }
+                    continue;
+                }
+
+                String remoteClaimUri = claimMapping.getRemoteClaim().getClaimUri();
+                String localClaimUri = claimMapping.getLocalClaim().getClaimUri();
+                if (StringUtils.isBlank(remoteClaimUri)) {
+                    LOG.warn("Skipping claim mapping with blank remote claim URI");
+                    continue;
+                }
+
+                Map<String, String> mapping = new HashMap<>();
+                mapping.put(OIDCDebugConstants.CLAIM_MAPPING_REMOTE, remoteClaimUri);
+                mapping.put(OIDCDebugConstants.CLAIM_MAPPING_LOCAL, localClaimUri);
+                mappings.put(remoteClaimUri, mapping);
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Extracted claim mapping: " + remoteClaimUri + " -> " + localClaimUri);
+                }
+            }
         } catch (Exception e) {
-            logClaimMappingExtractionError(e);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Error extracting claim mappings from IdP: " + e.getMessage());
+            }
         }
 
         return mappings;
-    }
-
-    /**
-     * Checks if the IdP has valid claim mappings.
-     *
-     * @param idp The IdentityProvider configuration.
-     * @return true if claim mappings exist and are valid, false otherwise.
-     */
-    private boolean hasClaimMappings(IdentityProvider idp) {
-
-        return idp != null && idp.getClaimConfig() != null &&
-                idp.getClaimConfig().getClaimMappings() != null;
-    }
-
-    private void logNoClaimConfiguration() {
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("No claim configuration found in IdP");
-        }
-    }
-
-    /**
-     * Processes claim mappings from IdP configuration and populates the mappings
-     * map.
-     *
-     * @param idp The IdentityProvider configuration.
-     * @param mappings Map to populate with extracted mappings.
-     */
-    private void processClaimMappingsFromIdP(IdentityProvider idp, Map<String, Map<String, String>> mappings) {
-
-        ClaimMapping[] claimMappings = idp.getClaimConfig().getClaimMappings();
-        for (ClaimMapping claimMapping : claimMappings) {
-            processClaimMapping(claimMapping, mappings);
-        }
-    }
-
-    /**
-     * Processes a single claim mapping and adds it to the mappings map if valid.
-     *
-     * @param claimMapping The claim mapping to process.
-     * @param mappings Map to add the processed mapping to.
-     */
-    private void processClaimMapping(ClaimMapping claimMapping, Map<String, Map<String, String>> mappings) {
-
-        if (!isValidClaimMapping(claimMapping)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Skipping invalid claim mapping with null remote or local claim");
-            }
-            return;
-        }
-
-        String remoteClaimUri = claimMapping.getRemoteClaim().getClaimUri();
-        String localClaimUri = claimMapping.getLocalClaim().getClaimUri();
-        if (StringUtils.isBlank(remoteClaimUri)) {
-            LOG.warn("Skipping claim mapping with blank remote claim URI");
-            return;
-        }
-
-        Map<String, String> mapping = buildClaimMappingEntry(remoteClaimUri, localClaimUri);
-        mappings.put(remoteClaimUri, mapping);
-        logClaimMappingExtracted(remoteClaimUri, localClaimUri);
-    }
-
-    /**
-     * Validates if a claim mapping is complete and usable.
-     *
-     * @param claimMapping The claim mapping to validate.
-     * @return true if all required parts are present, false otherwise.
-     */
-    private boolean isValidClaimMapping(ClaimMapping claimMapping) {
-
-        return claimMapping != null && claimMapping.getRemoteClaim() != null &&
-                claimMapping.getLocalClaim() != null;
-    }
-
-    /**
-     * Builds a claim mapping entry with remote and local URIs.
-     *
-     * @param remoteClaimUri The remote claim URI.
-     * @param localClaimUri The local claim URI.
-     * @return Map with remote and local keys.
-     */
-    private Map<String, String> buildClaimMappingEntry(String remoteClaimUri, String localClaimUri) {
-
-        Map<String, String> mapping = new HashMap<>();
-        mapping.put(OIDCDebugConstants.CLAIM_MAPPING_REMOTE, remoteClaimUri);
-        mapping.put(OIDCDebugConstants.CLAIM_MAPPING_LOCAL, localClaimUri);
-        return mapping;
-    }
-
-    private void logClaimMappingExtracted(String remoteClaimUri, String localClaimUri) {
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Extracted claim mapping: " + remoteClaimUri + " -> " + localClaimUri);
-        }
-    }
-
-    /**
-     * Logs error during claim mapping extraction.
-     *
-     * @param e The exception that occurred.
-     */
-    private void logClaimMappingExtractionError(Exception e) {
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Error extracting claim mappings from IdP: " + e.getMessage());
-        }
     }
 
     private void buildAndCacheTokenExchangeErrorResponse(String errorCode, String errorDescription,
@@ -1300,7 +1011,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             errorResponse.put("error_code", errorCode);
             errorResponse.put("error_description", resolveErrorDescription(errorDescription));
 
-            // Add external redirect URL if available.
             String externalRedirectUrl = (String) context.getProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL);
             if (externalRedirectUrl != null && !externalRedirectUrl.isEmpty()) {
                 errorResponse.put("externalRedirectUrl", externalRedirectUrl);
@@ -1311,15 +1021,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                     transformDiagnostics(DebugDiagnosticsUtil.getDiagnostics(context)));
 
             String errorResponseJson = OBJECT_MAPPER.writeValueAsString(errorResponse);
-
-            // Cache in context.
             context.setProperty(OIDCDebugConstants.DEBUG_RESULT_CACHE_KEY, errorResponseJson);
 
-            // Get context ID for dual-key caching.
             String contextId = (String) context.getProperty(OIDCDebugConstants.DEBUG_ID);
-
-            // Persist to DebugResultCache for API endpoint retrieval (with both state and
-            // contextId as keys).
+            // Persist under both state and contextId so the result is retrievable by either key.
             persistJsonToSessionStore(state, contextId, errorResponseJson);
 
             if (LOG.isDebugEnabled()) {
@@ -1364,11 +1069,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Determines overall success status based on individual step statuses.
-     * Sets the top-level "status" to FAILED if any step has FAILED status.
-     *
-     * @param debugResult Debug result map containing stepStatus.
-     * @param context DebugContext.
+     * Sets the top-level success flag to false if any step has FAILED status.
      */
     @SuppressWarnings("unchecked")
     private void determineOverallSuccessStatus(Map<String, Object> debugResult, DebugContext context) {
@@ -1378,7 +1079,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return;
         }
 
-        // If any step status is FAILED, overall status is FAILED.
         boolean hasFailedStep = stepStatus.values().stream()
                 .anyMatch(status -> OIDCDebugConstants.STATUS_FAILED.equals(status));
 
@@ -1427,8 +1127,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     private void evaluateAccountLinking(DebugContext context, Map<String, Object> incomingClaims) {
 
-        if (!isAccountLinkingEnabled(context)
-                || hasResolvedAccountLinkingStatus(context)) {
+        if (!isAccountLinkingEnabled(context) || hasResolvedAccountLinkingStatus(context)) {
             return;
         }
 
@@ -1502,6 +1201,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return normalizedClaims;
     }
 
+    /**
+     * Flattens the OIDC "address" structured claim into individual keys (e.g. "street_address", "address.street_address")
+     * so they can be matched against IdP claim mappings that reference either format.
+     */
     @SuppressWarnings("unchecked")
     private void addAddressScopeClaims(Map<String, Object> incomingClaims, Map<String, Object> normalizedClaims) {
 
@@ -1612,6 +1315,9 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         return authSuccess instanceof Boolean && !((Boolean) authSuccess);
     }
 
+    /**
+     * Persists the JSON result under both state and contextId so it is retrievable by either key during callback.
+     */
     private void persistJsonToSessionStore(String state, String contextId, String resultJson) {
 
         try {
@@ -1630,13 +1336,13 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
     }
 
     /**
-     * Redirects to the debug success page after processing.
-     * Sends HTTP redirect response with cached debug result.
-     * Only allows redirects to the known debug success JSP path.
+     * Redirects to the debug success JSP after processing.
+     * URL parameters are encoded to prevent open redirect and injection vulnerabilities.
+     * Only redirects to the fixed debug success page path.
      *
-     * @param response HttpServletResponse for sending the redirect.
-     * @param state The state parameter for session identification.
-     * @param idpId The IdP resource ID.
+     * @param response           HttpServletResponse for sending the redirect.
+     * @param state              State parameter for session identification.
+     * @param resourceIdentifier IdP resource ID.
      * @throws IOException If response fails.
      */
     @Override
@@ -1646,7 +1352,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             String encodedState = encodeForUrl(state);
             String encodedIdpId = encodeForUrl(resourceIdentifier);
 
-            // Validate encoded parameters are not empty (encoding succeeded).
             if (encodedState.isEmpty() && StringUtils.isNotEmpty(state)) {
                 LOG.error("Failed to encode state parameter for redirect, aborting redirect.");
                 return;
@@ -1656,7 +1361,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 return;
             }
 
-            // Construct redirect URL using a fixed path to prevent open redirect.
+            // Fixed path prevents open redirect — only debug success page is reachable via this method.
             String redirectUrl = OIDCDebugConstants.DEBUG_SUCCESS_PAGE + "?state=" + encodedState +
                     "&idpId=" + encodedIdpId;
             response.sendRedirect(redirectUrl);
@@ -1665,11 +1370,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     /**
      * Restores context properties from DebugSessionStore using the state parameter.
-     * Transfers cached properties to DebugContext for use in callback
-     * processing.
-     *
-     * @param state State parameter (cache key).
-     * @param context DebugContext to populate.
+     * Required because the OIDC callback arrives in a new request with no in-memory context.
      */
     private void restoreContextFromSessionCache(String state, DebugContext context) {
 
@@ -1692,12 +1393,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         }
     }
 
-    /**
-     * Restores individual properties from cached context to debug context.
-     *
-     * @param cachedContext The cached context map.
-     * @param context       The debug context to populate.
-     */
     private void restorePropertiesToContext(Map<String, Object> cachedContext, DebugContext context) {
 
         String[] propertiesToRestore = {
@@ -1717,23 +1412,10 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
         };
 
         for (String property : propertiesToRestore) {
-            restorePropertyIfPresent(cachedContext, context, property);
-        }
-    }
-
-    /**
-     * Restores a single property from cached context if it exists.
-     *
-     * @param cachedContext The cached context map.
-     * @param context The debug context to populate.
-     * @param property The property name to restore.
-     */
-    private void restorePropertyIfPresent(Map<String, Object> cachedContext, DebugContext context,
-            String property) {
-
-        Object value = cachedContext.get(property);
-        if (value != null) {
-            context.setProperty(property, value);
+            Object value = cachedContext.get(property);
+            if (value != null) {
+                context.setProperty(property, value);
+            }
         }
     }
 
@@ -1747,11 +1429,6 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             details.put("errorDescription", errorDescription);
         }
         return details;
-    }
-
-    private Map<String, Object> buildTokenExchangeFailureDetails(String errorCode, String errorDescription) {
-
-        return buildErrorDetails(errorCode, errorDescription);
     }
 
     private List<Map<String, Object>> transformDiagnostics(List<Map<String, Object>> diagnostics) {
@@ -1803,11 +1480,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     /**
      * URL-encodes a parameter for safe use in HTTP redirects.
-     * Prevents XSS and injection vulnerabilities.
-     * Returns empty string on encoding failure to prevent injection.
-     *
-     * @param param Parameter to encode.
-     * @return URL-encoded parameter, or empty string on failure.
+     * Returns empty string on encoding failure to prevent injection rather than propagating a bad value.
      */
     private String encodeForUrl(String param) {
 

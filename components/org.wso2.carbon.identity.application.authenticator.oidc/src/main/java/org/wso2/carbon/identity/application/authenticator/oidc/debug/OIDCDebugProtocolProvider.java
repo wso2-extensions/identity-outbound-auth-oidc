@@ -51,55 +51,31 @@ public class OIDCDebugProtocolProvider implements DebugProtocolProvider {
                 OIDCDebugConstants.PROTOCOL_TYPE, IdpDebugConstants.PROTOCOL_TYPE_GOOGLE,
                 IdpDebugConstants.PROTOCOL_TYPE_GITHUB);
     }
-    /**
-     * Returns the protocol type supported by this provider.
-     *
-     * @return Protocol type identifier.
-     */
+
     @Override
     public String getProtocolType() {
 
         return OIDCDebugConstants.PROTOCOL_TYPE;
     }
 
-    /**
-     * Returns the context provider for OIDC debug operations.
-     *
-     * @return DebugContextProvider instance.
-     */
     @Override
     public DebugContextProvider getContextProvider() {
 
         return contextProvider;
     }
 
-    /**
-     * Returns the executor for OIDC debug flow execution.
-     *
-     * @return DebugExecutor instance.
-     */
     @Override
     public DebugExecutor getExecutor() {
 
         return executor;
     }
 
-    /**
-     * Returns the processor for OIDC debug result processing.
-     *
-     * @return DebugProcessor instance.
-     */
     @Override
     public DebugProcessor getProcessor() {
 
         return processor;
     }
 
-    /**
-     * Returns the callback handler for OIDC debug operations.
-     *
-     * @return DebugCallbackHandler instance.
-     */
     @Override
     public DebugCallbackHandler getCallbackHandler() {
 

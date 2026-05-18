@@ -56,25 +56,13 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     private final IdpDebugProcessor processor;
     private final Set<String> supportedProtocols;
 
-    /**
-     * Default constructor for {@link OIDCDebugCallbackHandler}.
-     * Registers support for OIDC, Google, and GitHub protocols.
-     * Google and GitHub currently share the same OAuth2/OIDC callback handling flow.
-     *
-     * @param processor {@link IdpDebugProcessor} to be used for processing callbacks.
-     */
+    // Google and GitHub share the same OAuth2/OIDC callback handling flow.
     public OIDCDebugCallbackHandler(IdpDebugProcessor processor) {
 
         this(processor, OIDCDebugConstants.PROTOCOL_TYPE, IdpDebugConstants.PROTOCOL_TYPE_GOOGLE,
                 IdpDebugConstants.PROTOCOL_TYPE_GITHUB);
     }
 
-    /**
-     * Constructor for {@link OIDCDebugCallbackHandler} with specific supported protocols.
-     *
-     * @param processor          {@link DebugProcessor} to be used for processing callbacks.
-     * @param supportedProtocols Array of protocol types supported by this handler.
-     */
     public OIDCDebugCallbackHandler(IdpDebugProcessor processor, String... supportedProtocols) {
 
         this.processor = processor;
@@ -88,13 +76,6 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         this.supportedProtocols = Collections.unmodifiableSet(normalizedProtocols);
     }
 
-    /**
-     * Checks if this handler can process the given OIDC callback request.
-     * The request is already guaranteed to be a debug request by the interceptor.
-     *
-     * @param request {@link HttpServletRequest} representing the callback.
-     * @return True if the request is for a supported protocol.
-     */
     @Override
     public boolean canHandle(HttpServletRequest request) {
 
@@ -104,13 +85,6 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         return isSupportedProtocol(state != null ? state : sessionDataKey);
     }
 
-    /**
-     * Processes the OIDC debug callback.
-     *
-     * @param request  {@link HttpServletRequest} representing the callback.
-     * @param response {@link HttpServletResponse} to send the response.
-     * @return True if the callback was successfully handled, false otherwise.
-     */
     @Override
     public boolean handleCallback(HttpServletRequest request, HttpServletResponse response) {
 
@@ -120,16 +94,11 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
         try {
             processDebugFlowCallback(request, response);
-        } catch (DebugFrameworkException e) {
+        } catch (DebugFrameworkException | IOException e) {
             LOG.error("Error processing debug flow callback", e);
             if (!response.isCommitted()) {
-                sendIOErrorResponse(response);
-            }
-            return false;
-        } catch (IOException e) {
-            LOG.error("Error processing debug flow callback", e);
-            if (!response.isCommitted()) {
-                sendIOErrorResponse(response);
+                sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "IO_ERROR", "Error processing debug callback");
             }
             return false;
         }
@@ -262,11 +231,5 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         } catch (IOException e) {
             LOG.error("Error sending error response", e);
         }
-    }
-    
-    private void sendIOErrorResponse(HttpServletResponse response) {
-
-        sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                "IO_ERROR", "Error processing debug callback");
     }
 }
