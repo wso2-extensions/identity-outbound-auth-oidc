@@ -261,7 +261,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
     /**
      * Validates that the authorization endpoint is an absolute HTTPS URL.
-     * HTTP is permitted only for localhost, to support local development environments.
      */
     private void validateAuthorizationEndpoint(String authzEndpoint) throws DebugExecutionException {
 
@@ -271,7 +270,7 @@ public class OIDCDebugExecutor extends DebugExecutor {
                 throw new DebugExecutionException(
                         "Authorization endpoint must be an absolute URL: " + authzEndpoint);
             }
-            if (!"https".equalsIgnoreCase(endpointUri.getScheme()) && !isLocalhost(endpointUri.getHost())) {
+            if (!"https".equalsIgnoreCase(endpointUri.getScheme())) {
                 throw new DebugExecutionException(
                         "Authorization endpoint must use HTTPS: " + authzEndpoint);
             }
@@ -280,11 +279,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
         } catch (Exception e) {
             throw new DebugExecutionException("Invalid authorization endpoint: " + authzEndpoint, e);
         }
-    }
-
-    private boolean isLocalhost(String host) {
-
-        return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host);
     }
 
     // Keys are validated against an allowlist to prevent open-redirect or parameter-injection via arbitrary keys.

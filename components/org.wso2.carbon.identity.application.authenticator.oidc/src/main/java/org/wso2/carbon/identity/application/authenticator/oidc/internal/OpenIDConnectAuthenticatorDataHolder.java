@@ -21,13 +21,9 @@ import org.wso2.carbon.identity.application.authentication.framework.UserSession
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.user.core.service.RealmService;
 
-/**
- * Data holder for OIDC Authenticator Service Component.
- */
 public class OpenIDConnectAuthenticatorDataHolder {
 
-    private static final OpenIDConnectAuthenticatorDataHolder INSTANCE =
-            new OpenIDConnectAuthenticatorDataHolder();
+    private static OpenIDConnectAuthenticatorDataHolder instance = new OpenIDConnectAuthenticatorDataHolder();
 
     private RealmService realmService;
 
@@ -38,11 +34,12 @@ public class OpenIDConnectAuthenticatorDataHolder {
     private UserSessionManagementService userSessionManagementService;
 
     private OpenIDConnectAuthenticatorDataHolder() {
+
     }
 
     public static OpenIDConnectAuthenticatorDataHolder getInstance() {
 
-        return INSTANCE;
+        return instance;
     }
 
     public RealmService getRealmService() {
