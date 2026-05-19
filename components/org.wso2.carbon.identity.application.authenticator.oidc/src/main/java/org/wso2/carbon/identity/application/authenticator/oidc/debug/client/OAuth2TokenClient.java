@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.application.authenticator.oidc.debug.client;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
@@ -26,6 +27,8 @@ import org.wso2.carbon.identity.application.authenticator.oidc.CustomURLConnecti
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.wso2.carbon.identity.application.authenticator.oidc.debug.OIDCDebugConstants;
+
+import java.util.Locale;
 
 
 /**
@@ -90,19 +93,19 @@ public class OAuth2TokenClient {
     private TokenResponse validateRequiredParameters(String authorizationCode, String tokenEndpoint,
             String clientId, String clientSecret, String redirectUri) {
 
-        if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
+        if (StringUtils.isBlank(authorizationCode)) {
             return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Authorization code is required");
         }
-        if (tokenEndpoint == null || tokenEndpoint.trim().isEmpty()) {
+        if (StringUtils.isBlank(tokenEndpoint)) {
             return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Token endpoint URL is required");
         }
-        if (clientId == null || clientId.trim().isEmpty()) {
+        if (StringUtils.isBlank(clientId)) {
             return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client ID is required");
         }
-        if (clientSecret == null || clientSecret.trim().isEmpty()) {
+        if (StringUtils.isBlank(clientSecret)) {
             return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Client secret is required");
         }
-        if (redirectUri == null || redirectUri.trim().isEmpty()) {
+        if (StringUtils.isBlank(redirectUri)) {
             return TokenResponse.error(OIDCDebugConstants.ERROR_CODE_INVALID_REQUEST, "Redirect URI is required");
         }
         return null;
@@ -132,16 +135,15 @@ public class OAuth2TokenClient {
                     .setCode(authorizationCode);
 
             // Only add code_verifier when present to avoid sending literal "null" string.
-            if (codeVerifier != null && !codeVerifier.trim().isEmpty()) {
+            if (StringUtils.isNotBlank(codeVerifier)) {
                 builder.setParameter("code_verifier", codeVerifier);
             }
 
             OAuthClientRequest request = builder.buildBodyMessage();
 
-            // Add Accept: application/json header for GitHub token endpoint and other special cases.
-            if (idpName != null && idpName.toLowerCase().contains("github")) {
-                request.addHeader("Accept", "application/json");
-            }
+            // Explicitly request JSON — required for GitHub (which defaults to form-urlencoded) and
+            // consistent with OAuthJSONAccessTokenResponse which always parses JSON.
+            request.addHeader("Accept", "application/json");
 
             return request;
         } catch (Exception e) {
@@ -205,7 +207,7 @@ public class OAuth2TokenClient {
         if (e == null) {
             return "TOKEN_EXCHANGE_ERROR";
         }
-        String exceptionMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        String exceptionMessage = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ENGLISH) : "";
         if (exceptionMessage.contains("invalid_client")) {
             return "INVALID_CLIENT";
         } else if (exceptionMessage.contains("invalid_grant")) {
@@ -289,7 +291,7 @@ public class OAuth2TokenClient {
 
     private boolean isLikelyWrongTokenEndpoint(String errorMessage) {
 
-        String normalizedErrorMessage = errorMessage != null ? errorMessage.toLowerCase() : "";
+        String normalizedErrorMessage = errorMessage != null ? errorMessage.toLowerCase(Locale.ENGLISH) : "";
         return normalizedErrorMessage.contains("missing parameters: access_token")
                 || normalizedErrorMessage.contains("missing parameter: access_token");
     }

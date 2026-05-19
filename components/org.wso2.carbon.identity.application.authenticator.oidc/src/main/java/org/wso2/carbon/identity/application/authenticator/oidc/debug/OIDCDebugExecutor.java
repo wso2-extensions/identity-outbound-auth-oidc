@@ -178,7 +178,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
 
             StringBuilder urlBuilder = new StringBuilder();
             urlBuilder.append(authzEndpoint);
-            urlBuilder.append("?response_type=code");
+            // Use & if the endpoint already contains query parameters, otherwise start with ?.
+            urlBuilder.append(authzEndpoint.contains("?") ? "&" : "?").append("response_type=code");
             urlBuilder.append("&client_id=").append(encodeParam(clientId));
             urlBuilder.append("&redirect_uri=").append(encodeParam(redirectUri));
 
@@ -213,7 +214,8 @@ public class OIDCDebugExecutor extends DebugExecutor {
     }
 
     /**
-     * Validates that the authorization endpoint is an absolute HTTPS URL.
+     * Validates that the authorization endpoint is an absolute URL using HTTPS.
+     * HTTP is permitted for loopback addresses (localhost, 127.0.0.1, ::1) to support local development.
      */
     private void validateAuthorizationEndpoint(String authzEndpoint) throws DebugExecutionException {
 
@@ -223,9 +225,16 @@ public class OIDCDebugExecutor extends DebugExecutor {
                 throw new DebugExecutionException(
                         "Authorization endpoint must be an absolute URL: " + authzEndpoint);
             }
-            if (!"https".equalsIgnoreCase(endpointUri.getScheme())) {
-                throw new DebugExecutionException(
-                        "Authorization endpoint must use HTTPS: " + authzEndpoint);
+            String scheme = endpointUri.getScheme();
+            if (!"https".equalsIgnoreCase(scheme)) {
+                String host = endpointUri.getHost();
+                boolean isLoopback = "localhost".equalsIgnoreCase(host)
+                        || "127.0.0.1".equals(host)
+                        || "::1".equals(host);
+                if (!isLoopback) {
+                    throw new DebugExecutionException(
+                            "Authorization endpoint must use HTTPS: " + authzEndpoint);
+                }
             }
         } catch (DebugExecutionException e) {
             throw e;

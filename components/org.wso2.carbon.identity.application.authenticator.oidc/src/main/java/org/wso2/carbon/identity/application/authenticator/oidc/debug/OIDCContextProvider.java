@@ -51,6 +51,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
 
     private static final Log LOG = LogFactory.getLog(OIDCContextProvider.class);
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]+");
+    private static final OpenIDConnectExecutor OIDC_EXECUTOR = new OpenIDConnectExecutor();
 
     /**
      * Resolves and creates an OIDC debug context from the given HTTP request.
@@ -292,7 +293,7 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
     private OpenIDConnectExecutor resolveExecutor(String authenticatorName) {
 
         if (isKnownOidcImplementation(authenticatorName)) {
-            return new OpenIDConnectExecutor();
+            return OIDC_EXECUTOR;
         }
         return null;
     }

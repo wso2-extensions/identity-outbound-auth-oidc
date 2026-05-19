@@ -206,9 +206,9 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
     private String extractConnectionId(DebugContext context, HttpServletRequest request) {
 
-        String connectionId = (String) context.getProperty("connectionId");
+        String connectionId = (String) context.getProperty(OIDCDebugConstants.PARAM_CONNECTION_ID);
         if (StringUtils.isBlank(connectionId)) {
-            connectionId = request.getParameter("idpId");
+            connectionId = request.getParameter(OIDCDebugConstants.PARAM_IDP_ID);
         }
         return connectionId;
     }

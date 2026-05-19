@@ -614,8 +614,11 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             return false;
         }
 
-        if (!claims.containsKey(OIDCDebugConstants.CLAIM_SUB) && !claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID) &&
-                !claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID_ALT) && !claims.containsKey(OIDCDebugConstants.CLAIM_EMAIL)) {
+        boolean hasUserIdentifier = claims.containsKey(OIDCDebugConstants.CLAIM_SUB)
+                || claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID)
+                || claims.containsKey(OIDCDebugConstants.CLAIM_USER_ID_ALT)
+                || claims.containsKey(OIDCDebugConstants.CLAIM_EMAIL);
+        if (!hasUserIdentifier) {
             LOG.error("Required user identifier claim not found in extracted claims");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_ERROR, "User identifier claim missing");
             context.setProperty(OIDCDebugConstants.DEBUG_AUTH_SUCCESS, false);
@@ -1238,6 +1241,8 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
     private void restorePropertiesToContext(Map<String, Object> cachedContext, DebugContext context) {
 
+        // When adding new context properties that must survive the callback round-trip, add them here too.
+        // CLIENT_SECRET is intentionally excluded — it is nulled out before caching in OIDCDebugExecutor.
         String[] propertiesToRestore = {
                 OIDCDebugConstants.TOKEN_ENDPOINT, OIDCDebugConstants.CLIENT_ID,
                 OIDCDebugConstants.DEBUG_CODE_VERIFIER,
@@ -1247,6 +1252,7 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 OIDCDebugConstants.DEBUG_ID, OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL,
                 OIDCDebugConstants.DEBUG_DIAGNOSTICS,
                 OIDCDebugConstants.ACCESS_TOKEN, OIDCDebugConstants.ID_TOKEN, OIDCDebugConstants.TOKEN_TYPE,
+                OIDCDebugConstants.DEBUG_NONCE,
         };
 
         for (String property : propertiesToRestore) {

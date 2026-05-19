@@ -137,6 +137,7 @@ public final class OIDCDebugConstants {
     // Request parameter names.
     public static final String PARAM_IDP_ID = "idpId";
     public static final String PARAM_AUTHENTICATOR = "authenticator";
+    public static final String PARAM_CONNECTION_ID = "connectionId";
 
     // Authenticator property names.
     public static final String PROP_ADDITIONAL_QUERY_PARAMS = "AdditionalQueryParameters";
