@@ -704,9 +704,9 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
 
         Map<String, String> unmappedClaimPair = extractFirstUnmappedClaimPair(mappedClaimsArray);
         String unmappedIdpClaim = unmappedClaimPair.get("idpClaim");
-        String unmappedIsClaim = unmappedClaimPair.get("isClaim");
-        if (StringUtils.isNotBlank(unmappedIdpClaim) || StringUtils.isNotBlank(unmappedIsClaim)) {
-            details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, buildUnmappedClaimErrorDescription(unmappedIdpClaim, unmappedIsClaim));
+        String unmappedLocalClaim = unmappedClaimPair.get("localClaim");
+        if (StringUtils.isNotBlank(unmappedIdpClaim) || StringUtils.isNotBlank(unmappedLocalClaim)) {
+            details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION, buildUnmappedClaimErrorDescription(unmappedIdpClaim, unmappedLocalClaim));
         } else {
             details.put(OIDCDebugConstants.DIAG_ERROR_DESCRIPTION,
                     "Couldn't map one or more IdP claims to local claims. Please review claim mappings.");
@@ -723,33 +723,33 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
             }
 
             Object idpClaim = claim.get(OIDCDebugConstants.CLAIM_MAPPING_IDP_CLAIM);
-            Object isClaim = claim.get(OIDCDebugConstants.CLAIM_MAPPING_LOCAL_CLAIM);
+            Object localClaim = claim.get(OIDCDebugConstants.CLAIM_MAPPING_LOCAL_CLAIM);
             String idpClaimValue = idpClaim != null ? idpClaim.toString() : null;
-            String isClaimValue = isClaim != null ? isClaim.toString() : null;
+            String localClaimValue = localClaim != null ? localClaim.toString() : null;
 
             Map<String, String> claimPair = new LinkedHashMap<>();
             claimPair.put("idpClaim", StringUtils.defaultString(idpClaimValue));
-            claimPair.put("isClaim", StringUtils.defaultString(isClaimValue));
+            claimPair.put("localClaim", StringUtils.defaultString(localClaimValue));
             return claimPair;
         }
 
         Map<String, String> emptyPair = new LinkedHashMap<>();
         emptyPair.put("idpClaim", "");
-        emptyPair.put("isClaim", "");
+        emptyPair.put("localClaim", "");
         return emptyPair;
     }
 
-    private String buildUnmappedClaimErrorDescription(String unmappedIdpClaim, String unmappedIsClaim) {
+    private String buildUnmappedClaimErrorDescription(String unmappedIdpClaim, String unmappedLocalClaim) {
 
-        if (StringUtils.isNotBlank(unmappedIdpClaim) && StringUtils.isNotBlank(unmappedIsClaim)) {
+        if (StringUtils.isNotBlank(unmappedIdpClaim) && StringUtils.isNotBlank(unmappedLocalClaim)) {
             return "The IdP claim '" + unmappedIdpClaim + "' is not mapped to the IS local claim '" +
-                    unmappedIsClaim + "'.";
+                    unmappedLocalClaim + "'.";
         }
         if (StringUtils.isNotBlank(unmappedIdpClaim)) {
             return "The IdP claim '" + unmappedIdpClaim + "' is not mapped to an IS local claim.";
         }
-        if (StringUtils.isNotBlank(unmappedIsClaim)) {
-            return "The IS local claim '" + unmappedIsClaim + "' does not have a mapped IdP claim.";
+        if (StringUtils.isNotBlank(unmappedLocalClaim)) {
+            return "The IS local claim '" + unmappedLocalClaim + "' does not have a mapped IdP claim.";
         }
         return "Couldn't map one or more IdP claims to local claims. Please review claim mappings.";
     }

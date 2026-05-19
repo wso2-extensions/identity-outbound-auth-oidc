@@ -119,16 +119,4 @@ public class OIDCConfiguration {
         this.idpName = idpName;
     }
 
-    @Override
-    public String toString() {
-
-        return "OIDCConfiguration{" +
-                "tokenEndpoint='" + tokenEndpoint + '\'' +
-                // clientId and clientSecret are credentials — masked in logs.
-                ", clientId='" + (clientId != null ? "****" : "null") + '\'' +
-                ", clientSecret='" + (clientSecret != null ? "****" : "null") + '\'' +
-                ", callbackUrl='" + callbackUrl + '\'' +
-                ", idpName='" + idpName + '\'' +
-                '}';
-    }
 }
