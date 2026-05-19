@@ -42,7 +42,6 @@ public final class OIDCDebugConstants {
     public static final String TOKEN_ENDPOINT = "tokenEndpoint";
     public static final String REDIRECT_URI = "redirectUri";
     public static final String IDP_SCOPE = "idpScope";
-    public static final String RESPONSE_TYPE = "responseType";
     public static final String IDP_CONFIG = "idpConfig";
     public static final String DEBUG_IDP_NAME = "debugIdpName";
 
@@ -58,29 +57,18 @@ public final class OIDCDebugConstants {
     public static final String ID_TOKEN = "idToken";
 
     // OIDC PKCE parameters.
-    public static final String PKCE_ENABLED = "pkceEnabled";
-    public static final String PKCE_METHOD = "pkceMethod";
     public static final String PKCE_METHOD_S256 = "S256";
     public static final String SHA256_ALGORITHM = "SHA-256";
 
     // Error codes.
     public static final String ERROR_CODE_INVALID_REQUEST = "INVALID_REQUEST";
 
-    // Debug flow step status keys.
-    public static final String STEP_STATUS = "stepStatus";
-    public static final String STEP_CONNECTION_STATUS = "connectionCreation";
-    public static final String STEP_AUTHENTICATION_STATUS = "authenticationStatus";
-    public static final String STEP_CLAIM_MAPPING_STATUS = "claimMappingStatus";
-    public static final String STEP_CLAIM_EXTRACTION_STATUS = "claimExtractionStatus";
-    public static final String STEP_ACCOUNT_LINKING_STATUS = "accountLinkingStatus";
     public static final String DEBUG_DIAGNOSTICS = DebugFrameworkConstants.DEBUG_DIAGNOSTICS;
 
     // Diagnostic stage identifiers.
     public static final String STAGE_AUTHORIZATION_REQUEST = "authorizationRequest";
-    public static final String STAGE_CALLBACK_VALIDATION = "callbackValidation";
     public static final String STAGE_TOKEN_EXCHANGE = "tokenExchange";
     public static final String STAGE_CLAIM_EXTRACTION = "claimExtraction";
-    public static final String STAGE_CLAIM_VALIDATION = "claimValidation";
     public static final String STAGE_CLAIM_MAPPING = "claimMapping";
     public static final String STAGE_ACCOUNT_LINKING = "accountLinking";
 
@@ -96,25 +84,16 @@ public final class OIDCDebugConstants {
 
     // Debug context/session property keys.
     public static final String DEBUG_ID = "debugId";
-    public static final String DEBUG_TIMESTAMP = "debugTimestamp";
-    public static final String DEBUG_TENANT_DOMAIN = "debugTenantDomain";
-    public static final String DEBUG_AUTHENTICATOR_NAME = "debugAuthenticatorName";
-    public static final String DEBUG_EXECUTOR_CLASS = "debugExecutorClass";
-    public static final String ADDITIONAL_OIDC_PARAMS = "additionalOIDCParams";
     public static final String CONTEXT_PROTOCOL = "protocol";
 
     // Debug runtime state keys.
     public static final String DEBUG_AUTH_ERROR = "authError";
     public static final String DEBUG_AUTH_SUCCESS = "authSuccess";
-    public static final String DEBUG_ID_TOKEN = "DEBUG_ID_TOKEN";
     public static final String DEBUG_INCOMING_CLAIMS = "DEBUG_INCOMING_CLAIMS";
     public static final String DEBUG_CODE_VERIFIER = "DEBUG_CODE_VERIFIER";
     public static final String DEBUG_NONCE = "DEBUG_NONCE";
     public static final String DEBUG_EXTERNAL_REDIRECT_URL = "DEBUG_EXTERNAL_REDIRECT_URL";
-    public static final String DEBUG_CUSTOM_ACCESS_TYPE = "access_type";
-    public static final String DEBUG_USERNAME = "DEBUG_USERNAME";
     public static final String DEBUG_IDP_RESOURCE_ID = "debugIdpResourceId";
-    public static final String DEBUG_IDP_DESCRIPTION = "debugIdpDescription";
 
     // Claim mapping field keys.
     public static final String CLAIM_MAPPING_REMOTE = "remote";
@@ -138,11 +117,10 @@ public final class OIDCDebugConstants {
     public static final String CLAIM_STATUS_NOT_MAPPED = "Not Mapped";
 
     // Debug result response keys.
+    public static final String RESULT_AUTHORIZATION_URL = "authorizationUrl";
     public static final String RESULT_MAPPED_CLAIMS = "mappedClaims";
     public static final String RESULT_EXTERNAL_REDIRECT_URL = "externalRedirectUrl";
-    public static final String RESULT_CALLBACK_URL = "callbackUrl";
     public static final String RESULT_ERROR_CODE = "error_code";
-    public static final String RESULT_ERROR_DESCRIPTION = "error_description";
 
     // Diagnostic detail keys.
     public static final String DIAG_ERROR_CODE = "errorCode";
@@ -162,11 +140,6 @@ public final class OIDCDebugConstants {
 
     // Authenticator property names.
     public static final String PROP_ADDITIONAL_QUERY_PARAMS = "AdditionalQueryParameters";
-    public static final String PROP_RESPONSE_TYPE = "ResponseType";
     public static final String DEFAULT_SCOPE = "openid";
 
-    // Extracted configuration keys (from OIDCConfigurationExtractor).
-    public static final String EXTRACTED_TOKEN_ENDPOINT = "tokenEndpoint";
-    public static final String EXTRACTED_CLIENT_ID = "clientId";
-    public static final String EXTRACTED_CLIENT_SECRET = "clientSecret";
 }
