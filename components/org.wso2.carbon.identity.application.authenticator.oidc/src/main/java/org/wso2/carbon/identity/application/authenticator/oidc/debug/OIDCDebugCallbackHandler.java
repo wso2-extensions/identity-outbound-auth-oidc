@@ -80,9 +80,7 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
     public boolean canHandle(HttpServletRequest request) {
 
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
-        String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
-
-        return isSupportedProtocol(state != null ? state : sessionDataKey);
+        return isSupportedProtocol(state);
     }
 
     @Override
@@ -137,14 +135,12 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
         String error = request.getParameter(OIDCDebugConstants.OIDC_ERROR_PARAM);
         String errorDescription = request.getParameter(OIDCDebugConstants.OIDC_ERROR_DESCRIPTION_PARAM);
-        String sessionDataKey = request.getParameter(DebugFrameworkConstants.SESSION_DATA_KEY_PARAM);
 
         if (handleOAuthError(error, errorDescription, response)) {
             return;
         }
 
-        String identifier = (state != null && state.startsWith(DebugFrameworkConstants.DEBUG_PREFIX))
-                ? state : sessionDataKey;
+        String identifier = state;
         DebugContext context = retrieveOrCreateContext(identifier);
         setContextProperties(context, code, state);
         if (processor == null) {
@@ -191,7 +187,6 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
         }
 
         DebugContext context = new DebugContext();
-        context.setProperty(DebugFrameworkConstants.DEBUG_IDENTIFIER_PARAM, DebugFrameworkConstants.TRUE_VALUE);
         context.setProperty(DebugFrameworkConstants.DEBUG_FLOW_TYPE, DebugFrameworkConstants.FLOW_TYPE_CALLBACK);
         context.setProperty(DebugFrameworkConstants.DEBUG_CONTEXT_CREATED, DebugFrameworkConstants.TRUE_VALUE);
         context.setProperty(DebugFrameworkConstants.DEBUG_CREATION_TIMESTAMP, System.currentTimeMillis());

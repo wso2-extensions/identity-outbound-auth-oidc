@@ -100,7 +100,6 @@ public final class OIDCDebugConstants {
     public static final String DEBUG_TENANT_DOMAIN = "debugTenantDomain";
     public static final String DEBUG_AUTHENTICATOR_NAME = "debugAuthenticatorName";
     public static final String DEBUG_EXECUTOR_CLASS = "debugExecutorClass";
-    public static final String IS_DEBUG_FLOW = "isDebugFlow";
     public static final String ADDITIONAL_OIDC_PARAMS = "additionalOIDCParams";
     public static final String CONTEXT_PROTOCOL = "protocol";
 

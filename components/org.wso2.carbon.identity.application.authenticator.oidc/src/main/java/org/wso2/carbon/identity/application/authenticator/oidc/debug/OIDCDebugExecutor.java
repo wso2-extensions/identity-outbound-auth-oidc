@@ -119,7 +119,6 @@ public class OIDCDebugExecutor extends DebugExecutor {
             }
 
             context.setProperty(OIDCDebugConstants.DEBUG_EXTERNAL_REDIRECT_URL, authorizationUrl);
-            context.setProperty(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
 
             context.setProperty(OIDCDebugConstants.STEP_CONNECTION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);
             context.setProperty(OIDCDebugConstants.STEP_AUTHENTICATION_STATUS, OIDCDebugConstants.STATUS_SUCCESS);

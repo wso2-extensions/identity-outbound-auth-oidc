@@ -242,7 +242,6 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
 
     private void populateDebugSessionProperties(Map<String, Object> context, String tenantDomain) {
 
-        context.put(OIDCDebugConstants.IS_DEBUG_FLOW, Boolean.TRUE);
         context.put(OIDCDebugConstants.DEBUG_ID, "debug-" + UUID.randomUUID());
         context.put(OIDCDebugConstants.DEBUG_TIMESTAMP, System.currentTimeMillis());
         context.put(OIDCDebugConstants.DEBUG_TENANT_DOMAIN, tenantDomain);
