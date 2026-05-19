@@ -133,15 +133,8 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
 
         String code = request.getParameter(OIDCDebugConstants.OIDC_CODE_PARAM);
         String state = request.getParameter(OIDCDebugConstants.OIDC_STATE_PARAM);
-        String error = request.getParameter(OIDCDebugConstants.OIDC_ERROR_PARAM);
-        String errorDescription = request.getParameter(OIDCDebugConstants.OIDC_ERROR_DESCRIPTION_PARAM);
 
-        if (handleOAuthError(error, errorDescription, response)) {
-            return;
-        }
-
-        String identifier = state;
-        DebugContext context = retrieveOrCreateContext(identifier);
+        DebugContext context = retrieveOrCreateContext(state);
         setContextProperties(context, code, state);
         if (processor == null) {
             LOG.error("No suitable DebugProcessor found for OIDC callback");
@@ -156,23 +149,11 @@ public class OIDCDebugCallbackHandler implements DebugCallbackHandler {
             return;
         }
 
+        // Delegate all callback processing to the processor, including OAuth errors (error=access_denied etc.).
+        // The processor's validateCallback persists the error to the session store so polling clients receive it.
         if (!response.isCommitted()) {
             processor.processCallback(request, response, context);
         }
-    }
-
-    private boolean handleOAuthError(String error, String errorDescription, HttpServletResponse response) {
-
-        if (error == null) {
-            return false;
-        }
-        LOG.error("OAuth error in debug callback: " + error +
-                (errorDescription != null ? " - " + errorDescription : ""));
-        if (!response.isCommitted()) {
-            String message = errorDescription != null ? error + ": " + errorDescription : error;
-            sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST, "OAUTH_ERROR", message);
-        }
-        return true;
     }
 
     private DebugContext retrieveOrCreateContext(String state) {

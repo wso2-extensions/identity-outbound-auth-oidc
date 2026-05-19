@@ -1207,9 +1207,9 @@ public class OIDCDebugProcessor extends IdpDebugProcessor {
                 return;
             }
 
-            // Fixed path prevents open redirect — only debug success page is reachable via this method.
-            String redirectUrl = OIDCDebugConstants.DEBUG_SUCCESS_PAGE + "?state=" + encodedState +
-                    "&idpId=" + encodedIdpId;
+            // IdentityUtil resolves the correct host/port for this deployment (handles proxy, port-offset, etc.).
+            String successPageUrl = IdentityUtil.getServerURL(OIDCDebugConstants.DEBUG_SUCCESS_PAGE, true, true);
+            String redirectUrl = successPageUrl + "?state=" + encodedState + "&idpId=" + encodedIdpId;
             response.sendRedirect(redirectUrl);
         }
     }

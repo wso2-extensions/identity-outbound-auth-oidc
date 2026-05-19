@@ -86,7 +86,6 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
 
             return resolveContext(idpId, authenticatorName);
         } catch (ContextResolutionException e) {
-            LOG.error("Error resolving OIDC debug context from request: " + e.getMessage(), e);
             throw e;
         } catch (Exception e) {
             LOG.error("Unexpected error resolving OIDC debug context from request: " + e.getMessage(), e);
@@ -369,39 +368,39 @@ public class OIDCContextProvider extends IdpDebugContextProvider {
      */
     private String extractScopeFromQueryParams(String queryParams) {
 
-        try {
-            String[] params = queryParams.split("&");
-            int scopeIndex = -1;
-            for (int i = 0; i < params.length; i++) {
-                if (params[i].trim().startsWith("scope=")) {
-                    scopeIndex = i;
-                    break;
-                }
-            }
-
-            if (scopeIndex == -1) {
-                return null;
-            }
-
-            StringBuilder scopeBuilder = new StringBuilder(URLDecoder.decode(
-                    params[scopeIndex].substring("scope=".length()), StandardCharsets.UTF_8.name()));
-
-            // Collect subsequent bare parameters (no '=') as additional scope values.
-            for (int j = scopeIndex + 1; j < params.length; j++) {
-                String nextParam = params[j].trim();
-                if (!nextParam.contains("=")) {
-                    scopeBuilder.append(" ").append(nextParam);
-                } else {
-                    break;
-                }
-            }
-
-            return scopeBuilder.toString().trim();
-        } catch (Exception e) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Error extracting scope from AdditionalQueryParameters: " + queryParams, e);
+        String[] params = queryParams.split("&");
+        int scopeIndex = -1;
+        for (int i = 0; i < params.length; i++) {
+            if (params[i].trim().startsWith("scope=")) {
+                scopeIndex = i;
+                break;
             }
         }
-        return null;
+
+        if (scopeIndex == -1) {
+            return null;
+        }
+
+        String scopeValue;
+        try {
+            scopeValue = URLDecoder.decode(params[scopeIndex].substring("scope=".length()),
+                    StandardCharsets.UTF_8.name());
+        } catch (java.io.UnsupportedEncodingException e) {
+            // UTF-8 is always supported — unreachable.
+            scopeValue = params[scopeIndex].substring("scope=".length());
+        }
+        StringBuilder scopeBuilder = new StringBuilder(scopeValue);
+
+        // Collect subsequent bare parameters (no '=') as additional scope values.
+        for (int j = scopeIndex + 1; j < params.length; j++) {
+            String nextParam = params[j].trim();
+            if (!nextParam.contains("=")) {
+                scopeBuilder.append(" ").append(nextParam);
+            } else {
+                break;
+            }
+        }
+
+        return scopeBuilder.toString().trim();
     }
 }
