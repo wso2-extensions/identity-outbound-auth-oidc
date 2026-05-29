@@ -86,6 +86,18 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.debug.framework</artifactId>
+                <version>${identity.debug.framework.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.debug.idp</artifactId>
+                <version>${identity.debug.framework.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
                 <artifactId>org.wso2.carbon.identity.testutil</artifactId>
                 <version>${carbon.identity.framework.version}</version>
                 <scope>test</scope>
@@ -304,6 +316,7 @@
         <identity.application.auth.oidc.package.export.version>${project.version}
         </identity.application.auth.oidc.package.export.version>
 
+        <identity.debug.framework.version>7.10.35</identity.debug.framework.version>
         <carbon.identity.framework.version>7.8.675</carbon.identity.framework.version>
         <oltu.version>1.0.0.wso2v1</oltu.version>
         <json-smart.version>2.4.11</json-smart.version>

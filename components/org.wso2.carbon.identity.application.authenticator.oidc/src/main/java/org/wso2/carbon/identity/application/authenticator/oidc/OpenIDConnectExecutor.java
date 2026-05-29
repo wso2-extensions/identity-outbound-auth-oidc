@@ -351,7 +351,7 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
         return accessToken;
     }
 
-    private String resolveIDToken(OAuthClientResponse oAuthResponse) throws FlowEngineException {
+    protected String resolveIDToken(OAuthClientResponse oAuthResponse) throws FlowEngineException {
 
         String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
 
@@ -380,8 +380,13 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
                 .filter(entry -> !ArrayUtils.contains(NON_USER_ATTRIBUTES, entry.getKey()))
                 .forEach(entry -> OIDCCommonUtil.buildClaimMappings(remoteClaimsMap, entry, attributeSeparator));
 
-
+        onRawClaimsResolved(flowExecutionContext, idToken, jwtAttributeMap);
         return resolveLocalClaims(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
+    }
+
+    protected void onRawClaimsResolved(FlowExecutionContext flowExecutionContext, String idToken,
+            Map<String, Object> rawClaims) {
+        // no-op: subclasses may override to inspect the ID token and raw IdP claims before dialect conversion.
     }
 
     protected Map<String, Object> resolveLocalClaims(FlowExecutionContext flowExecutionContext,
