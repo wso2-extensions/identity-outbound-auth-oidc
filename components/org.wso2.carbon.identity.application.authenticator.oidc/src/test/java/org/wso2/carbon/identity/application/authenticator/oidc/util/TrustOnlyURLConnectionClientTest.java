@@ -128,7 +128,7 @@ public class TrustOnlyURLConnectionClientTest extends PowerMockTestCase {
     }
 
     @Test
-    public void testExecuteWorksForPlainHttpConnectionWithoutSettingSslSocketFactory() throws Exception {
+    public void testExecuteWorksForNonHttpsConnectionWithoutSettingSslSocketFactory() throws Exception {
 
         HttpURLConnection mockConnection = mock(HttpURLConnection.class);
         URL mockUrl = mock(URL.class);
