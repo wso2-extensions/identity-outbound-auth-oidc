@@ -26,7 +26,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.OAuthClient;
-import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthAuthzResponse;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
@@ -48,6 +47,8 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.authenticator.oidc.model.OIDCStateInfo;
 import org.wso2.carbon.identity.application.authenticator.oidc.util.OIDCErrorConstants.ErrorMessages;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.TrustOnlySslUtils;
+import org.wso2.carbon.identity.application.authenticator.oidc.util.TrustOnlyURLConnectionClient;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
 import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
@@ -600,8 +601,9 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             OAuthAuthzResponse authzResponse = OAuthAuthzResponse.oauthCodeAuthzResponse(request);
             OAuthClientRequest accessTokenRequest = getAccessTokenRequest(context, authzResponse);
 
-            // Create OAuth client that uses custom http client under the hood.
-            OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
+            // Trust-only SSL on this connection so JVM javax.net.ssl.keyStore* does not present a
+            // client cert alongside client_secret (MutualTLS dual-auth → invalid_request).
+            OAuthClient oAuthClient = new OAuthClient(new TrustOnlyURLConnectionClient());
             oAuthResponse = getOauthResponse(oAuthClient, accessTokenRequest);
             if (oAuthResponse != null) {
                 processAuthenticatedUserScopes(context, oAuthResponse.getParam(OAuthConstants.OAuth20Params.SCOPE));
@@ -1141,6 +1143,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
         try {
             URL obj = new URL(url);
             HttpURLConnection urlConnection = (HttpURLConnection) obj.openConnection();
+            TrustOnlySslUtils.applyTrustOnlySslIfHttps(urlConnection);
             urlConnection.setRequestMethod("GET");
             urlConnection.setRequestProperty("Authorization", "Bearer " + accessToken);
             reader = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
