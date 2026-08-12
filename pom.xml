@@ -313,7 +313,7 @@
         <carbon.p2.plugin.version>1.5.3</carbon.p2.plugin.version>
         <org.slf4j.verison>1.6.1</org.slf4j.verison>
         <testng.version>7.10.1</testng.version>
-        <jacoco.version>0.8.4</jacoco.version>
+        <jacoco.version>0.8.12</jacoco.version>
         <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
         <mockito.version>5.3.1</mockito.version>
         <carbon.identity.oauth.common.version>6.2.0</carbon.identity.oauth.common.version>
