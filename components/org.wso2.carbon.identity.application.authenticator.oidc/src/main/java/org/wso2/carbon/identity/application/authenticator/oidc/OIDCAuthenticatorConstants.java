@@ -59,6 +59,9 @@ public class OIDCAuthenticatorConstants {
     public static final Pattern OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN = Pattern.compile("(.*)/identity/oidc" +
             "/slo(.*)");
 
+    public static final String PKCE_CODE_VERIFIER = "PKCE_CODE_VERIFIER";
+    public static final String IS_PKCE_ENABLED = "IsPKCEEnabled";
+
     public class AuthenticatorConfParams {
 
         private AuthenticatorConfParams() {
