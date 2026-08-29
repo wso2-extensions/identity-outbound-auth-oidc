@@ -28,6 +28,7 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -49,6 +50,7 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.authenticator.oidc.internal.OpenIDConnectAuthenticatorDataHolder;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.Property;
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataManagementService;
 import org.wso2.carbon.identity.core.ServiceURL;
@@ -66,6 +68,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
@@ -75,7 +79,9 @@ import javax.xml.stream.XMLInputFactory;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.doReturn;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
@@ -392,6 +398,132 @@ public class OpenIDConnectAuthenticatorTest extends PowerMockTestCase {
         when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(null);
         openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
                 mockAuthenticationContext);
+    }
+
+    /**
+     * Test that the outbound authorization request carries a PKCE code challenge derived from the code
+     * verifier stashed on the authentication context, when PKCE is enabled on the identity provider.
+     */
+    @Test
+    public void testInitiateAuthenticationRequestWithPKCE() throws Exception {
+
+        setupTest();
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
+        try {
+            ArgumentCaptor<String> redirectCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<Object> verifierCaptor = ArgumentCaptor.forClass(Object.class);
+
+            openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
+                    mockAuthenticationContext);
+
+            verify(mockServletResponse).sendRedirect(redirectCaptor.capture());
+            String authorizationRequest = redirectCaptor.getValue();
+            assertTrue(authorizationRequest.contains("code_challenge="),
+                    "The authorization request does not carry a PKCE code challenge.");
+            assertTrue(authorizationRequest.contains("code_challenge_method=S256"),
+                    "The authorization request does not carry code_challenge_method=S256.");
+
+            // The challenge on the wire must be BASE64URL(SHA-256(verifier)) of the stored verifier.
+            verify(mockAuthenticationContext).setProperty(
+                    eq(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER), verifierCaptor.capture());
+            String codeVerifier = (String) verifierCaptor.getValue();
+            assertNotNull(codeVerifier, "No PKCE code verifier was stored on the authentication context.");
+
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] digest = messageDigest.digest(codeVerifier.getBytes("US-ASCII"));
+            String expectedChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+            assertTrue(authorizationRequest.contains("code_challenge=" + expectedChallenge),
+                    "The code challenge does not match the SHA-256 digest of the stored code verifier.");
+        } finally {
+            authenticatorProperties.remove(OIDCAuthenticatorConstants.IS_PKCE_ENABLED);
+        }
+    }
+
+    /**
+     * Test that no PKCE parameters are added to the authorization request when PKCE is not enabled,
+     * so that identity providers configured before this feature are unaffected.
+     */
+    @Test
+    public void testInitiateAuthenticationRequestWithoutPKCE() throws Exception {
+
+        setupTest();
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        authenticatorProperties.remove(OIDCAuthenticatorConstants.IS_PKCE_ENABLED);
+
+        ArgumentCaptor<String> redirectCaptor = ArgumentCaptor.forClass(String.class);
+        openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
+                mockAuthenticationContext);
+
+        verify(mockServletResponse).sendRedirect(redirectCaptor.capture());
+        String authorizationRequest = redirectCaptor.getValue();
+        assertTrue(!authorizationRequest.contains("code_challenge"),
+                "The authorization request carries a code challenge while PKCE is disabled.");
+        assertTrue(!authorizationRequest.contains("code_challenge_method"),
+                "The authorization request carries a code challenge method while PKCE is disabled.");
+    }
+
+    /**
+     * Test whether the token request contains the code verifier when PKCE is enabled.
+     */
+    @Test
+    public void testGetAccessTokenRequestWithPKCE() throws Exception {
+
+        setupTest();
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
+        try {
+            when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER))
+                    .thenReturn("sample_code_verifier");
+            when(mockOAuthzResponse.getCode()).thenReturn("abc");
+
+            OAuthClientRequest request = openIDConnectAuthenticator
+                    .getAccessTokenRequest(mockAuthenticationContext, mockOAuthzResponse);
+            assertTrue(request.getBody().contains("code_verifier=sample_code_verifier"),
+                    "The token request does not carry the PKCE code verifier.");
+        } finally {
+            authenticatorProperties.remove(OIDCAuthenticatorConstants.IS_PKCE_ENABLED);
+        }
+    }
+
+    /**
+     * Test that the token request fails when PKCE is enabled but no code verifier is available,
+     * rather than silently sending a request the identity provider will reject.
+     */
+    @Test(expectedExceptions = AuthenticationFailedException.class)
+    public void testGetAccessTokenRequestWithPKCEMissingVerifier() throws Exception {
+
+        setupTest();
+        mockAuthenticationRequestContext(mockAuthenticationContext);
+        authenticatorProperties.put(OIDCAuthenticatorConstants.IS_PKCE_ENABLED, "true");
+        try {
+            when(mockAuthenticationContext.getProperty(OIDCAuthenticatorConstants.PKCE_CODE_VERIFIER))
+                    .thenReturn(null);
+            when(mockOAuthzResponse.getCode()).thenReturn("abc");
+
+            openIDConnectAuthenticator.getAccessTokenRequest(mockAuthenticationContext, mockOAuthzResponse);
+        } finally {
+            authenticatorProperties.remove(OIDCAuthenticatorConstants.IS_PKCE_ENABLED);
+        }
+    }
+
+    /**
+     * Test that the PKCE configuration property is exposed with the exact name the identity provider
+     * management console persists, so that the console toggle actually reaches the authenticator.
+     */
+    @Test
+    public void testPKCEConfigurationProperty() throws Exception {
+
+        Property pkceProperty = null;
+        for (Property property : openIDConnectAuthenticator.getConfigurationProperties()) {
+            if (OIDCAuthenticatorConstants.IS_PKCE_ENABLED.equals(property.getName())) {
+                pkceProperty = property;
+                break;
+            }
+        }
+        assertNotNull(pkceProperty, "The authenticator does not expose an '"
+                + OIDCAuthenticatorConstants.IS_PKCE_ENABLED + "' configuration property.");
+        assertEquals(pkceProperty.getType(), "boolean", "The PKCE property is not a boolean property.");
     }
 
     @Test
