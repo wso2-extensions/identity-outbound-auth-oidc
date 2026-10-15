@@ -30,6 +30,7 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -42,7 +43,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.wso2.carbon.base.CarbonBaseConstants;
+import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ApplicationConfig;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.SequenceConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
@@ -84,10 +87,12 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -99,6 +104,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -227,10 +233,11 @@ public class OpenIDConnectAuthenticatorTest {
         openMocks = MockitoAnnotations.openMocks(this);
         init();
 
-        // This is added to load the OIDCErrorConstants class before running the tests to avoid class loading issues 
-        // in the tests
+        // This is added to load the OIDCErrorConstants and OIDCAuthenticatorConstants classes before running the
+        // tests to avoid class loading issues in the tests
         OIDCErrorConstants.ErrorMessages ignored 
                 = OIDCErrorConstants.ErrorMessages.ACCESS_TOKEN_EMPTY_OR_NULL;
+        Pattern ignoredPattern = OIDCAuthenticatorConstants.PERCENT_ENCODED_SEQUENCE_PATTERN;
     }
 
     @AfterMethod
@@ -434,9 +441,13 @@ public class OpenIDConnectAuthenticatorTest {
                      = Mockito.mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
              MockedStatic<IdentityUtil> identityUtilStatic = Mockito.mockStatic(IdentityUtil.class);
              MockedStatic<ServiceURLBuilder> serviceURLBuilderStatic = Mockito.mockStatic(ServiceURLBuilder.class);
-             MockedStatic<LoggerUtils> loggerUtils = Mockito.mockStatic(LoggerUtils.class)) {
+             MockedStatic<LoggerUtils> loggerUtils = Mockito.mockStatic(LoggerUtils.class);
+             MockedStatic<FileBasedConfigurationBuilder> fileBasedConfigurationBuilder =
+                     Mockito.mockStatic(FileBasedConfigurationBuilder.class)) {
             setupTest(authzResponseStatic, oidcCommonUtilStatic, dataHolderStatic, identityUtilStatic,
                     serviceURLBuilderStatic, loggerUtils);
+            fileBasedConfigurationBuilder.when(FileBasedConfigurationBuilder::getInstance)
+                    .thenReturn(mock(FileBasedConfigurationBuilder.class));
             mockAuthenticationRequestContext(mockAuthenticationContext);
             when(mockServletResponse.encodeRedirectURL(anyString())).thenReturn("https://localhost:9443/redirect");
             when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(authenticatorProperties);
@@ -451,6 +462,82 @@ public class OpenIDConnectAuthenticatorTest {
             openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
                     mockAuthenticationContext);
             assertEquals(mockServletResponse.encodeRedirectURL("encodeRedirectUri"), expectedValue, errorMsg);
+        }
+    }
+
+    @DataProvider(name = "preEncodedQueryParamProvider")
+    public Object[][] getPreEncodedQueryParams() {
+
+        return new Object[][]{
+                // Pre-encoded value is decoded before encoding, when enabled.
+                {"scope=openid%20profile%20email", null, true, "scope=openid+profile+email"},
+                // Pre-encoded value is double encoded, when disabled.
+                {"scope=openid%20profile%20email", null, false, "scope=openid%2520profile%2520email"},
+                // Plain value is encoded once, when enabled.
+                {"scope=openid profile email", null, true, "scope=openid+profile+email"},
+                // Pre-encoded value in the scopes field is decoded before encoding, when enabled.
+                {null, "openid%20email", true, "scope=openid+email"},
+                // Pre-encoded redirect URI is decoded before encoding, when enabled.
+                {"scope=openid&redirect_uri=https%3A%2F%2Flocalhost%3A9443%2Fcommonauth", null, true,
+                        "redirect_uri=https%3A%2F%2Flocalhost%3A9443%2Fcommonauth"},
+                // Value with an invalid encoding is used as configured, when enabled.
+                {"scope=openid&prompt=100%25%", null, true, "prompt=100%2525%25"},
+                // Value resolved from the request is not decoded, when enabled.
+                {"scope=openid&login_hint=${login_hint}", null, true, "login_hint=a%2541b"}
+        };
+    }
+
+    @Test(dataProvider = "preEncodedQueryParamProvider")
+    public void testInitiateAuthenticationRequestWithPreEncodedQueryParams(String queryParams, String scopes,
+                                                                          boolean decodeEnabled,
+                                                                          String expectedQueryParam)
+            throws Exception {
+
+        try (MockedStatic<OAuthAuthzResponse> authzResponseStatic = Mockito.mockStatic(OAuthAuthzResponse.class);
+             MockedStatic<OIDCCommonUtil> oidcCommonUtilStatic = Mockito.mockStatic(OIDCCommonUtil.class);
+             MockedStatic<OpenIDConnectAuthenticatorDataHolder> dataHolderStatic
+                     = Mockito.mockStatic(OpenIDConnectAuthenticatorDataHolder.class);
+             MockedStatic<IdentityUtil> identityUtilStatic = Mockito.mockStatic(IdentityUtil.class);
+             MockedStatic<ServiceURLBuilder> serviceURLBuilderStatic = Mockito.mockStatic(ServiceURLBuilder.class);
+             MockedStatic<LoggerUtils> loggerUtils = Mockito.mockStatic(LoggerUtils.class);
+             MockedStatic<FileBasedConfigurationBuilder> fileBasedConfigurationBuilder =
+                     Mockito.mockStatic(FileBasedConfigurationBuilder.class)) {
+            setupTest(authzResponseStatic, oidcCommonUtilStatic, dataHolderStatic, identityUtilStatic,
+                    serviceURLBuilderStatic, loggerUtils);
+
+            Map<String, String> authenticatorConfigParams = new HashMap<>();
+            authenticatorConfigParams.put(
+                    OIDCAuthenticatorConstants.AuthenticatorConfParams.DECODE_PRE_ENCODED_QUERY_PARAMS,
+                    String.valueOf(decodeEnabled));
+            FileBasedConfigurationBuilder configurationBuilder = mock(FileBasedConfigurationBuilder.class);
+            when(configurationBuilder.getAuthenticatorBean(anyString()))
+                    .thenReturn(new AuthenticatorConfig(AUTHENTICATOR_NAME, true, authenticatorConfigParams));
+            fileBasedConfigurationBuilder.when(FileBasedConfigurationBuilder::getInstance)
+                    .thenReturn(configurationBuilder);
+
+            Map<String, String> properties = new HashMap<>();
+            properties.put("callbackUrl", "https://localhost:9443/commonauth");
+            properties.put(OIDCAuthenticatorConstants.CLIENT_ID, clientId);
+            properties.put(OIDCAuthenticatorConstants.OAUTH2_AUTHZ_URL, "https://localhost:9444/oauth2/authorize");
+            properties.put(IdentityApplicationConstants.Authenticator.OIDC.QUERY_PARAMS, queryParams);
+            properties.put(IdentityApplicationConstants.Authenticator.OIDC.SCOPES, scopes);
+            when(mockAuthenticationContext.getAuthenticatorProperties()).thenReturn(properties);
+            when(mockAuthenticationContext.getContextIdentifier()).thenReturn("ContextIdentifier");
+
+            Map<String, String[]> requestParams = new HashMap<>();
+            requestParams.put("login_hint", new String[]{"a%41b"});
+            when(mockServletRequest.getParameterMap()).thenReturn(requestParams);
+
+            openIDConnectAuthenticator.initiateAuthenticationRequest(mockServletRequest, mockServletResponse,
+                    mockAuthenticationContext);
+
+            ArgumentCaptor<String> redirectUrlCaptor = ArgumentCaptor.forClass(String.class);
+            verify(mockServletResponse).sendRedirect(redirectUrlCaptor.capture());
+            String sentRedirectUrl = redirectUrlCaptor.getValue();
+            List<String> sentQueryParams =
+                    Arrays.asList(sentRedirectUrl.substring(sentRedirectUrl.indexOf('?') + 1).split("&"));
+            assertTrue(sentQueryParams.contains(expectedQueryParam),
+                    "Expected query param: " + expectedQueryParam + " not found in: " + sentRedirectUrl);
         }
     }
 

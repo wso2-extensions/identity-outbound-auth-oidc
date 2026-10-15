@@ -40,6 +40,7 @@ import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorFlowStatus;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
+import org.wso2.carbon.identity.application.authentication.framework.config.model.AuthenticatorConfig;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
@@ -540,6 +541,7 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 if (StringUtils.isNotBlank(scopes)) {
                     queryString += "&scope=" + scopes;
                 }
+                Set<String> preEncodedParamNames = getPreEncodedParamNames(queryString);
                 queryString = interpretQueryString(context, queryString, request.getParameterMap());
                 Map<String, String> paramValueMap = new HashMap<>();
 
@@ -548,7 +550,11 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     for (String param : params) {
                         String[] intParam = param.split("=");
                         if (intParam.length >= 2) {
-                            paramValueMap.put(intParam[0], intParam[1]);
+                            String paramValue = intParam[1];
+                            if (preEncodedParamNames.contains(intParam[0])) {
+                                paramValue = decodePreEncodedParamValue(intParam[0], paramValue);
+                            }
+                            paramValueMap.put(intParam[0], paramValue);
                         }
                     }
                     context.setProperty(OIDCAuthenticatorConstants.OIDC_QUERY_PARAM_MAP_PROPERTY_KEY, paramValueMap);
@@ -1974,6 +1980,71 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                     .append("&");
         }
         return queryString.substring(0, queryString.length() - 1);
+    }
+
+    /**
+     * Check whether decoding of pre-encoded additional query param values is enabled. Up to IS 5.10.0, the
+     * additional query params were sent as configured, hence the values had to be configured in the URL encoded
+     * form. Such values get double encoded, as the values are now URL encoded when building the authorize request,
+     * unless this is enabled.
+     *
+     * @return true if decoding of pre-encoded query param values is enabled.
+     */
+    protected boolean isDecodePreEncodedQueryParamsEnabled() {
+
+        AuthenticatorConfig authenticatorConfig = getAuthenticatorConfig();
+        if (authenticatorConfig == null || authenticatorConfig.getParameterMap() == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(authenticatorConfig.getParameterMap()
+                .get(OIDCAuthenticatorConstants.AuthenticatorConfParams.DECODE_PRE_ENCODED_QUERY_PARAMS));
+    }
+
+    /**
+     * Get the names of the configured query params whose values are already percent encoded. The configured query
+     * string should be evaluated before interpreting the dynamic params, so that the values resolved from the
+     * request are not treated as pre-encoded values.
+     *
+     * @param configuredQueryString Configured query string.
+     * @return Names of the query params with pre-encoded values.
+     */
+    private Set<String> getPreEncodedParamNames(String configuredQueryString) {
+
+        Set<String> preEncodedParamNames = new HashSet<>();
+        if (StringUtils.isBlank(configuredQueryString) || !isDecodePreEncodedQueryParamsEnabled()) {
+            return preEncodedParamNames;
+        }
+        for (String param : configuredQueryString.split("&")) {
+            String[] intParam = param.split("=");
+            if (intParam.length >= 2 && OIDCAuthenticatorConstants.PERCENT_ENCODED_SEQUENCE_PATTERN
+                    .matcher(intParam[1]).find()) {
+                preEncodedParamNames.add(intParam[0]);
+            }
+        }
+        return preEncodedParamNames;
+    }
+
+    /**
+     * Decode a pre-encoded query param value, so that it is not double encoded when building the query string.
+     *
+     * @param paramName  Query param name.
+     * @param paramValue Query param value.
+     * @return Decoded value, or the given value if it is not a valid encoded value.
+     */
+    private String decodePreEncodedParamValue(String paramName, String paramValue) {
+
+        if (!OIDCAuthenticatorConstants.PERCENT_ENCODED_SEQUENCE_PATTERN.matcher(paramValue).find()) {
+            return paramValue;
+        }
+        try {
+            return URLDecoder.decode(paramValue, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Query param: " + paramName + " does not have a valid encoded value. Hence using the " +
+                        "value as configured.", e);
+            }
+            return paramValue;
+        }
     }
 
     /**
