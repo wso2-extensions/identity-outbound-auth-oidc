@@ -75,6 +75,7 @@ public class OIDCAuthenticatorConstants {
 
     public static final String AUTH_PARAM = "$authparam";
     public static final String DYNAMIC_AUTH_PARAMS_LOOKUP_REGEX = "\\$authparam\\{(\\w+)\\}";
+    public static final Pattern PERCENT_ENCODED_SEQUENCE_PATTERN = Pattern.compile("%[0-9a-fA-F]{2}");
 
     public static final String LOGOUT_TOKEN = "logout_token";
     public static final Pattern OIDC_BACKCHANNEL_LOGOUT_ENDPOINT_URL_PATTERN = Pattern.compile("(.*)/identity/oidc" +
@@ -104,6 +105,7 @@ public class OIDCAuthenticatorConstants {
         }
 
         public static final String DEFAULT_IDP_CONFIG = "DefaultIdPConfig";
+        public static final String DECODE_PRE_ENCODED_QUERY_PARAMS = "decodePreEncodedQueryParams";
     }
 
     /**
