@@ -137,6 +137,16 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
                 return AuthenticatorFlowStatus.INCOMPLETE;
             }
         }
+        /*
+        During the logout flow, the string 'OIDC' is appended to the logout request. This is done to identify the
+        logout request as an OIDC logout request. However, in scenarios where multiple IS instances are chained as
+        federated idps, the logout request and the logout response needs to be distinctly identified and handled
+        accordingly. To identify this some additional checks needs to be performed which is handled in the following
+        method.
+         */
+        if (context.isLogoutRequest()) {
+            return processLogout(request, response, context);
+        }
         return super.process(request, response, context);
     }
 
@@ -1390,5 +1400,61 @@ public class OpenIDConnectAuthenticator extends AbstractApplicationAuthenticator
             LOG.debug("Using configured excluded claim attributes: " + configuredAttributes);
         }
         return attributes;
+    }
+
+    /**
+     * Decides whether an inbound logout request is the logout RESPONSE returning from the federated IdP, or a
+     * logout REQUEST that still has to be forwarded to it.
+     * <p>
+     * {@link #canHandle(HttpServletRequest)} alone cannot tell the two apart. It only inspects the login type
+     * marker in the {@code state} parameter, and that marker is the same constant ({@code OIDC}) for every
+     * OpenID Connect authenticator in the deployment. When IdPs are chained - for example several Identity
+     * Servers federated to one another - an authenticator can therefore see a {@code state} that a DIFFERENT
+     * authenticator minted, conclude that its own round trip has returned, and skip the redirect it never
+     * actually sent. The federated logout then stops silently at that link in the chain.
+     * <p>
+     * The {@code type} request parameter resolves the ambiguity. It is set by the local OIDC logout endpoint
+     * when it hands a request inward to {@code commonauth}
+     * ({@code OIDCLogoutServlet#sendRequestToFramework} wraps the request and calls
+     * {@code setParameter(TYPE, "oidc")}), so it is present only on internally forwarded requests. A genuine
+     * logout response is an HTTP redirect built by the external IdP, which knows nothing of this framework
+     * parameter and echoes back only {@code state}. Its absence is therefore what identifies a real response.
+     * <p>
+     * Note that initiating the logout is the FALL-THROUGH rather than an {@code else} branch: the request is
+     * treated as already completed only when every check agrees, so an unrecognised request is re-sent to the
+     * IdP rather than silently dropped.
+     *
+     * @param request  inbound logout request.
+     * @param response response to redirect to the IdP when the logout still has to be initiated.
+     * @param context  authentication context of the logout flow.
+     * @return {@link AuthenticatorFlowStatus#SUCCESS_COMPLETED} when the logout is complete,
+     *         {@link AuthenticatorFlowStatus#INCOMPLETE} when the user has been redirected to the IdP.
+     * @throws LogoutFailedException if the logout request cannot be initiated.
+     */
+    private AuthenticatorFlowStatus processLogout(HttpServletRequest request, HttpServletResponse response,
+                                                  AuthenticationContext context) throws LogoutFailedException {
+        try {
+            // A logout response: our marker is present, the request was not forwarded internally (no "type"
+            // parameter) and a federated IdP is bound to this context.
+            if (canHandle(request)
+                    && StringUtils.isEmpty(request.getParameter(FrameworkConstants.RequestParams.TYPE))
+                    && context.getExternalIdP() != null
+                    && context.getExternalIdP().getIdentityProvider() != null) {
+                processLogoutResponse(request, response, context);
+                return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+            }
+            context.setCurrentAuthenticator(getName());
+            initiateLogoutRequest(request, response, context);
+            return AuthenticatorFlowStatus.INCOMPLETE;
+        } catch (UnsupportedOperationException e) {
+            // Authenticators that cannot log out (social logins, or an IdP with no logout URL configured) fall
+            // back to AbstractApplicationAuthenticator#initiateLogoutRequest, which throws this. Since logout is
+            // now the default action, swallow it so those IdPs keep completing instead of failing the flow.
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Logout is disabled during social logout or logout url not defined in " +
+                        "idp configuration. Skipping logout and ignoring UnsupportedOperationException.", e);
+            }
+            return AuthenticatorFlowStatus.SUCCESS_COMPLETED;
+        }
     }
 }
