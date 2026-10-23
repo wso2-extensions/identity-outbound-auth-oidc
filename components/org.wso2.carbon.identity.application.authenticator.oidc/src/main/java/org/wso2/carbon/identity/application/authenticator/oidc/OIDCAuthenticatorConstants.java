@@ -61,6 +61,8 @@ public class OIDCAuthenticatorConstants {
     public static final String OAUTH2_AUTHZ_URL = "OAuth2AuthzEPUrl";
     public static final String OAUTH2_TOKEN_URL = "OAuth2TokenEPUrl";
     public static final String IS_BASIC_AUTH_ENABLED = "IsBasicAuthEnabled";
+    // Step metadata that makes the sign-up step honor the connection's external claim mappings.
+    public static final String IS_EXTERNAL_CLAIM_RESOLUTION_ENABLED = "isExternalClaimResolutionEnabled";
 
     public static final String OIDC_QUERY_PARAM_MAP_PROPERTY_KEY = "oidc:param.map";
 
