@@ -397,7 +397,7 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
                 .collect(Collectors.toMap(entry -> entry.getKey().getLocalClaim().getClaimUri(), Map.Entry::getValue));
         try {
             if (isExternalClaimResolutionEnabled(flowExecutionContext)) {
-                return resolveLocalClaimsAsLogin(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
+                return resolveIdpMappedClaims(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
             }
             Map<String, String> localToIdPClaimMap =
                     ClaimMetadataHandler.getInstance().getMappingsMapFromOtherDialectToCarbon(OIDC_DIALECT,
@@ -433,9 +433,9 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
      * the connection (OpenIDConnectAuthenticator). Used when the flow step sets
      * {@code isExternalClaimResolutionEnabled}.
      */
-    private Map<String, Object> resolveLocalClaimsAsLogin(FlowExecutionContext flowExecutionContext,
-                                                          Map<String, String> remoteClaimsMap,
-                                                          Map<String, Object> jwtAttributeMap)
+    private Map<String, Object> resolveIdpMappedClaims(FlowExecutionContext flowExecutionContext,
+                                                       Map<String, String> remoteClaimsMap,
+                                                       Map<String, Object> jwtAttributeMap)
             throws ClaimMetadataException, FlowEngineException {
 
         ExternalIdPConfig idpConfig = flowExecutionContext.getExternalIdPConfig();
