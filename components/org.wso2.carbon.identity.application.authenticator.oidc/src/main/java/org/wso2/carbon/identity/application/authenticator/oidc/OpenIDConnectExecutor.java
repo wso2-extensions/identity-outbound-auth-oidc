@@ -30,6 +30,7 @@ import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.common.OAuth;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.wso2.carbon.identity.application.authentication.framework.config.builder.FileBasedConfigurationBuilder;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.ExternalIdPConfig;
 import org.wso2.carbon.identity.application.authentication.framework.exception.UserSessionException;
 import org.wso2.carbon.identity.application.authentication.framework.store.UserSessionStore;
@@ -48,6 +49,8 @@ import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineServer
 import org.wso2.carbon.identity.flow.execution.engine.graph.AuthenticationExecutor;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
+import org.wso2.carbon.identity.flow.mgt.model.ExecutorDTO;
+import org.wso2.carbon.identity.flow.mgt.model.NodeConfig;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.DiagnosticLog;
@@ -55,6 +58,7 @@ import org.wso2.carbon.utils.DiagnosticLog;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -392,6 +396,9 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
         Map<String, String> remoteClaimsMap = remoteClaimMappings.entrySet().stream()
                 .collect(Collectors.toMap(entry -> entry.getKey().getLocalClaim().getClaimUri(), Map.Entry::getValue));
         try {
+            if (isExternalClaimResolutionEnabled(flowExecutionContext)) {
+                return resolveIdpMappedClaims(flowExecutionContext, remoteClaimsMap, jwtAttributeMap);
+            }
             Map<String, String> localToIdPClaimMap =
                     ClaimMetadataHandler.getInstance().getMappingsMapFromOtherDialectToCarbon(OIDC_DIALECT,
                             remoteClaimsMap.keySet(),
@@ -418,6 +425,74 @@ public class OpenIDConnectExecutor extends AuthenticationExecutor {
         } catch (ClaimMetadataException e) {
             throw handleFlowEngineServerException("Error while resolving local claims.", e);
         }
+    }
+
+    /**
+     * Resolves the local claims by honoring the connection's external claim mappings and their default values, as
+     * federated login does (DefaultClaimHandler), and links the account to the user ID that federated login uses for
+     * the connection (OpenIDConnectAuthenticator). Used when the flow step sets
+     * {@code isExternalClaimResolutionEnabled}.
+     */
+    private Map<String, Object> resolveIdpMappedClaims(FlowExecutionContext flowExecutionContext,
+                                                       Map<String, String> remoteClaimsMap,
+                                                       Map<String, Object> jwtAttributeMap)
+            throws ClaimMetadataException, FlowEngineException {
+
+        ExternalIdPConfig idpConfig = flowExecutionContext.getExternalIdPConfig();
+        ClaimMapping[] idpClaimMappings = ArrayUtils.isEmpty(idpConfig.getClaimMappings()) ?
+                new ClaimMapping[0] : idpConfig.getClaimMappings();
+        FileBasedConfigurationBuilder config = FileBasedConfigurationBuilder.getInstance();
+        boolean useIdpClaimMappings = !idpConfig.useDefaultLocalIdpDialect() && idpClaimMappings.length > 0
+                && config.isCustomClaimMappingsForAuthenticatorsAllowed();
+        Map<String, String> localToIdPClaimMap = useIdpClaimMappings ?
+                FrameworkUtils.getClaimMappings(idpClaimMappings, true) : new HashMap<>();
+        if (!useIdpClaimMappings || config.isMergingCustomClaimMappingsWithDefaultClaimMappingsAllowed()) {
+            localToIdPClaimMap.values().retainAll(remoteClaimsMap.keySet());
+            ClaimMetadataHandler.getInstance().getMappingsMapFromOtherDialectToCarbon(OIDC_DIALECT,
+                    remoteClaimsMap.keySet(), flowExecutionContext.getTenantDomain(), true)
+                    .forEach(localToIdPClaimMap::putIfAbsent);
+        }
+        Map<String, String> defaultValues = Arrays.stream(idpClaimMappings)
+                .filter(claimMapping -> StringUtils.isNotBlank(claimMapping.getDefaultValue()))
+                .collect(Collectors.toMap(claimMapping -> claimMapping.getLocalClaim().getClaimUri(),
+                        ClaimMapping::getDefaultValue, (first, second) -> first));
+        if (!useIdpClaimMappings) {
+            defaultValues.keySet().forEach(localClaim -> localToIdPClaimMap.putIfAbsent(localClaim, null));
+        }
+        Map<String, Object> localClaimsMap = new HashMap<>();
+        localToIdPClaimMap.forEach((localClaim, remoteClaim) -> {
+            String value = StringUtils.defaultIfEmpty(remoteClaimsMap.get(remoteClaim), defaultValues.get(localClaim));
+            if (StringUtils.isNotEmpty(value)) {
+                localClaimsMap.put(localClaim, value);
+            }
+        });
+
+        String defaultSubject = getAuthenticatedUserIdentifier(jwtAttributeMap);
+        String subject = defaultSubject;
+        if (OIDCCommonUtil.isUserIdFoundAmongClaims(flowExecutionContext.getAuthenticatorProperties())) {
+            subject = StringUtils.defaultIfBlank(OIDCCommonUtil.getSubjectFromUserIDClaimURI(idpConfig,
+                    jwtAttributeMap, flowExecutionContext.getTenantDomain()), defaultSubject);
+        }
+        flowExecutionContext.getFlowUser().addFederatedAssociation(idpConfig.getIdPName(), subject);
+        String federatedUsername = getFederatedUsername(flowExecutionContext, localClaimsMap, defaultSubject);
+        if (StringUtils.isNotBlank(federatedUsername)) {
+            localClaimsMap.put(USERNAME_CLAIM_URI, federatedUsername);
+        } else {
+            localClaimsMap.putIfAbsent(USERNAME_CLAIM_URI, subject);
+        }
+        return localClaimsMap;
+    }
+
+    /**
+     * Whether the running flow step sets {@code isExternalClaimResolutionEnabled} to true in its executor metadata.
+     * A step without it keeps the existing claim resolution.
+     */
+    private static boolean isExternalClaimResolutionEnabled(FlowExecutionContext flowExecutionContext) {
+
+        NodeConfig currentNode = flowExecutionContext.getCurrentNode();
+        ExecutorDTO executorConfig = currentNode == null ? null : currentNode.getExecutorConfig();
+        return executorConfig != null && executorConfig.getMetadata() != null && Boolean.parseBoolean(
+                executorConfig.getMetadata().get(OIDCAuthenticatorConstants.IS_EXTERNAL_CLAIM_RESOLUTION_ENABLED));
     }
 
     private OAuthClientResponse getOauthResponse(OAuthClient oAuthClient, OAuthClientRequest accessRequest)
